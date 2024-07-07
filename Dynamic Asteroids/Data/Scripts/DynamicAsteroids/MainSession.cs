@@ -10,6 +10,7 @@ using VRage.Game;
 using System.Collections.Generic;
 using VRage.ModAPI;
 using DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities;
+using DynamicAsteroids.Data.Scripts.DynamicAsteroids.API;
 
 namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 {
@@ -22,6 +23,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
         public AsteroidSpawner _spawner = new AsteroidSpawner();
         private int _saveStateTimer;
         private int _networkMessageTimer;
+        public RealGasGiantsApi RealGasGiantsApi { get; private set; } = new RealGasGiantsApi();
 
         public override void LoadData()
         {
@@ -48,6 +50,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 
                 MyAPIGateway.Multiplayer.RegisterMessageHandler(32000, OnMessageReceived);
                 MyAPIGateway.Utilities.MessageEntered += OnMessageEntered;
+
+                // Initialize RealGasGiants API
+                RealGasGiantsApi.Load();
             }
             catch (Exception ex)
             {
@@ -73,6 +78,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 
                 MyAPIGateway.Multiplayer.UnregisterMessageHandler(32000, OnMessageReceived);
                 MyAPIGateway.Utilities.MessageEntered -= OnMessageEntered;
+
+                // Unload RealGasGiants API
+                RealGasGiantsApi.Unload();
             }
             catch (Exception ex)
             {

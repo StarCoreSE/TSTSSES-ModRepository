@@ -32,6 +32,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public static double MinDistanceFromPlayer = 3000;
         public static int Seed = 69420;
         public static bool IgnorePlanets = true;
+        public static bool EnableGasGiantRingSpawning = false;
         public static double IceWeight = 99;
         public static double StoneWeight = 0.5;
         public static double IronWeight = 0.25;
@@ -158,6 +159,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     writer.WriteLine($"MinDistanceFromPlayer={MinDistanceFromPlayer}");
                     writer.WriteLine($"Seed={Seed}");
                     writer.WriteLine($"IgnorePlanets={IgnorePlanets}");
+                    writer.WriteLine($"EnableGasGiantRingSpawning={EnableGasGiantRingSpawning}");
 
                     writer.WriteLine("[Weights]");
                     writer.WriteLine($"IceWeight={IceWeight}");
@@ -304,6 +306,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                                     break;
                                 case "IgnorePlanets":
                                     IgnorePlanets = bool.Parse(value);
+                                    break;
+                                case "EnableGasGiantRingSpawning":
+                                    EnableGasGiantRingSpawning = bool.Parse(value);
                                     break;
                                 case "IceWeight":
                                     IceWeight = double.Parse(value);
@@ -465,7 +470,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 SaveSettings();
             }
         }
-
     }
 
     public class SpawnableArea
@@ -484,6 +488,5 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         {
             return (point - CenterPosition).Normalized() * AsteroidSettings.AsteroidVelocityBase;
         }
-
     }
 }
