@@ -1,0 +1,41 @@
+pve factions -> corporation title
+
+modder/computer peroson
+
+heirarchy + types
+
+
+xml = text file w/ extra data/text file but fancy
+eXtensible Markup Language
+sbc = for game. like xml
+
+Framework = creates glossary, labels 'stuff'
+assigns value to code
+has association, framework IS the association
+frameworks can be inside frameworks,
+like files inside of files, specifications
+
+
+frameworks have HEIRARCHY
+
+if you want more?
+dont need a NEW one
+if its small then u dont need to
+
+whens it good to seperate?
+- concept: all factions in ONE FACTION FILE, 
+huge list of space ships factions could use, 
+seperate them all by singular ships.
+
+the more convoluted/detailed, betwee to seperate
+importance of it. does it need that much detail?
+calculate what to seperate/section OFF. 
+
+id for faction = MUST BE UNIQUE.
+
+
+DEFINITIONS / TRUE / FALSE
+REFER TO FACTIONS.SBC
+
+type = how faction will act in category. 
+ex: trader, has trader related shit

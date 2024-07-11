@@ -18,6 +18,23 @@
             <DefaultRelation>Neutral</DefaultRelation>
             <Description>Corpo faction</Description>
         </Faction>
+		
+		  <Faction Tag="CORP2" Founder="Corporation2">
+            <Id>
+                <TypeId>MyObjectBuilder_FactionDefinition</TypeId>
+                <SubtypeId>CORP</SubtypeId>
+            </Id>
+            <DisplayName>BigCorporation</DisplayName>
+            <IsDefault>true</IsDefault>
+            <StartingBalance>1000000000</StartingBalance>
+            <Type>Trader</Type>
+            <AcceptHumans>false</AcceptHumans>
+            <AutoAcceptMember>false</AutoAcceptMember>
+            <AutoAcceptPeace>false</AutoAcceptPeace>
+            <DiscoveredByDefault>false</DiscoveredByDefault>
+            <DefaultRelation>Neutral</DefaultRelation>
+            <Description>Corpo faction the 2nd</Description>
+        </Faction>
 
     </Factions>
 </Definitions>
