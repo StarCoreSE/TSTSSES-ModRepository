@@ -10,7 +10,7 @@
             <DisplayName>OURHSE</DisplayName>
             <IsDefault>true</IsDefault>
             <StartingBalance>1000000000</StartingBalance>
-            <Type>Nomads</Type>
+            <Type>Trader</Type>
             <AcceptHumans>false</AcceptHumans>
             <AutoAcceptMember>false</AutoAcceptMember>
             <AutoAcceptPeace>false</AutoAcceptPeace>
