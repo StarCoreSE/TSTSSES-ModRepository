@@ -39,3 +39,5 @@ REFER TO FACTIONS.SBC
 
 type = how faction will act in category. 
 ex: trader, has trader related shit
+
+

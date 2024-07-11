@@ -22,7 +22,7 @@
 		  <Faction Tag="CORP2" Founder="Corporation2">
             <Id>
                 <TypeId>MyObjectBuilder_FactionDefinition</TypeId>
-                <SubtypeId>CORP</SubtypeId>
+                <SubtypeId>CORP2nd</SubtypeId>
             </Id>
             <DisplayName>BigCorporation</DisplayName>
             <IsDefault>true</IsDefault>
