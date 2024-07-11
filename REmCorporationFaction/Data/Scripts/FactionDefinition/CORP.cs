@@ -10,7 +10,7 @@ namespace FactionsStruct
         public FactionDefinition CorporationFaction => new FactionDefinition
         {
             // basic information
-            Tag = "CORP", // faction tag from your vanilla faction definition
+            Tag = "OURHSE", // faction tag from your vanilla faction definition
             CanSpawnCombatShipsInMissions = true, // can spawn as an enemy faction in missions
             CanSpawnInRandomEncounters = true, // can spawn random space and planetary encounters (affects trade ship spawns as well)
             CanSpawnMissions = true, // missions offered by this faction can be created
@@ -120,16 +120,15 @@ namespace FactionsStruct
             },
             Friendly = new List<Policies>
             {
-                Policies.Police,
+				Policies.Criminal,
             },
             Hostile = new List<Policies>
             {
-                Policies.Criminal,
                 Policies.Terrorist,
             },
             Neutral = new List<Policies>
             {
-                Policies.Traders,
+                Policies.Police,
                 Policies.Explorers,
             },
 

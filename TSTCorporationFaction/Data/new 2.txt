@@ -68,4 +68,26 @@ change <TypeId> when no longer want to work in factions
  
  MAINLY, LIMITATIONS:
  
+ security reasons 
+ 
+ why game dev can only access?
+ CANT DISTRIBUTE UR VERSION OF GAME for COPYRIGHT REASONS
+ CANT PUBLISH!!
+
+ 
+ PLUG IN vs. MOD
+ 
+ mods = when game devs give u material to create 
+ plug in = when game devs DONT give you material to create.
+ thus, 'work arounds'.
+ mods gotta be shared
+ 
+ 
+ api = two pieces software connection. one database to another?
+ game dev HAS VERY SPECIFIC API. if not transfer [pain in ass]
+ then. only game dev can do stuff
+ 
+ 
+ 
+ 
  
