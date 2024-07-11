@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <Factions>
+
+        <Faction Tag="CORP" Founder="Corporation">
+            <Id>
+                <TypeId>MyObjectBuilder_FactionDefinition</TypeId>
+                <SubtypeId>CORP</SubtypeId>
+            </Id>
+            <DisplayName>Corporation</DisplayName>
+            <IsDefault>true</IsDefault>
+            <StartingBalance>1000000000</StartingBalance>
+            <Type>Trader</Type>
+            <AcceptHumans>false</AcceptHumans>
+            <AutoAcceptMember>false</AutoAcceptMember>
+            <AutoAcceptPeace>false</AutoAcceptPeace>
+            <DiscoveredByDefault>false</DiscoveredByDefault>
+            <DefaultRelation>Neutral</DefaultRelation>
+            <Description>Corpo faction</Description>
+        </Faction>
+
+    </Factions>
+</Definitions>
