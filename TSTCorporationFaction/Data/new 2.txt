@@ -55,4 +55,11 @@ change <TypeId> when no longer want to work in factions
   
   /////////////////////////////////////////
   
+  CORP.cs
+  - what spawns, true/false spawns, 
   
+ add on, for a frame work, for a game
+ rem faction add-ont
+ 
+ talks to frame work, ewhich goes into game yadaydada
+ 
