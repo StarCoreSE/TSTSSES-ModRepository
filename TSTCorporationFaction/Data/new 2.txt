@@ -41,3 +41,18 @@ type = how faction will act in category.
 ex: trader, has trader related shit
 
 
+SUBTYPE MUST BE UNIQUE. if same = will load both, which make nada.
+<TypeID> + <SubtypeId>
+
+change <TypeId> when no longer want to work in factions
+ <TypeId>MyObjectBuilder_FactionDefinition</TypeId>
+ =
+  <TypeId>MyObjectBuilder_[Ship]Definition</TypeId>
+  
+  
+  IF CHANGE = glossary change, topic change.
+  faction change to space ship, etc.
+  
+  /////////////////////////////////////////
+  
+  
