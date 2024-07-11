@@ -63,3 +63,9 @@ change <TypeId> when no longer want to work in factions
  
  talks to frame work, ewhich goes into game yadaydada
  
+ 
+ modder vs. game dev
+ 
+ MAINLY, LIMITATIONS:
+ 
+ 
