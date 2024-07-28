@@ -11,7 +11,6 @@ using DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities;
 
 namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 {
-
     public class AsteroidZone
     {
         public Vector3D Center { get; set; }
@@ -750,6 +749,59 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             var sinPhi = Math.Sin(phi);
             return Math.Pow(rand.NextDouble(), 1 / 3d) * new Vector3D(sinPhi * Math.Cos(theta), sinPhi * Math.Sin(theta), Math.Cos(phi));
         }
-    }
 
+        private void SpawnAsteroidInGasGiantRing(MyPlanet gasGiant, long playerPosition)
+        {
+            Vector3D ringCenter = gasGiant.PositionComp.GetPosition();
+            double ringRadius = gasGiant.AtmosphereRadius;
+            double ringThickness = 5000; // Example value for ring thickness
+
+            // Determine random position within the ring
+            double angle = rand.NextDouble() * 2 * Math.PI;
+            double distanceFromCenter = ringRadius + (rand.NextDouble() * ringThickness);
+            Vector3D spawnPosition = ringCenter + new Vector3D(Math.Cos(angle), 0, Math.Sin(angle)) * distanceFromCenter;
+
+            // Spawn asteroid at calculated position
+            SpawnAsteroid(spawnPosition, playerPosition);
+        }
+
+        private void SpawnAsteroid(Vector3D position, long playerPosition)
+        {
+            Vector3D newVelocity;
+            if (!AsteroidSettings.CanSpawnAsteroidAtPoint(position, out newVelocity))
+            {
+                Log.Info($"Cannot spawn asteroid at {position}, skipping.");
+                return;
+            }
+
+            if (IsNearVanillaAsteroid(position))
+            {
+                Log.Info($"Position {position} is near a vanilla asteroid, skipping.");
+                return;
+            }
+
+            if (AsteroidSettings.MaxAsteroidCount != -1 && _asteroids.Count >= AsteroidSettings.MaxAsteroidCount)
+            {
+                Log.Warning($"Maximum asteroid count of {AsteroidSettings.MaxAsteroidCount} reached. No more asteroids will be spawned until existing ones are removed.");
+                return;
+            }
+
+            AsteroidType type = AsteroidSettings.GetAsteroidType(position);
+            float size = AsteroidSettings.GetAsteroidSize(position);
+            Quaternion rotation = Quaternion.CreateFromYawPitchRoll((float)rand.NextDouble() * MathHelper.TwoPi,
+                                                                    (float)rand.NextDouble() * MathHelper.TwoPi,
+                                                                    (float)rand.NextDouble() * MathHelper.TwoPi);
+
+            var asteroid = AsteroidEntity.CreateAsteroid(position, size, newVelocity, type, rotation);
+
+            if (asteroid != null)
+            {
+                _asteroids.Add(asteroid);
+                playerZones[playerPosition].AsteroidCount++;
+
+                var message = new AsteroidNetworkMessage(position, size, newVelocity, Vector3D.Zero, type, false, asteroid.EntityId, false, true, rotation);
+                _networkMessages.Add(message);
+            }
+        }
+    }
 }
