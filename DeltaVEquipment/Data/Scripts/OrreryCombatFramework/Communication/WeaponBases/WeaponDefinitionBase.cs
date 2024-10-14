@@ -1,7 +1,7 @@
-﻿using ProtoBuf;
-using System;
+﻿using System;
+using ProtoBuf;
 
-namespace OrreryFramework.Communication.WeaponBases
+namespace DeltaVEquipment.WeaponBases
 {
     /// <summary>
     /// Standard serializable weapon definition. Add onto definition base using the partial modifier.
@@ -34,8 +34,8 @@ namespace OrreryFramework.Communication.WeaponBases
         /// Can the turret fire by itself? Tracks regardless.
         /// </summary>
         [ProtoMember(3)] public bool CanAutoShoot;
-        [ProtoMember(4)] public IFF_Enum DefaultIFF;
-        [ProtoMember(5)] public TargetType_Enum AllowedTargetTypes;
+        [ProtoMember(4)] public IffEnum DefaultIff;
+        [ProtoMember(5)] public TargetTypeEnum AllowedTargetTypes;
         /// <summary>
         /// Time until the turret is forced to find a new target
         /// </summary>

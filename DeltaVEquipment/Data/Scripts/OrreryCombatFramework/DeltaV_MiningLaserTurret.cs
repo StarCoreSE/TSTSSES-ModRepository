@@ -1,23 +1,23 @@
-﻿using OrreryFramework.Communication.WeaponBases;
-using System;
+﻿using System;
+using DeltaVEquipment.WeaponBases;
 
-namespace OrreryFramework.Communication
+namespace DeltaVEquipment
 {
     partial class HeartDefinitions
     {
-        WeaponDefinitionBase DeltaV_MiningLaserTurret => new WeaponDefinitionBase()
+        WeaponDefinitionBase DeltaVMiningLaserTurret => new WeaponDefinitionBase
         {
-            Targeting = new Targeting()
+            Targeting = new Targeting
             {
                 MaxTargetingRange = 1000,
                 MinTargetingRange = 0,
                 CanAutoShoot = true,
                 RetargetTime = 0,
                 AimTolerance = 0.0175f,
-                DefaultIFF = IFF_Enum.TargetEnemies | IFF_Enum.TargetNeutrals,
-                AllowedTargetTypes = TargetType_Enum.TargetGrids | TargetType_Enum.TargetCharacters,
+                DefaultIff = IffEnum.TargetEnemies | IffEnum.TargetNeutrals,
+                AllowedTargetTypes = TargetTypeEnum.TargetGrids | TargetTypeEnum.TargetCharacters,
             },
-            Assignments = new Assignments()
+            Assignments = new Assignments
             {
                 BlockSubtype = "DeltaV_MiningLaserTurret",
                 MuzzleSubpart = "MiningLaserTurretBarrels",
@@ -30,7 +30,7 @@ namespace OrreryFramework.Communication
                     "muzzle_01",
                 },
             },
-            Hardpoint = new Hardpoint()
+            Hardpoint = new Hardpoint
             {
                 AzimuthRate = 0.5f,
                 ElevationRate = 0.5f,
@@ -45,7 +45,7 @@ namespace OrreryFramework.Communication
                 LineOfSightCheck = true,
                 ControlRotation = true,
             },
-            Loading = new Loading()
+            Loading = new Loading
             {
                 Ammos = new string[]
                 {
@@ -61,14 +61,14 @@ namespace OrreryFramework.Communication
 
                 MaxReloads = -1,
             },
-            Audio = new Audio()
+            Audio = new Audio
             {
                 PreShootSound = "",
                 ShootSound = "",
                 ReloadSound = "PunisherNewReload",
                 RotationSound = "WepTurretGatlingRotate",
             },
-            Visuals = new Visuals()
+            Visuals = new Visuals
             {
                 ShootParticle = "Muzzle_Flash_Autocannon",
                 ContinuousShootParticle = false,

@@ -1,23 +1,14 @@
-﻿using EmptyKeys.UserInterface.Generated.StoreBlockView_Bindings;
-using Heart_Module.Data.Scripts.HeartModule.Projectiles.StandardClasses;
-using OrreryFramework.Communication.ProjectileBases;
-using Sandbox.Game;
-using Sandbox.ModAPI;
-using System;
-using System.Collections.Generic;
-using System.Security.AccessControl;
-using VRage.Game.Entity;
+﻿using DeltaVEquipment.ProjectileBases;
 using VRage.Utils;
-using VRageMath;
 
-namespace OrreryFramework.Communication
+namespace DeltaVEquipment
 {
     partial class HeartDefinitions
     {
-        ProjectileDefinitionBase ExampleAmmoProjectile => new ProjectileDefinitionBase()
+        ProjectileDefinitionBase ExampleAmmoProjectile => new ProjectileDefinitionBase
         {
             Name = "ExampleAmmoProjectile",
-            Ungrouped = new Ungrouped()
+            Ungrouped = new Ungrouped
             {
                 ReloadPowerUsage = 10,
                 Recoil = 5000,
@@ -25,13 +16,13 @@ namespace OrreryFramework.Communication
                 ShotsPerMagazine = 100,
                 MagazineItemToConsume = "",
             },
-            Networking = new Networking()
+            Networking = new Networking
             {
                 NetworkingMode = Networking.NetworkingModeEnum.FireEvent,
                 DoConstantSync = false,
                 NetworkPriority = 0,
             },
-            Damage = new Damage()
+            Damage = new Damage
             {
                 SlimBlockDamageMod = 1,
                 FatBlockDamageMod = 1,
@@ -42,7 +33,7 @@ namespace OrreryFramework.Communication
                 DamageToProjectiles = 0.4f,
                 DamageToProjectilesRadius = 0.2f,
             },
-            PhysicalProjectile = new PhysicalProjectile()
+            PhysicalProjectile = new PhysicalProjectile
             {
                 Velocity = 800,
                 VelocityVariance = 0,
@@ -54,7 +45,7 @@ namespace OrreryFramework.Communication
                 GravityInfluenceMultiplier = 0.01f,
                 ProjectileSize = 0.5f,
             },
-            Visual = new Visual()
+            Visual = new Visual
             {
                 //Model = "Models\\Weapons\\Projectile_Missile.mwm",
                 TrailTexture = MyStringId.GetOrCompute("WeaponLaser"),
@@ -66,7 +57,7 @@ namespace OrreryFramework.Communication
                 ImpactParticle = "MaterialHit_Metal",
                 VisibleChance = 1f,
             },
-            Audio = new Audio()
+            Audio = new Audio
             {
                 TravelSound = "",
                 TravelVolume = 100,
@@ -74,7 +65,7 @@ namespace OrreryFramework.Communication
                 ImpactSound = "WepSmallWarheadExpl",
                 SoundChance = 0.1f,
             },
-            LiveMethods = new LiveMethods()
+            LiveMethods = new LiveMethods
             {
                // OnImpact = (projectileInfo, hitPosition, hitNormal, hitEntity) =>
                // {
@@ -85,10 +76,10 @@ namespace OrreryFramework.Communication
             }
         };
         
-        ProjectileDefinitionBase DeltaVMiningLaserAmmoBeam => new ProjectileDefinitionBase()
+        ProjectileDefinitionBase DeltaVMiningLaserAmmoBeam => new ProjectileDefinitionBase
         {
             Name = "DeltaVMiningLaserAmmoBeam",
-            Ungrouped = new Ungrouped()
+            Ungrouped = new Ungrouped
             {
                 ReloadPowerUsage = 0,
                 Recoil = 0,
@@ -96,13 +87,13 @@ namespace OrreryFramework.Communication
                 ShotsPerMagazine = 360,
                 MagazineItemToConsume = "",
             },
-            Networking = new Networking()
+            Networking = new Networking
             {
                 NetworkingMode = Networking.NetworkingModeEnum.NoNetworking,
                 DoConstantSync = false,
                 NetworkPriority = 0,
             },
-            Damage = new Damage()
+            Damage = new Damage
             {
                 SlimBlockDamageMod = 1,
                 FatBlockDamageMod = 1,
@@ -111,7 +102,7 @@ namespace OrreryFramework.Communication
                 AreaRadius = 0,
                 MaxImpacts = 1,
             },
-            PhysicalProjectile = new PhysicalProjectile()
+            PhysicalProjectile = new PhysicalProjectile
             {
                 Velocity = 800,
                 VelocityVariance = 0,
@@ -121,7 +112,7 @@ namespace OrreryFramework.Communication
                 MaxLifetime = -1,
                 IsHitscan = true,
             },
-            Visual = new Visual()
+            Visual = new Visual
             {
                 //Model = "Models\\Weapons\\Projectile_Missile.mwm",
                 TrailTexture = MyStringId.GetOrCompute("WeaponLaser"),
@@ -133,7 +124,7 @@ namespace OrreryFramework.Communication
                 ImpactParticle = "",
                 VisibleChance = 1f,
             },
-            Audio = new Audio()
+            Audio = new Audio
             {
                 TravelSound = "",
                 TravelVolume = 100,
@@ -168,16 +159,16 @@ namespace OrreryFramework.Communication
                 //    Velocity = -1f,
                 //}
             },
-            LiveMethods = new LiveMethods()
+            LiveMethods = new LiveMethods
             {
 
             }
         };
 
-        ProjectileDefinitionBase DeltaVMiningMetalStormProjectile => new ProjectileDefinitionBase()
+        ProjectileDefinitionBase DeltaVMiningMetalStormProjectile => new ProjectileDefinitionBase
         {
             Name = "DeltaVMiningMetalStormProjectile",
-            Ungrouped = new Ungrouped()
+            Ungrouped = new Ungrouped
             {
                 ReloadPowerUsage = 10,
                 Recoil = 5000,
@@ -185,13 +176,13 @@ namespace OrreryFramework.Communication
                 ShotsPerMagazine = 32,
                 MagazineItemToConsume = "",
             },
-            Networking = new Networking()
+            Networking = new Networking
             {
                 NetworkingMode = Networking.NetworkingModeEnum.FireEvent,
                 DoConstantSync = false,
                 NetworkPriority = 0,
             },
-            Damage = new Damage()
+            Damage = new Damage
             {
                 SlimBlockDamageMod = 1,
                 FatBlockDamageMod = 1,
@@ -202,7 +193,7 @@ namespace OrreryFramework.Communication
                 DamageToProjectiles = 0.4f,
                 DamageToProjectilesRadius = 0.2f,
             },
-            PhysicalProjectile = new PhysicalProjectile()
+            PhysicalProjectile = new PhysicalProjectile
             {
                 Velocity = 1000,
                 VelocityVariance = 0,
@@ -213,7 +204,7 @@ namespace OrreryFramework.Communication
                 IsHitscan = false,
                 ProjectileSize = 0.5f,
             },
-            Visual = new Visual()
+            Visual = new Visual
             {
                 //Model = "Models\\Weapons\\Projectile_Missile.mwm",
                 TrailTexture = MyStringId.GetOrCompute("ProjectileTrailLine"),
@@ -225,7 +216,7 @@ namespace OrreryFramework.Communication
                 ImpactParticle = "MaterialHit_Metal",
                 VisibleChance = 1f,
             },
-            Audio = new Audio()
+            Audio = new Audio
             {
                 TravelSound = "",
                 TravelVolume = 100,
@@ -233,7 +224,7 @@ namespace OrreryFramework.Communication
                 ImpactSound = "cbar",
                 SoundChance = 0.1f,
             },
-            LiveMethods = new LiveMethods()
+            LiveMethods = new LiveMethods
             {
                 // OnImpact = (projectileInfo, hitPosition, hitNormal, hitEntity) =>
                 // {

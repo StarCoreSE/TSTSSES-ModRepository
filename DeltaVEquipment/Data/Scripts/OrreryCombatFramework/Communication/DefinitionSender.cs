@@ -1,17 +1,15 @@
-﻿using Sandbox.Game.GUI.DebugInputComponents;
-using Sandbox.ModAPI;
-using System.Security.Cryptography;
+﻿using Sandbox.ModAPI;
 using VRage.Game.Components;
 using VRage.Utils;
 
-namespace OrreryFramework.Communication
+namespace DeltaVEquipment
 {
     [MySessionComponentDescriptor(MyUpdateOrder.BeforeSimulation, Priority = int.MaxValue)]
     internal class DefinitionSender : MySessionComponentBase
     {
         const int DefinitionMessageId = 8643;
 
-        byte[] SerializedStorage;
+        byte[] serializedStorage;
         DefinitionContainer storedDef = null;
 
         public override void LoadData()
@@ -26,10 +24,10 @@ namespace OrreryFramework.Communication
         private void InitAndSendDefinitions()
         {
             storedDef = HeartDefinitions.GetBaseDefinitions();
-            SerializedStorage = MyAPIGateway.Utilities.SerializeToBinary(storedDef);
+            serializedStorage = MyAPIGateway.Utilities.SerializeToBinary(storedDef);
             HeartApi.LogWriteLine($"Packaged definitions & preparing to send.");
 
-            MyAPIGateway.Utilities.SendModMessage(DefinitionMessageId, SerializedStorage);
+            MyAPIGateway.Utilities.SendModMessage(DefinitionMessageId, serializedStorage);
             foreach (var def in storedDef.AmmoDefs)
                 def.LiveMethods.RegisterMethods(def.Name);
             HeartApi.LogWriteLine($"Sent definitions & returning to sleep.");
@@ -39,7 +37,7 @@ namespace OrreryFramework.Communication
         {
             if (o is bool && (bool)o && storedDef != null)
             {
-                MyAPIGateway.Utilities.SendModMessage(DefinitionMessageId, SerializedStorage);
+                MyAPIGateway.Utilities.SendModMessage(DefinitionMessageId, serializedStorage);
                 foreach (var def in storedDef.AmmoDefs)
                     def.LiveMethods.RegisterMethods(def.Name);
                 MyLog.Default.WriteLineAndConsole($"OrreryDefinition [{ModContext.ModName}]: Sent definitions & returning to sleep.");

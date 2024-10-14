@@ -1,14 +1,13 @@
 ﻿using ProtoBuf;
-using Sandbox.ModAPI;
 using VRageMath;
 
-namespace Heart_Module.Data.Scripts.HeartModule.Projectiles.StandardClasses
+namespace DeltaVEquipment.ProjectileBases
 {
     /// <summary>
     /// Used for syncing between server and clients, and in the API.
     /// </summary>
     [ProtoContract]
-    public class n_SerializableProjectile
+    public class NSerializableProjectile
     {
         // ProtoMember IDs are high to avoid collisions
         [ProtoMember(22)] public bool IsActive = true;

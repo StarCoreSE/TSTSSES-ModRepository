@@ -1,15 +1,14 @@
-﻿using Heart_Module.Data.Scripts.HeartModule.Projectiles.StandardClasses;
-using OrreryFramework.Communication.ProjectileBases;
-using OrreryFramework.Communication.WeaponBases;
-using Sandbox.ModAPI;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using DeltaVEquipment.ProjectileBases;
+using DeltaVEquipment.WeaponBases;
+using Sandbox.ModAPI;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
 using VRage.Utils;
 using VRageMath;
 
-namespace OrreryFramework.Communication
+namespace DeltaVEquipment
 {
     public class HeartApi
     {
@@ -18,17 +17,17 @@ namespace OrreryFramework.Communication
         #region API Loading
         private const long HeartApiChannel = 8644; // https://xkcd.com/221/
         private Dictionary<string, Delegate> methodMap;
-        private Action OnLoad;
-        private IMyModContext ModContext;
+        private Action onLoad;
+        private IMyModContext modContext;
 
-        public static void LoadData(IMyModContext modContext, Action OnLoad = null)
+        public static void LoadData(IMyModContext modContext, Action onLoad = null)
         {
-            if (I != null && HasInited)
+            if (I != null && Inited)
                 return;
             I = new HeartApi
             {
-                OnLoad = OnLoad,
-                ModContext = modContext
+                onLoad = onLoad,
+                modContext = modContext
             };
             MyAPIGateway.Utilities.RegisterMessageHandler(HeartApiChannel, I.RecieveApiMethods);
             MyAPIGateway.Utilities.SendModMessage(HeartApiChannel, true);
@@ -51,7 +50,7 @@ namespace OrreryFramework.Communication
                 if (data == null)
                     return;
 
-                if (!HasInited && data is Dictionary<string, Delegate>)
+                if (!Inited && data is Dictionary<string, Delegate>)
                 {
                     methodMap = (Dictionary<string, Delegate>)data;
 
@@ -85,14 +84,14 @@ namespace OrreryFramework.Communication
                     SetApiMethod("RemoveWeaponDefinition", ref removeWeaponDefinition);
 
 
-                    HasInited = true;
+                    Inited = true;
                     LogWriteLine($"HeartAPI inited.");
-                    OnLoad?.Invoke();
+                    onLoad?.Invoke();
                 }
             }
             catch (Exception ex)
             {
-                MyLog.Default.WriteLineAndConsole($"Orrery Combat Framework: [{ModContext.ModName}] ERR: Failed to init HeartAPI! {ex}");
+                MyLog.Default.WriteLineAndConsole($"Orrery Combat Framework: [{modContext.ModName}] ERR: Failed to init HeartAPI! {ex}");
                 logWriteLine?.Invoke($"ERR: Failed to init HeartAPI! {ex}");
             }
 
@@ -111,7 +110,7 @@ namespace OrreryFramework.Communication
 
         #endregion
 
-        public static bool HasInited = false;
+        public static bool Inited = false;
 
         #region Projectiles
 
@@ -189,12 +188,12 @@ namespace OrreryFramework.Communication
         /// <param name="projectileId"></param>
         /// <param name="detailLevel"></param>
         /// <returns></returns>
-        public static n_SerializableProjectile GetProjectileInfo(uint projectileId, int detailLevel)
+        public static NSerializableProjectile GetProjectileInfo(uint projectileId, int detailLevel)
         {
             byte[] serialized = I?.getProjectileInfo?.Invoke(projectileId, detailLevel);
             if (serialized == null)
                 return null;
-            return MyAPIGateway.Utilities.SerializeFromBinary<n_SerializableProjectile>(serialized);
+            return MyAPIGateway.Utilities.SerializeFromBinary<NSerializableProjectile>(serialized);
         }
 
         #endregion
@@ -260,7 +259,7 @@ namespace OrreryFramework.Communication
         /// Prints a line to the HeartModule log.
         /// </summary>
         /// <param name="text"></param>
-        public static void LogWriteLine(string text) => I?.logWriteLine?.Invoke($"[{I.ModContext.ModName}] {text}");
+        public static void LogWriteLine(string text) => I?.logWriteLine?.Invoke($"[{I.modContext.ModName}] {text}");
 
         private Func<int> getNetworkLoad;
         /// <summary>

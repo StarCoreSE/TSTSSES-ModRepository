@@ -1,10 +1,10 @@
-﻿using OrreryFramework.Communication.ProjectileBases;
-using OrreryFramework.Communication.WeaponBases;
+﻿using System.Collections.Generic;
+using DeltaVEquipment.ProjectileBases;
+using DeltaVEquipment.WeaponBases;
 using ProtoBuf;
 using Sandbox.ModAPI;
-using System.Collections.Generic;
 
-namespace OrreryFramework.Communication
+namespace DeltaVEquipment
 {
     partial class HeartDefinitions
     {

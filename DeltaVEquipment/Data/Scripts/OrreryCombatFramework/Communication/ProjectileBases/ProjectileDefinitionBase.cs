@@ -1,13 +1,11 @@
-﻿using ProtoBuf;
+﻿using System;
+using ProtoBuf;
 using Sandbox.Game.Entities;
-using System;
-using System.ComponentModel;
-using System.Security.Cryptography;
 using VRage.Game.Entity;
 using VRage.Utils;
 using VRageMath;
 
-namespace OrreryFramework.Communication.ProjectileBases
+namespace DeltaVEquipment.ProjectileBases
 {
     /// <summary>
     /// Standard serializable projectile definition.
@@ -173,7 +171,7 @@ namespace OrreryFramework.Communication.ProjectileBases
         [ProtoMember(2)] public float ActiveDuration; // Ignore if -1 or greater than next
         [ProtoMember(3)] public bool UseAimPrediction;
         [ProtoMember(4)] public float MaxTurnRate;
-        [ProtoMember(6)] public IFF_Enum IFF; // 1 is TargetSelf, 2 is TargetEnemies, 4 is TargetFriendlies
+        [ProtoMember(6)] public IffEnum Iff; // 1 is TargetSelf, 2 is TargetEnemies, 4 is TargetFriendlies
         [ProtoMember(7)] public bool DoRaycast;
         [ProtoMember(8)] public float CastCone;
         [ProtoMember(9)] public float CastDistance;
@@ -186,31 +184,31 @@ namespace OrreryFramework.Communication.ProjectileBases
         /// Maximum G-force the projectile can sustain.
         /// </summary>
         [ProtoMember(12)] public float MaxGs;
-        [ProtoMember(13)] public Definition_PID? PID;
+        [ProtoMember(13)] public DefinitionPid? Pid;
     }
 
     [ProtoContract]
-    public struct Definition_PID
+    public struct DefinitionPid
     {
         /// <summary>
         /// Direct response to error
         /// </summary>
-        [ProtoMember(1)] public float kProportional;
+        [ProtoMember(1)] public float KProportional;
         /// <summary>
         /// Response to historical error
         /// </summary>
-        [ProtoMember(2)] public float kIntegral;
+        [ProtoMember(2)] public float KIntegral;
         /// <summary>
         /// Damping factor
         /// </summary>
-        [ProtoMember(3)] public float kDerivative;
+        [ProtoMember(3)] public float KDerivative;
     }
 
     public class LiveMethods // TODO: OnGuidanceStage && DistanceToTarget
     {
         public void RegisterMethods(string definitionName)
         {
-            if (!HeartApi.HasInited)
+            if (!HeartApi.Inited)
                 throw new Exception("HeartAPI has not inited yet!");
             HeartApi.AddOnProjectileSpawn(definitionName, OnSpawn);
             HeartApi.AddOnEndOfLife(definitionName, OnEndOfLife);
