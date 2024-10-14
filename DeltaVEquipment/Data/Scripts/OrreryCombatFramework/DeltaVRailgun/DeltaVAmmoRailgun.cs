@@ -1,4 +1,6 @@
 ﻿using DeltaVEquipment.ProjectileBases;
+using VRage.Utils;
+using VRageMath;
 
 namespace DeltaVEquipment
 {
@@ -6,13 +8,13 @@ namespace DeltaVEquipment
     {
         ProjectileDefinitionBase DeltaVAmmoRailgun => new ProjectileDefinitionBase
         {
-            Name = "ExampleAmmoProjectile",
+            Name = "DeltaV Railgun Ammo",
             Ungrouped = new Ungrouped
             {
                 ReloadPowerUsage = 10,
-                Recoil = 5000,
-                Impulse = 5000,
-                ShotsPerMagazine = 100,
+                Recoil = 1000000,
+                Impulse = 1000000,
+                ShotsPerMagazine = 1,
                 MagazineItemToConsume = "",
             },
             Networking = new Networking
@@ -25,12 +27,12 @@ namespace DeltaVEquipment
             {
                 SlimBlockDamageMod = 1,
                 FatBlockDamageMod = 1,
-                BaseDamage = 5000,
+                BaseDamage = 50000,
                 AreaDamage = 0,
                 AreaRadius = 0,
-                MaxImpacts = 1,
-                DamageToProjectiles = 0.4f,
-                DamageToProjectilesRadius = 0.2f,
+                MaxImpacts = 3,
+                DamageToProjectiles = 0f,
+                DamageToProjectilesRadius = 0f,
             },
             PhysicalProjectile = new PhysicalProjectile
             {
@@ -47,11 +49,11 @@ namespace DeltaVEquipment
             Visual = new Visual
             {
                 //Model = "Models\\Weapons\\Projectile_Missile.mwm",
-                //TrailTexture = MyStringId.GetOrCompute("WeaponLaser"),
-                //TrailFadeTime = 0f,
-                //TrailLength = 8,
-                //TrailWidth = 0.5f,
-                //TrailColor = new Vector4(61, 24, 24, 200),
+                TrailTexture = MyStringId.GetOrCompute("WeaponLaser"),
+                TrailFadeTime = 0f,
+                TrailLength = 8,
+                TrailWidth = 0.5f,
+                TrailColor = new Vector4(61, 24, 24, 200),
                 AttachedParticle = "DeltaV_RailgunParticle",
                 ImpactParticle = "MaterialHit_Metal",
                 VisibleChance = 1f,

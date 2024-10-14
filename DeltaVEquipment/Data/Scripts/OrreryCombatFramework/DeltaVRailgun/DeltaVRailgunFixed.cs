@@ -10,7 +10,7 @@ namespace DeltaVEquipment
             Targeting = new Targeting
             {
                 MinTargetingRange = 0,
-                MaxTargetingRange = 1000,
+                MaxTargetingRange = 4000,
                 CanAutoShoot = true,
                 RetargetTime = -1,
                 AimTolerance = 0.0175f,
@@ -52,9 +52,9 @@ namespace DeltaVEquipment
                 RateOfFireVariance = 0f,
                 BarrelsPerShot = 1,
                 ProjectilesPerBarrel = 1,
-                ReloadTime = 3,
-                DelayUntilFire = 2,
-                MagazinesToLoad = 1,
+                ReloadTime = 6,
+                DelayUntilFire = 0,
+                MagazinesToLoad = 3,
 
                 MaxReloads = -1,
 
