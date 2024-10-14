@@ -476,7 +476,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         {
             try
             {
-                ReduceIntegrity(damage);
+                // Pass the damageSource to ReduceIntegrity
+                ReduceIntegrity(damage, damageSource);
 
                 if (_integrity <= 0)
                 {
@@ -492,11 +493,26 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             }
         }
 
-        public void ReduceIntegrity(float damage)
+        public void ReduceIntegrity(float damage, MyStringHash damageSource)
         {
-            _integrity -= damage;
-            Log.Info($"Integrity reduced by {damage}, new integrity: {_integrity}");
+            float finalDamage = damage;
 
+            // Check if the damage source is of type "Explosion"
+            if (damageSource.String == "Explosion")
+            {
+                finalDamage *= 10.0f; // Apply a 10x multiplier for explosions
+                Log.Info($"Explosion detected! Applying 10x damage multiplier. Original Damage: {damage}, Final Damage: {finalDamage}");
+            }
+            else
+            {
+                Log.Info($"Non-explosion damage type. Original Damage: {damage}");
+            }
+
+            // Reduce integrity by the final calculated damage
+            _integrity -= finalDamage;
+            Log.Info($"Integrity reduced by {finalDamage}, new integrity: {_integrity}");
+
+            // Check if the asteroid's integrity has dropped to or below zero
             if (_integrity <= 0)
             {
                 Log.Info("Integrity below or equal to 0, calling OnDestroy");
