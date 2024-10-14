@@ -476,7 +476,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         {
             try
             {
-                ReduceIntegrity(damage);
+                // Pass the damageSource to ReduceIntegrity
+                ReduceIntegrity(damage, damageSource);
 
                 if (_integrity <= 0)
                 {
