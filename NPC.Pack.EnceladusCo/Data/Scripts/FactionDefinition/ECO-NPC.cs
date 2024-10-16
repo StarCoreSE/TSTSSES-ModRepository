@@ -86,15 +86,21 @@ namespace FactionsStruct
             },
             SellGridsHq = new List<string> // prefab subtypes that will be sold on this faction HQ economy stations
             {
-
+                "ECO Fighter",
+                "ECO Frigate",
+                "ECO Miner",
             },
             SellGridsPlanets = new List<string> // prefab subtypes that will be sold on planetary economy stations when held by this faction (on top of the default ones)
             {
-
+                "ECO Fighter",
+                "ECO Frigate",
+                "ECO Miner",
             },
             SellGridsSpace = new List<string> // prefab subtypes that will be sold on space economy stations when held by this faction (on top of the default ones)
             {
-
+                "ECO Fighter",
+                "ECO Frigate",
+                "ECO Miner",
             },
 
             // politics and relations
