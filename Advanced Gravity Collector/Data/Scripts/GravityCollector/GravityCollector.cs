@@ -263,7 +263,7 @@ namespace Digi.GravityCollector {
 
                 if (floatingObjects.Count == 0)
                 {
-                    UpdateEmissive();
+                    UpdateEmissive(false);
                     return;
                 }
 
@@ -277,20 +277,22 @@ namespace Digi.GravityCollector {
 
         private void ProcessVisuals()
         {
+            if (MyAPIGateway.Utilities.IsDedicated)
+                return;
+
             var conePos = block.WorldMatrix.Translation + (block.WorldMatrix.Forward * -offset);
-            if (!MyAPIGateway.Utilities.IsDedicated)
-            {
-                var cameraMatrix = MyAPIGateway.Session.Camera.WorldMatrix;
-                bool inViewRange = Vector3D.DistanceSquared(cameraMatrix.Translation, conePos) <= MAX_VIEW_RANGE_SQ;
+            var cameraMatrix = MyAPIGateway.Session.Camera.WorldMatrix;
+            bool inViewRange = Vector3D.DistanceSquared(cameraMatrix.Translation, conePos) <= MAX_VIEW_RANGE_SQ;
 
-                if (inViewRange && DrawCone)
-                    DrawInfluenceCone(conePos);
-            }
+            if (inViewRange && DrawCone)
+                DrawInfluenceCone(conePos);
         }
-
         private void ProcessObjects(bool applyForce)
         {
             int pulling = 0;
+            var cameraPos = MyAPIGateway.Session.Camera.WorldMatrix.Translation;
+            bool inViewRange = Vector3D.DistanceSquared(cameraPos, GetCollectionPoint()) <= MAX_VIEW_RANGE_SQ;
+
             foreach (var obj in floatingObjects)
             {
                 if (!IsValidCollectionTarget(obj))
@@ -302,13 +304,20 @@ namespace Digi.GravityCollector {
                     float priority = CalculateCollectionPriority(obj);
                     collectionSystem.QueueObject(obj, priority);
                     pulling++;
+
+                    if (inViewRange && !MyAPIGateway.Utilities.IsDedicated)
+                    {
+                        var objPos = obj.GetPosition();
+                        var mul = (float)Math.Sin(DateTime.UtcNow.TimeOfDay.TotalMilliseconds * 0.01);
+                        var radius = obj.Render.GetModel().BoundingSphere.Radius * MinMaxPercent(0.75f, 1.25f, mul);
+                        MyTransparentGeometry.AddPointBillboard(Mod.MATERIAL_DOT, Color.LightSkyBlue * MinMaxPercent(0.2f, 0.4f, mul), objPos, radius, 0);
+                    }
                 }
             }
 
             if (applyForce)
                 UpdateEmissive(pulling > 0);
         }
-
         void DrawInfluenceCone(Vector3D conePos)
         {
             Vector4 color = Color.Cyan.ToVector4() * 10;
@@ -929,33 +938,33 @@ namespace Digi.GravityCollector {
             }
         }
 
-        private Vector3D AvoidObstacles(Vector3D point)
+private Vector3D AvoidObstacles(Vector3D point)
+{
+    const double AVOIDANCE_RADIUS = 2.0;
+    const double REPULSION_STRENGTH = 1.0;
+    
+    var nearbyEntities = new List<MyEntity>(); // Change to MyEntity
+    var sphere = new BoundingSphereD(point, AVOIDANCE_RADIUS);
+    MyGamePruningStructure.GetAllTopMostEntitiesInSphere(ref sphere, nearbyEntities, MyEntityQueryType.Dynamic);
+
+    Vector3D avoidanceForce = Vector3D.Zero;
+    foreach (var entity in nearbyEntities)
+    {
+        if (entity == target) continue;
+        
+        var entityPos = entity.PositionComp.GetPosition();
+        var direction = point - entityPos;
+        var distance = direction.Length();
+        
+        if (distance < AVOIDANCE_RADIUS)
         {
-            const double AVOIDANCE_RADIUS = 2.0;
-            const double REPULSION_STRENGTH = 1.0;
-
-            var nearbyEntities = new List<MyEntity>(); // Change to MyEntity
-            var sphere = new BoundingSphereD(point, AVOIDANCE_RADIUS);
-            MyGamePruningStructure.GetAllTopMostEntitiesInSphere(ref sphere, nearbyEntities, MyEntityQueryType.Dynamic);
-
-            Vector3D avoidanceForce = Vector3D.Zero;
-            foreach (var entity in nearbyEntities)
-            {
-                if (entity == target) continue;
-
-                var entityPos = entity.PositionComp.GetPosition();
-                var direction = point - entityPos;
-                var distance = direction.Length();
-
-                if (distance < AVOIDANCE_RADIUS)
-                {
-                    direction.Normalize();
-                    avoidanceForce += direction * (REPULSION_STRENGTH * (1.0 - distance / AVOIDANCE_RADIUS));
-                }
-            }
-
-            return point + avoidanceForce;
+            direction.Normalize();
+            avoidanceForce += direction * (REPULSION_STRENGTH * (1.0 - distance/AVOIDANCE_RADIUS));
         }
+    }
+
+    return point + avoidanceForce;
+}
 
 
         private void UpdateIdealPositionAndVelocity()
