@@ -511,13 +511,13 @@ namespace Digi.GravityCollector {
         public float GetIdealVelocityForDistance(double distance)
         {
             float normalizedDist = (float)(distance / Range);
-            float baseVelocity = 10f;
+            float baseVelocity = 20f;
             return baseVelocity * (1f - normalizedDist * 0.5f);
         }
 
         public void UpdateForceMultiplier(float multiplier)
         {
-            adaptiveForceMultiplier = MathHelper.Clamp(multiplier, 0.1f, 2.0f);
+            adaptiveForceMultiplier = MathHelper.Clamp(multiplier, 0.1f, 100.0f);
         }
 
         private float CalculateCollectionPriority(IMyEntity entity)
@@ -743,7 +743,7 @@ namespace Digi.GravityCollector {
 
         private const int MAX_CONCURRENT_COLLECTIONS = 8;
         private const float DENSITY_THRESHOLD = 5f;
-        private const float ADAPTIVE_FORCE_MAX_MULTIPLIER = 2.0f;
+        private const float ADAPTIVE_FORCE_MAX_MULTIPLIER = 20.0f;
 
         private int updateCounter = 0;
         private const int PERFORMANCE_LOG_INTERVAL = 600;// Log every 10 seconds at 60 updates/second
@@ -808,21 +808,36 @@ namespace Digi.GravityCollector {
             processingObjects.Add(entity);
             collector.network.AssignObject(entity, collector);
         }
-
+        private const float DENSITY_FALLOFF_FACTOR = 0.5f; // Adjust this value to control how quickly density decreases with distance
         private void AdaptForceSettings()
         {
             Vector3D collectionPoint = collector.GetCollectionPoint();
-            var activeObjects = processingObjects.Count;
-            var volume = collector.GetEffectiveVolume();
-            var density = activeObjects / volume;
+            float totalWeightedDensity = 0;
+            float totalWeight = 0;
 
-            float adaptiveMul = MathHelper.Clamp(1.0f - (density / DENSITY_THRESHOLD),
+            foreach (var entity in processingObjects)
+            {
+                float distance = (float)Vector3D.Distance(entity.GetPosition(), collectionPoint);
+                float weight = 1f / (1f + distance * DENSITY_FALLOFF_FACTOR);
+                totalWeightedDensity += weight;
+                totalWeight += 1;
+            }
+
+            float effectiveVolume = collector.GetEffectiveVolume();
+            float averageDensity = (totalWeight > 0) ? (totalWeightedDensity / totalWeight) : 0;
+            float normalizedDensity = averageDensity / effectiveVolume;
+
+            float adaptiveMul = MathHelper.Clamp(
+                1.0f - (normalizedDensity / DENSITY_THRESHOLD),
                 1.0f / ADAPTIVE_FORCE_MAX_MULTIPLIER,
-                ADAPTIVE_FORCE_MAX_MULTIPLIER);
+                ADAPTIVE_FORCE_MAX_MULTIPLIER
+            );
 
             collector.UpdateForceMultiplier(adaptiveMul);
-        }
 
+          //  Log.Info($"Adaptive Force Multiplier: {adaptiveMul}, Normalized Density: {normalizedDensity}");
+        }
+        
         public void QueueObject(IMyEntity entity, float priority)
         {
             if (!processingObjects.Contains(entity) && !activePaths.ContainsKey(entity))
@@ -938,7 +953,7 @@ namespace Digi.GravityCollector {
         private Vector3D AvoidObstacles(Vector3D point)
         {
             const double AVOIDANCE_RADIUS = 2.0;
-            const double REPULSION_STRENGTH = 1.0;
+            const double REPULSION_STRENGTH = 10.0;
 
             var nearbyEntities = new List<MyEntity>();// Change to MyEntity
             BoundingSphereD sphere = new BoundingSphereD(point, AVOIDANCE_RADIUS);
@@ -953,11 +968,9 @@ namespace Digi.GravityCollector {
                 Vector3D direction = point - entityPos;
                 var distance = direction.Length();
 
-                if (distance < AVOIDANCE_RADIUS)
-                {
-                    direction.Normalize();
-                    avoidanceForce += direction * (REPULSION_STRENGTH * (1.0 - distance / AVOIDANCE_RADIUS));
-                }
+                if (!(distance < AVOIDANCE_RADIUS)) continue;
+                direction.Normalize();
+                avoidanceForce += direction * (REPULSION_STRENGTH * (1.0 - distance / AVOIDANCE_RADIUS));
             }
 
             return point + avoidanceForce;
