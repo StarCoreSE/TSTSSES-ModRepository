@@ -306,7 +306,7 @@ namespace Digi.GravityCollector {
                 if (!inViewRange || MyAPIGateway.Utilities.IsDedicated) continue;
                 Vector3D objPos = obj.GetPosition();
                 var mul = (float)Math.Sin(DateTime.UtcNow.TimeOfDay.TotalMilliseconds * 0.01);
-                var radius = obj.Render.GetModel().BoundingSphere.Radius * MinMaxPercent(0.75f, 1.25f, mul);
+                var radius = obj.Model.BoundingSphere.Radius * MinMaxPercent(0.75f, 1.25f, mul);
                 MyTransparentGeometry.AddPointBillboard(Mod.MATERIAL_DOT, Color.LightSkyBlue * MinMaxPercent(0.2f, 0.4f, mul), objPos, radius, 0);
             }
 
