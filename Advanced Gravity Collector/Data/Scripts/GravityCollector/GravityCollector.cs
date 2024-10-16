@@ -37,7 +37,15 @@ namespace Digi.GravityCollector {
 
         private AdvancedCollectionSystem collectionSystem;
         public float adaptiveForceMultiplier = 1.0f;
-
+        public double ConeAngle => coneAngle;
+        public float Offset => offset;
+        public bool IsInCollectionCone(Vector3D position)
+        {
+            var conePos = block.WorldMatrix.Translation + (block.WorldMatrix.Forward * -offset);
+            var dirNormalized = Vector3D.Normalize(position - conePos);
+            var angle = Math.Acos(MathHelper.Clamp(Vector3D.Dot(block.WorldMatrix.Forward, dirNormalized), -1, 1));
+            return angle <= coneAngle;
+        }
         public float Range
         {
             get { return Settings.Range; }
@@ -778,6 +786,7 @@ namespace Digi.GravityCollector {
             {
                 if (!IsPathValid(path.Key))
                 {
+                  //  Log.Info($"Object {path.Key.EntityId} left collection cone or range, stopping collection");
                     activePaths.Remove(path.Key);
                     processingObjects.Remove(path.Key);
                     collector.network.ReleaseObject(path.Key);
@@ -852,7 +861,11 @@ namespace Digi.GravityCollector {
                 return false;
 
             var distance = Vector3D.Distance(entity.GetPosition(), collector.GetCollectionPoint());
-            return distance <= collector.Range;
+            if (distance > collector.Range)
+                return false;
+
+            // Use the new method to check if in cone
+            return collector.IsInCollectionCone(entity.GetPosition());
         }
 
         private bool IsValidForCollection(IMyEntity entity)
