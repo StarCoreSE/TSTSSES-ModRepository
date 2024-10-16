@@ -952,7 +952,7 @@ namespace Digi.GravityCollector {
 
         private Vector3D AvoidObstacles(Vector3D point)
         {
-            const double AVOIDANCE_RADIUS = 20.0;
+            const double AVOIDANCE_RADIUS = 2.0;
             const double REPULSION_STRENGTH = 100.0;
 
             var nearbyEntities = new List<MyEntity>();// Change to MyEntity
