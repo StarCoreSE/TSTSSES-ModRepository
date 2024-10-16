@@ -20,8 +20,7 @@ using VRageMath;
 
 namespace Digi.GravityCollector {
     [MyEntityComponentDescriptor(typeof(MyObjectBuilder_Collector), false, "MediumGravityCollector", "LargeGravityCollector")]
-    public class GravityCollector : MyGameLogicComponent
-    {
+    public class GravityCollector : MyGameLogicComponent {
         public const float RANGE_MIN = 0;
         public const float RANGE_MAX_MEDIUM = 400;
         public const float RANGE_MAX_LARGE = 600;
@@ -88,11 +87,11 @@ namespace Digi.GravityCollector {
             {
                 if (MyAPIGateway.Utilities.IsDedicated || !block.ShowOnHUD)
                     return false;
-                var localPlayer = MyAPIGateway.Session?.Player;
+                IMyPlayer localPlayer = MyAPIGateway.Session?.Player;
                 if (localPlayer == null)
                     return false;
                 long localPlayerId = localPlayer.IdentityId;
-                var relation = block.GetUserRelationToOwner(localPlayerId);
+                MyRelationsBetweenPlayerAndBlock relation = block.GetUserRelationToOwner(localPlayerId);
                 return relation != MyRelationsBetweenPlayerAndBlock.Enemies;
             }
         }
@@ -129,7 +128,7 @@ namespace Digi.GravityCollector {
                 }
 
                 NeedsUpdate = MyEntityUpdateEnum.EACH_FRAME | MyEntityUpdateEnum.EACH_10TH_FRAME;
-                var sink = block.Components?.Get<MyResourceSinkComponent>();
+                MyResourceSinkComponent sink = block.Components?.Get<MyResourceSinkComponent>();
                 sink?.SetRequiredInputFuncByType(MyResourceDistributorComponent.ElectricityId, ComputeRequiredPower);
                 Settings.Strength = 1.0f;
                 Settings.Range = maxRange;
@@ -209,13 +208,13 @@ namespace Digi.GravityCollector {
             if ((NeedsUpdate & MyEntityUpdateEnum.EACH_FRAME) == 0)
                 NeedsUpdate |= MyEntityUpdateEnum.EACH_FRAME;
 
-            var collectPos = GetCollectionPoint();
-            var sphere = new BoundingSphereD(collectPos, Range + 10);
+            Vector3D collectPos = GetCollectionPoint();
+            BoundingSphereD sphere = new BoundingSphereD(collectPos, Range + 10);
             MyGamePruningStructure.GetAllTopMostEntitiesInSphere(ref sphere, entities, MyEntityQueryType.Dynamic);
 
-            foreach (var ent in entities)
+            foreach (MyEntity ent in entities)
             {
-                var floatingObject = ent as IMyFloatingObject;
+                IMyFloatingObject floatingObject = ent as IMyFloatingObject;
                 if (floatingObject != null && floatingObject.Physics != null)
                     floatingObjects.Add(floatingObject);
             }
@@ -227,7 +226,7 @@ namespace Digi.GravityCollector {
 
         void UpdateEmissive(bool pulling = false)
         {
-            var color = Color.Red;
+            Color color = Color.Red;
             float strength = 0f;
             if (block.IsWorking)
             {
@@ -280,8 +279,8 @@ namespace Digi.GravityCollector {
             if (MyAPIGateway.Utilities.IsDedicated)
                 return;
 
-            var conePos = block.WorldMatrix.Translation + (block.WorldMatrix.Forward * -offset);
-            var cameraMatrix = MyAPIGateway.Session.Camera.WorldMatrix;
+            Vector3D conePos = block.WorldMatrix.Translation + (block.WorldMatrix.Forward * -offset);
+            MatrixD cameraMatrix = MyAPIGateway.Session.Camera.WorldMatrix;
             bool inViewRange = Vector3D.DistanceSquared(cameraMatrix.Translation, conePos) <= MAX_VIEW_RANGE_SQ;
 
             if (inViewRange && DrawCone)
@@ -290,29 +289,25 @@ namespace Digi.GravityCollector {
         private void ProcessObjects(bool applyForce)
         {
             int pulling = 0;
-            var cameraPos = MyAPIGateway.Session.Camera.WorldMatrix.Translation;
+            Vector3D cameraPos = MyAPIGateway.Session.Camera.WorldMatrix.Translation;
             bool inViewRange = Vector3D.DistanceSquared(cameraPos, GetCollectionPoint()) <= MAX_VIEW_RANGE_SQ;
 
-            foreach (var obj in floatingObjects)
+            foreach (IMyFloatingObject obj in floatingObjects)
             {
                 if (!IsValidCollectionTarget(obj))
                     continue;
 
-                var bestCollector = network.GetBestCollectorFor(obj);
-                if (bestCollector == this)
-                {
-                    float priority = CalculateCollectionPriority(obj);
-                    collectionSystem.QueueObject(obj, priority);
-                    pulling++;
+                GravityCollector bestCollector = network.GetBestCollectorFor(obj);
+                if (bestCollector != this) continue;
+                float priority = CalculateCollectionPriority(obj);
+                collectionSystem.QueueObject(obj, priority);
+                pulling++;
 
-                    if (inViewRange && !MyAPIGateway.Utilities.IsDedicated)
-                    {
-                        var objPos = obj.GetPosition();
-                        var mul = (float)Math.Sin(DateTime.UtcNow.TimeOfDay.TotalMilliseconds * 0.01);
-                        var radius = obj.Render.GetModel().BoundingSphere.Radius * MinMaxPercent(0.75f, 1.25f, mul);
-                        MyTransparentGeometry.AddPointBillboard(Mod.MATERIAL_DOT, Color.LightSkyBlue * MinMaxPercent(0.2f, 0.4f, mul), objPos, radius, 0);
-                    }
-                }
+                if (!inViewRange || MyAPIGateway.Utilities.IsDedicated) continue;
+                Vector3D objPos = obj.GetPosition();
+                var mul = (float)Math.Sin(DateTime.UtcNow.TimeOfDay.TotalMilliseconds * 0.01);
+                var radius = obj.Render.GetModel().BoundingSphere.Radius * MinMaxPercent(0.75f, 1.25f, mul);
+                MyTransparentGeometry.AddPointBillboard(Mod.MATERIAL_DOT, Color.LightSkyBlue * MinMaxPercent(0.2f, 0.4f, mul), objPos, radius, 0);
             }
 
             if (applyForce)
@@ -325,31 +320,31 @@ namespace Digi.GravityCollector {
             const float LINE_THICK = 0.02f;
             const int WIRE_DIV_RATIO = 16;
 
-            var coneMatrix = block.WorldMatrix;
+            MatrixD coneMatrix = block.WorldMatrix;
             coneMatrix.Translation = conePos;
 
             float rangeOffset = Range + (offset * 2);
             float baseRadius = rangeOffset * (float)Math.Tan(coneAngle);
 
-            var apexPosition = coneMatrix.Translation;
-            var directionVector = coneMatrix.Forward * rangeOffset;
-            var maxPosCenter = conePos + coneMatrix.Forward * rangeOffset;
-            var baseVector = coneMatrix.Up * baseRadius;
+            Vector3D apexPosition = coneMatrix.Translation;
+            Vector3D directionVector = coneMatrix.Forward * rangeOffset;
+            Vector3D maxPosCenter = conePos + coneMatrix.Forward * rangeOffset;
+            Vector3D baseVector = coneMatrix.Up * baseRadius;
 
             Vector3 axis = directionVector;
             axis.Normalize();
 
             float stepAngle = (float)(Math.PI * 2.0 / (double)WIRE_DIV_RATIO);
 
-            var prevConePoint = apexPosition + directionVector + Vector3.Transform(baseVector, Matrix.CreateFromAxisAngle(axis, (-1 * stepAngle)));
+            Vector3D prevConePoint = apexPosition + directionVector + Vector3.Transform(baseVector, Matrix.CreateFromAxisAngle(axis, (-1 * stepAngle)));
             prevConePoint = (apexPosition + Vector3D.Normalize((prevConePoint - apexPosition)) * rangeOffset);
 
-            var quad = default(MyQuadD);
+            MyQuadD quad = default(MyQuadD);
 
             for (int step = 0; step < WIRE_DIV_RATIO; step++)
             {
-                var conePoint = apexPosition + directionVector + Vector3.Transform(baseVector, Matrix.CreateFromAxisAngle(axis, (step * stepAngle)));
-                var lineDir = (conePoint - apexPosition);
+                Vector3D conePoint = apexPosition + directionVector + Vector3.Transform(baseVector, Matrix.CreateFromAxisAngle(axis, (step * stepAngle)));
+                Vector3D lineDir = (conePoint - apexPosition);
                 lineDir.Normalize();
                 conePoint = (apexPosition + lineDir * rangeOffset);
 
@@ -386,7 +381,7 @@ namespace Digi.GravityCollector {
 
             try
             {
-                var loadedSettings = MyAPIGateway.Utilities.SerializeFromBinary<GravityCollectorBlockSettings>(Convert.FromBase64String(rawData));
+                GravityCollectorBlockSettings loadedSettings = MyAPIGateway.Utilities.SerializeFromBinary<GravityCollectorBlockSettings>(Convert.FromBase64String(rawData));
 
                 if (loadedSettings != null)
                 {
@@ -550,13 +545,13 @@ namespace Digi.GravityCollector {
             if (entity?.Physics == null || entity.MarkedForClose)
                 return false;
 
-            var objPos = entity.GetPosition();
-            var collectPos = GetCollectionPoint();
+            Vector3D objPos = entity.GetPosition();
+            Vector3D collectPos = GetCollectionPoint();
 
             if (Vector3D.DistanceSquared(collectPos, objPos) > Range * Range)
                 return false;
 
-            var dirNormalized = Vector3D.Normalize(objPos - collectPos);
+            Vector3D dirNormalized = Vector3D.Normalize(objPos - collectPos);
             var angle = Math.Acos(MathHelper.Clamp(Vector3D.Dot(block.WorldMatrix.Forward, dirNormalized), -1, 1));
 
             return angle <= coneAngle;
@@ -571,14 +566,14 @@ namespace Digi.GravityCollector {
 
         static void SetupTerminalControls<T>()
         {
-            var mod = GravityCollectorMod.Instance;
+            GravityCollectorMod mod = GravityCollectorMod.Instance;
 
             if (mod.ControlsCreated)
                 return;
 
             mod.ControlsCreated = true;
 
-            var controlRange = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, T>(CONTROLS_PREFIX + "Range");
+            IMyTerminalControlSlider controlRange = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, T>(CONTROLS_PREFIX + "Range");
             controlRange.Title = MyStringId.GetOrCompute("Pull Range");
             controlRange.Tooltip = MyStringId.GetOrCompute("Max distance the cone extends to.");
             controlRange.Visible = Control_Visible;
@@ -589,7 +584,7 @@ namespace Digi.GravityCollector {
             controlRange.Writer = Control_Range_Writer;
             MyAPIGateway.TerminalControls.AddControl<T>(controlRange);
 
-            var controlStrength = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, T>(CONTROLS_PREFIX + "Strength");
+            IMyTerminalControlSlider controlStrength = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, T>(CONTROLS_PREFIX + "Strength");
             controlStrength.Title = MyStringId.GetOrCompute("Pull Strength");
             controlStrength.Tooltip = MyStringId.GetOrCompute($"Formula used:\nForce = Min(ObjectMass * {MASS_MUL.ToString()}, {MAX_MASS.ToString()}) * (Strength / 100)");
             controlStrength.Visible = Control_Visible;
@@ -610,33 +605,33 @@ namespace Digi.GravityCollector {
 
         static float Control_Strength_Getter(IMyTerminalBlock block)
         {
-            var logic = GetLogic(block);
+            GravityCollector logic = GetLogic(block);
             return (logic == null ? STRENGTH_MIN : logic.StrengthMul * 100);
         }
 
         static void Control_Strength_Setter(IMyTerminalBlock block, float value)
         {
-            var logic = GetLogic(block);
+            GravityCollector logic = GetLogic(block);
             if (logic != null)
                 logic.StrengthMul = ((int)value / 100f);
         }
 
         static void Control_Strength_Writer(IMyTerminalBlock block, StringBuilder writer)
         {
-            var logic = GetLogic(block);
+            GravityCollector logic = GetLogic(block);
             if (logic != null)
                 writer.Append((int)(logic.StrengthMul * 100f)).Append('%');
         }
 
         static float Control_Range_Getter(IMyTerminalBlock block)
         {
-            var logic = GetLogic(block);
+            GravityCollector logic = GetLogic(block);
             return (logic == null ? 0 : logic.Range);
         }
 
         static void Control_Range_Setter(IMyTerminalBlock block, float value)
         {
-            var logic = GetLogic(block);
+            GravityCollector logic = GetLogic(block);
             if (logic != null)
                 logic.Range = (int)Math.Floor(value);
         }
@@ -648,13 +643,13 @@ namespace Digi.GravityCollector {
 
         static float Control_Range_Max(IMyTerminalBlock block)
         {
-            var logic = GetLogic(block);
+            GravityCollector logic = GetLogic(block);
             return (logic == null ? 0 : logic.maxRange);
         }
 
         static void Control_Range_Writer(IMyTerminalBlock block, StringBuilder writer)
         {
-            var logic = GetLogic(block);
+            GravityCollector logic = GetLogic(block);
             if (logic != null)
             {
                 if (logic.Range < RANGE_OFF_EXCLUSIVE)
@@ -665,12 +660,13 @@ namespace Digi.GravityCollector {
         }
 
         #endregion
+
     }
+
     /// <summary>
     /// Manages coordination between multiple collectors on the same grid
     /// </summary>
-    public class CollectorNetwork
-    {
+    public class CollectorNetwork {
         private static Dictionary<long, CollectorNetwork> gridNetworks = new Dictionary<long, CollectorNetwork>();
         private List<GravityCollector> collectors = new List<GravityCollector>();
         private Dictionary<IMyEntity, GravityCollector> objectAssignments = new Dictionary<IMyEntity, GravityCollector>();
@@ -706,9 +702,9 @@ namespace Digi.GravityCollector {
             collectors.Remove(collector);
 
             var reassignObjects = objectAssignments.Where(kvp => kvp.Value == collector)
-                                                 .Select(kvp => kvp.Key)
-                                                 .ToList();
-            foreach (var obj in reassignObjects)
+                .Select(kvp => kvp.Key)
+                .ToList();
+            foreach (IMyEntity obj in reassignObjects)
             {
                 objectAssignments.Remove(obj);
             }
@@ -720,9 +716,9 @@ namespace Digi.GravityCollector {
             if (objectAssignments.TryGetValue(entity, out assigned))
                 return assigned;
 
-            var pos = entity.GetPosition();
+            Vector3D pos = entity.GetPosition();
             return collectors.OrderBy(c => Vector3D.DistanceSquared(c.GetCollectionPoint(), pos))
-                            .FirstOrDefault();
+                .FirstOrDefault();
         }
 
         public void AssignObject(IMyEntity entity, GravityCollector collector)
@@ -739,8 +735,7 @@ namespace Digi.GravityCollector {
     /// <summary>
     /// Handles advanced object collection behavior and queuing
     /// </summary>
-    public class AdvancedCollectionSystem
-    {
+    public class AdvancedCollectionSystem {
         private readonly GravityCollector collector;
         private readonly Dictionary<IMyEntity, CollectionPath> activePaths = new Dictionary<IMyEntity, CollectionPath>();
         private readonly PriorityQueue<IMyEntity> collectionQueue = new PriorityQueue<IMyEntity>();
@@ -751,7 +746,7 @@ namespace Digi.GravityCollector {
         private const float ADAPTIVE_FORCE_MAX_MULTIPLIER = 2.0f;
 
         private int updateCounter = 0;
-        private const int PERFORMANCE_LOG_INTERVAL = 600; // Log every 10 seconds at 60 updates/second
+        private const int PERFORMANCE_LOG_INTERVAL = 600;// Log every 10 seconds at 60 updates/second
 
         public AdvancedCollectionSystem(GravityCollector collector)
         {
@@ -760,11 +755,14 @@ namespace Digi.GravityCollector {
 
         public void Update()
         {
-            var startTime = DateTime.Now;
+            DateTime startTime = DateTime.Now;
 
             UpdateActivePaths();
             ProcessQueue();
             AdaptForceSettings();
+
+            // Clear the queue after processing to prevent accumulation
+            collectionQueue.Clear();
 
             if (++updateCounter >= PERFORMANCE_LOG_INTERVAL)
             {
@@ -793,9 +791,9 @@ namespace Digi.GravityCollector {
 
         private void ProcessQueue()
         {
-            while (processingObjects.Count < MAX_CONCURRENT_COLLECTIONS && collectionQueue.Count > 0)
+            while(processingObjects.Count < MAX_CONCURRENT_COLLECTIONS && collectionQueue.Count > 0)
             {
-                var nextObject = collectionQueue.Dequeue();
+                IMyEntity nextObject = collectionQueue.Dequeue();
                 if (IsValidForCollection(nextObject))
                 {
                     InitiateCollection(nextObject);
@@ -805,7 +803,7 @@ namespace Digi.GravityCollector {
 
         private void InitiateCollection(IMyEntity entity)
         {
-            var path = new CollectionPath(collector, entity);
+            CollectionPath path = new CollectionPath(collector, entity);
             activePaths[entity] = path;
             processingObjects.Add(entity);
             collector.network.AssignObject(entity, collector);
@@ -813,14 +811,14 @@ namespace Digi.GravityCollector {
 
         private void AdaptForceSettings()
         {
-            var collectionPoint = collector.GetCollectionPoint();
+            Vector3D collectionPoint = collector.GetCollectionPoint();
             var activeObjects = processingObjects.Count;
             var volume = collector.GetEffectiveVolume();
             var density = activeObjects / volume;
 
             float adaptiveMul = MathHelper.Clamp(1.0f - (density / DENSITY_THRESHOLD),
-                                               1.0f / ADAPTIVE_FORCE_MAX_MULTIPLIER,
-                                               ADAPTIVE_FORCE_MAX_MULTIPLIER);
+                1.0f / ADAPTIVE_FORCE_MAX_MULTIPLIER,
+                ADAPTIVE_FORCE_MAX_MULTIPLIER);
 
             collector.UpdateForceMultiplier(adaptiveMul);
         }
@@ -855,8 +853,8 @@ namespace Digi.GravityCollector {
                 return;
             }
 
-            var currentVelocity = entity.Physics.LinearVelocity;
-            var idealForce = path.GetIdealForce(currentVelocity);
+            Vector3 currentVelocity = entity.Physics.LinearVelocity;
+            Vector3D idealForce = path.GetIdealForce(currentVelocity);
 
             idealForce *= collector.adaptiveForceMultiplier;
 
@@ -877,7 +875,7 @@ namespace Digi.GravityCollector {
                     null
                 );
 
-                Log.Info($"Applied force to entity {entity.EntityId}: Force={idealForce.Length():F2}");
+                // Log.Info($"Applied force to entity {entity.EntityId}: Force={idealForce.Length():F2}"); // TODO: ratelimit this
             }
             catch (Exception e)
             {
@@ -893,8 +891,7 @@ namespace Digi.GravityCollector {
     /// <summary>
     /// Represents and calculates an optimal collection path for an object
     /// </summary>
-    public class CollectionPath
-    {
+    public class CollectionPath {
         private readonly GravityCollector collector;
         private readonly IMyEntity target;
         private readonly List<Vector3D> pathPoints = new List<Vector3D>();
@@ -925,52 +922,52 @@ namespace Digi.GravityCollector {
         private void CalculatePath()
         {
             pathPoints.Clear();
-            var start = target.GetPosition();
-            var end = collector.GetCollectionPoint();
+            Vector3D start = target.GetPosition();
+            Vector3D end = collector.GetCollectionPoint();
 
             for (int i = 0; i < PATH_POINTS; i++)
             {
                 var t = i / (float)(PATH_POINTS - 1);
-                var point = Vector3D.Lerp(start, end, t);
+                Vector3D point = Vector3D.Lerp(start, end, t);
 
                 point = AvoidObstacles(point);
                 pathPoints.Add(point);
             }
         }
 
-private Vector3D AvoidObstacles(Vector3D point)
-{
-    const double AVOIDANCE_RADIUS = 2.0;
-    const double REPULSION_STRENGTH = 1.0;
-    
-    var nearbyEntities = new List<MyEntity>(); // Change to MyEntity
-    var sphere = new BoundingSphereD(point, AVOIDANCE_RADIUS);
-    MyGamePruningStructure.GetAllTopMostEntitiesInSphere(ref sphere, nearbyEntities, MyEntityQueryType.Dynamic);
-
-    Vector3D avoidanceForce = Vector3D.Zero;
-    foreach (var entity in nearbyEntities)
-    {
-        if (entity == target) continue;
-        
-        var entityPos = entity.PositionComp.GetPosition();
-        var direction = point - entityPos;
-        var distance = direction.Length();
-        
-        if (distance < AVOIDANCE_RADIUS)
+        private Vector3D AvoidObstacles(Vector3D point)
         {
-            direction.Normalize();
-            avoidanceForce += direction * (REPULSION_STRENGTH * (1.0 - distance/AVOIDANCE_RADIUS));
-        }
-    }
+            const double AVOIDANCE_RADIUS = 2.0;
+            const double REPULSION_STRENGTH = 1.0;
 
-    return point + avoidanceForce;
-}
+            var nearbyEntities = new List<MyEntity>();// Change to MyEntity
+            BoundingSphereD sphere = new BoundingSphereD(point, AVOIDANCE_RADIUS);
+            MyGamePruningStructure.GetAllTopMostEntitiesInSphere(ref sphere, nearbyEntities, MyEntityQueryType.Dynamic);
+
+            Vector3D avoidanceForce = Vector3D.Zero;
+            foreach (MyEntity entity in nearbyEntities)
+            {
+                if (entity == target) continue;
+
+                Vector3D entityPos = entity.PositionComp.GetPosition();
+                Vector3D direction = point - entityPos;
+                var distance = direction.Length();
+
+                if (distance < AVOIDANCE_RADIUS)
+                {
+                    direction.Normalize();
+                    avoidanceForce += direction * (REPULSION_STRENGTH * (1.0 - distance / AVOIDANCE_RADIUS));
+                }
+            }
+
+            return point + avoidanceForce;
+        }
 
 
         private void UpdateIdealPositionAndVelocity()
         {
-            var currentPos = target.GetPosition();
-            var collectorPos = collector.GetCollectionPoint();
+            Vector3D currentPos = target.GetPosition();
+            Vector3D collectorPos = collector.GetCollectionPoint();
 
             // Check if we've arrived at the collector
             if (Vector3D.Distance(currentPos, collectorPos) < ARRIVAL_THRESHOLD)
@@ -984,13 +981,13 @@ private Vector3D AvoidObstacles(Vector3D point)
             {
                 currentIdealPosition = pathPoints[pathIndex + 1];
                 currentIdealVelocity = Vector3D.Normalize(currentIdealPosition - currentPos) *
-                                     collector.GetIdealVelocityForDistance(Vector3D.Distance(currentPos, collectorPos));
+                                       collector.GetIdealVelocityForDistance(Vector3D.Distance(currentPos, collectorPos));
             }
         }
 
         public Vector3D GetIdealForce(Vector3D currentVelocity)
         {
-            var targetVelocity = currentIdealVelocity;
+            Vector3D targetVelocity = currentIdealVelocity;
             return (targetVelocity - currentVelocity) * target.Physics.Mass;
         }
 
@@ -1012,9 +1009,10 @@ private Vector3D AvoidObstacles(Vector3D point)
             return closestIndex;
         }
     }
-    public class PriorityQueue<T>
-    {
+
+    public class PriorityQueue<T> {
         private SortedDictionary<float, Queue<T>> queue = new SortedDictionary<float, Queue<T>>();
+        private Queue<Queue<T>> recycledQueues = new Queue<Queue<T>>();
 
         public int Count { get; private set; }
 
@@ -1023,7 +1021,7 @@ private Vector3D AvoidObstacles(Vector3D point)
             Queue<T> itemQueue;
             if (!queue.TryGetValue(priority, out itemQueue))
             {
-                itemQueue = new Queue<T>();
+                itemQueue = GetQueue();
                 queue[priority] = itemQueue;
             }
 
@@ -1038,13 +1036,37 @@ private Vector3D AvoidObstacles(Vector3D point)
 
             var highestPriority = queue.Keys.Last();
             var itemQueue = queue[highestPriority];
-            var item = itemQueue.Dequeue();
+            T item = itemQueue.Dequeue();
 
             if (itemQueue.Count == 0)
+            {
                 queue.Remove(highestPriority);
+                RecycleQueue(itemQueue);
+            }
 
             Count--;
             return item;
+        }
+
+        public void Clear()
+        {
+            foreach (var itemQueue in queue.Values)
+            {
+                itemQueue.Clear();
+                RecycleQueue(itemQueue);
+            }
+            queue.Clear();
+            Count = 0;
+        }
+
+        private Queue<T> GetQueue()
+        {
+            return recycledQueues.Count > 0 ? recycledQueues.Dequeue() : new Queue<T>();
+        }
+
+        private void RecycleQueue(Queue<T> itemQueue)
+        {
+            recycledQueues.Enqueue(itemQueue);
         }
     }
 }
