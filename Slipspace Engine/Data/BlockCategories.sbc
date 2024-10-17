@@ -10,8 +10,8 @@
       <Name>Section1_Position3_Propulsion</Name>
       <StrictSearch>true</StrictSearch>
       <ItemIds>
-        <string>UpgradeModule/SlipspaceDriveLarge</string>
-        <string>UpgradeModule/SlipspaceCoreSmall</string>
+        <string>SlipspaceCoreLarge</string>
+        <string>SlipspaceCoreSmall</string>
       </ItemIds>
     </Category>
     <Category xsi:type="MyObjectBuilder_GuiBlockCategoryDefinition">
@@ -23,8 +23,8 @@
       <Name>Slipspace</Name>
       <StrictSearch>true</StrictSearch>
       <ItemIds>
-        <string>UpgradeModule/SlipspaceDriveLarge</string>
-        <string>UpgradeModule/SlipspaceCoreSmall</string>
+        <string>SlipspaceCoreLarge</string>
+        <string>SlipspaceCoreSmall</string>
       </ItemIds>
     </Category>
   </CategoryClasses>
