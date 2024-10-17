@@ -359,9 +359,9 @@ namespace CGP.ShareTrack
 
             MyAPIGateway.Utilities.ShowMessage("ShareTrack",
                 "Aim at a grid and press:" +
-                "\n- Shift+T to show grid stats." +
-                "\n- Shift+M to track a grid." +
-                "\n- Shift+J to cycle nametag style."
+                "\n- Shift+T to show grid stats."
+                //"\n- Shift+M to track a grid." +
+                //"\n- Shift+J to cycle nametag style."
                 );
 
             MyAPIGateway.Utilities.RegisterMessageHandler(2546247, ParsePointsDict);
