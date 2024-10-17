@@ -9,16 +9,15 @@
       </Id>
       <DisplayName>Radar Jammer (Large)</DisplayName>
       <Icon>Textures\retro_lg_radarjammer_base.png</Icon>
-      <Description>
-        High-Power Jammer for large grids. The opposite of stealth. Warranty void if pointed at self.
+      <Description>High-Power Jammer for large grids. The opposite of stealth. Warranty void if pointed at self.
 
-        Radiated Power: 15 MW
-        Gain: 15 dB
-        Max range: 500 km
-        Area Effect Ratio: 0.4
-        Cone Angle: 25 degrees
-        Maximum Heat: 5400 (~90 minutes of activity)
-        Heat Loss Per Second: 1.5
+Radiated Power: 15 MW
+Gain: 15 dB
+Max range: 500 km
+Area Effect Ratio: 0.4
+Cone Angle: 25 degrees
+Maximum Heat: 5400 (~90 minutes of activity)
+Heat Loss Per Second: 1.5
       </Description>
       <CubeSize>Large</CubeSize>
       <PlaceDecals>false</PlaceDecals>
@@ -56,7 +55,7 @@
           <MinAllowed>0.01</MinAllowed>
         </DynamicMode>
       </VoxelPlacement>
-      <BlockPairName>Nerd_JammingBlock</BlockPairName>
+      <BlockPairName>DeltaV_LargeJammer</BlockPairName>
       <MirroringY>Z</MirroringY>
       <MirroringZ>Y</MirroringZ>
       <EdgeType>Light</EdgeType>
@@ -92,17 +91,16 @@
       </Id>
       <DisplayName>Search Radar (Large)</DisplayName>
       <Icon>Textures\retro_lg_radarblock.png</Icon>
-      <Description>
-        Long-range Search Radar for large grids. Do not use to boil water.
+      <Description>Long-range Search Radar for large grids. Do not use to boil water.
 
-        Radiated Power: 30 MW
-        Aperture Size: 300 m²
-        Gain: 50 dB
-        Sensitivity: -40 dB
-        Max range: 10,000 km
-        Noise Filter: 2 dB
-        Position Error: 800 m
-        Can Radar Lock: false
+Radiated Power: 30 MW
+Aperture Size: 300 m²
+Gain: 50 dB
+Sensitivity: -40 dB
+Max range: 10,000 km
+Noise Filter: 2 dB
+Position Error: 800 m
+Can Radar Lock: false
       </Description>
       <CubeSize>Large</CubeSize>
       <BlockTopology>TriangleMesh</BlockTopology>
@@ -130,7 +128,7 @@
         <Model BuildPercentUpperBound="0.50" File="Models\Cubes\Large\LCDPanel_Construction_1.mwm" />
         <Model BuildPercentUpperBound="1.00" File="Models\Cubes\Large\LCDPanel_Construction_2.mwm" />
       </BuildProgressModels>
-      <BlockPairName>Nerd_Radar</BlockPairName>
+      <BlockPairName>DeltaV_Search_Radar</BlockPairName>
       <MirroringY>Z</MirroringY>
       <MirroringZ>Y</MirroringZ>
       <EdgeType>Light</EdgeType>
@@ -165,17 +163,16 @@
       </Id>
       <DisplayName>Tracking Radar (Large)</DisplayName>
       <Icon>Textures\retro_lg_radarblock.png</Icon>
-      <Description>
-        Precision Tracking Radar for large grids. Do not use to boil water.
+      <Description>Precision Tracking Radar for large grids. Do not use to boil water.
 
-        Radiated Power: 5 MW
-        Aperture Size: 50 m²
-        Gain: 55 dB
-        Sensitivity: -45 dB
-        Max range: 250 km
-        Noise Filter: 1 dB
-        Position Error: 20 m
-        Can Radar Lock: true
+Radiated Power: 5 MW
+Aperture Size: 50 m²
+Gain: 55 dB
+Sensitivity: -45 dB
+Max range: 250 km
+Noise Filter: 1 dB
+Position Error: 20 m
+Can Radar Lock: true
       </Description>
       <CubeSize>Large</CubeSize>
       <BlockTopology>TriangleMesh</BlockTopology>
@@ -203,7 +200,7 @@
         <Model BuildPercentUpperBound="0.50" File="Models\Cubes\Large\LCDPanel_Construction_1.mwm" />
         <Model BuildPercentUpperBound="1.00" File="Models\Cubes\Large\LCDPanel_Construction_2.mwm" />
       </BuildProgressModels>
-      <BlockPairName>Nerd_Radar</BlockPairName>
+      <BlockPairName>DeltaV_Track_Radar</BlockPairName>
       <MirroringY>Z</MirroringY>
       <MirroringZ>Y</MirroringZ>
       <EdgeType>Light</EdgeType>
@@ -238,17 +235,16 @@
       </Id>
       <DisplayName>Search Radar (Small)</DisplayName>
       <Icon>Textures\retro_sg_radarblock.png</Icon>
-      <Description>
-        Mid-range Search Radar for small grids. Do not use to boil water.
+      <Description>Mid-range Search Radar for small grids. Do not use to boil water.
 
-        Radiated Power: 1.5 MW
-        Aperture Size: 15 m²
-        Gain: 45 dB
-        Sensitivity: -38 dB
-        Max range: 500 km
-        Noise Filter: 2 dB
-        Position Error: 400 m
-        Can Radar Lock: false
+Radiated Power: 1.5 MW
+Aperture Size: 15 m²
+Gain: 45 dB
+Sensitivity: -38 dB
+Max range: 500 km
+Noise Filter: 2 dB
+Position Error: 400 m
+Can Radar Lock: false
       </Description>
       <CubeSize>Small</CubeSize>
       <BlockTopology>TriangleMesh</BlockTopology>
@@ -276,7 +272,7 @@
         <Model BuildPercentUpperBound="0.50" File="Models\Cubes\Large\LCDPanel_Construction_1.mwm" />
         <Model BuildPercentUpperBound="1.00" File="Models\Cubes\Large\LCDPanel_Construction_2.mwm" />
       </BuildProgressModels>
-      <BlockPairName>Nerd_Radar</BlockPairName>
+      <BlockPairName>DeltaV_Search_Radar</BlockPairName>
       <MirroringY>Z</MirroringY>
       <MirroringZ>Y</MirroringZ>
       <EdgeType>Light</EdgeType>
@@ -311,17 +307,16 @@
       </Id>
       <DisplayName>Tracking Radar (Small)</DisplayName>
       <Icon>Textures\retro_sg_radarblock.png</Icon>
-      <Description>
-        Target-Locking Radar for small grids. Do not use to boil water.
+      <Description>Target-Locking Radar for small grids. Do not use to boil water.
 
-        Radiated Power: 250 kW
-        Aperture Size: 5 m²
-        Gain: 50 dB
-        Sensitivity: -40 dB
-        Max range: 50 km
-        Noise Filter: 1 dB
-        Position Error: 50 m
-        Can Radar Lock: true
+Radiated Power: 250 kW
+Aperture Size: 5 m²
+Gain: 50 dB
+Sensitivity: -40 dB
+Max range: 50 km
+Noise Filter: 1 dB
+Position Error: 50 m
+Can Radar Lock: true
       </Description>
       <CubeSize>Small</CubeSize>
       <BlockTopology>TriangleMesh</BlockTopology>
@@ -349,7 +344,7 @@
         <Model BuildPercentUpperBound="0.50" File="Models\Cubes\Large\LCDPanel_Construction_1.mwm" />
         <Model BuildPercentUpperBound="1.00" File="Models\Cubes\Large\LCDPanel_Construction_2.mwm" />
       </BuildProgressModels>
-      <BlockPairName>Nerd_Radar</BlockPairName>
+      <BlockPairName>DeltaV_Track_Radar</BlockPairName>
       <MirroringY>Z</MirroringY>
       <MirroringZ>Y</MirroringZ>
       <EdgeType>Light</EdgeType>
@@ -372,6 +367,112 @@
         <Y>0</Y>
         <Z>-1.1</Z>
       </DestroyEffectOffset>
+      <DestroySound>WepSmallWarheadExpl</DestroySound>
+      <PCU>50</PCU>
+      <IsAirTight>false</IsAirTight>
+    </Definition>
+
+    <!--IFFs-->
+    <Definition xsi:type="MyObjectBuilder_BeaconDefinition">
+      <Id>
+        <TypeId>Beacon</TypeId>
+        <SubtypeId>LargeBlockIFFBeacon</SubtypeId>
+      </Id>
+      <DisplayName>IFF Beacon</DisplayName>
+      <Icon>Textures\GUI\Icons\Cubes\beacon.dds</Icon>
+      <Description>A beacon used to modify the name on the ship's radar track.</Description>
+      <CubeSize>Large</CubeSize>
+      <GuiVisible>false</GuiVisible>
+      <BlockTopology>TriangleMesh</BlockTopology>
+      <Size x="1" y="2" z="1" />
+      <ModelOffset x="0" y="0" z="0" />
+      <Model>Models\Cubes\Large\beacon.mwm</Model>
+      <Components>
+        <Component Subtype="SteelPlate" Count="40" />
+        <Component Subtype="Construction" Count="30" />
+        <Component Subtype="LargeTube" Count="20" />
+        <Component Subtype="Computer" Count="10" />
+        <Component Subtype="RadioCommunication" Count="40" />
+        <Component Subtype="SteelPlate" Count="40" />
+      </Components>
+      <CriticalComponent Subtype="RadioCommunication" Index="0" />
+      <MountPoints>
+        <MountPoint Side="Bottom" StartX="0.1" StartY="0.1" EndX="0.9" EndY="0.9" Default="true" />
+        <MountPoint Side="Top" StartX="0.1" StartY="0.1" EndX="0.9" EndY="0.9" />
+        <MountPoint Side="Left" StartX="0.175" StartY="0.1" EndX="0.825" EndY="0.9" />
+        <MountPoint Side="Right" StartX="0.175" StartY="0.1" EndX="0.825" EndY="0.9" />
+        <MountPoint Side="Front" StartX="0.175" StartY="0.1" EndX="0.825" EndY="0.9" />
+        <MountPoint Side="Back" StartX="0.175" StartY="0.1" EndX="0.825" EndY="0.9" />
+      </MountPoints>
+      <BuildProgressModels>
+        <Model BuildPercentUpperBound="0.33" File="Models\Cubes\Large\BeaconConstruction_1.mwm" />
+        <Model BuildPercentUpperBound="0.66" File="Models\Cubes\Large\BeaconConstruction_2.mwm" />
+        <Model BuildPercentUpperBound="1.00" File="Models\Cubes\Large\BeaconConstruction_3.mwm" />
+      </BuildProgressModels>
+      <BlockPairName>IFFBeacon</BlockPairName>
+      <EdgeType>Light</EdgeType>
+      <MirroringY>Z</MirroringY>
+      <BuildTimeSeconds>40</BuildTimeSeconds>
+      <DamageEffectName>Damage_Electrical_Damaged</DamageEffectName>
+      <DamagedSound>ParticleElectrical</DamagedSound>
+
+      <!-- Beacon properties -->
+      <!-- Antenna info-->
+      <ResourceSinkGroup>Utility</ResourceSinkGroup>
+      <MaxBroadcastRadius>200000</MaxBroadcastRadius>
+      <Flare>BeaconLarge</Flare>
+      <MaxBroadcastPowerDrainkW>20</MaxBroadcastPowerDrainkW>
+
+      <EmissiveColorPreset>Beacon</EmissiveColorPreset>
+      <DestroyEffect>BlockDestroyedExplosion_Large</DestroyEffect>
+      <DestroySound>WepSmallWarheadExpl</DestroySound>
+      <PCU>50</PCU>
+      <IsAirTight>false</IsAirTight>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_BeaconDefinition">
+      <Id>
+        <TypeId>Beacon</TypeId>
+        <SubtypeId>SmallBlockIFFBeacon</SubtypeId>
+      </Id>
+      <DisplayName>IFF Beacon</DisplayName>
+      <Icon>Textures\GUI\Icons\Cubes\beacon.dds</Icon>
+      <Description>A beacon used to modify the name on the ship's radar track.</Description>
+      <CubeSize>Small</CubeSize>
+      <GuiVisible>false</GuiVisible>
+      <BlockTopology>TriangleMesh</BlockTopology>
+      <Size x="1" y="1" z="2" />
+      <ModelOffset x="0" y="0" z="0" />
+      <Model>Models\Cubes\Small\beacon.mwm</Model>
+      <Components>
+        <Component Subtype="SteelPlate" Count="1" />
+        <Component Subtype="Construction" Count="1" />
+        <Component Subtype="SmallTube" Count="1" />
+        <Component Subtype="Computer" Count="1" />
+        <Component Subtype="RadioCommunication" Count="4" />
+        <Component Subtype="SteelPlate" Count="1" />
+      </Components>
+      <CriticalComponent Subtype="RadioCommunication" Index="0" />
+      <BuildProgressModels>
+        <Model BuildPercentUpperBound="0.50" File="Models\Cubes\Small\BeaconConstruction_1.mwm" />
+        <Model BuildPercentUpperBound="1.00" File="Models\Cubes\Small\BeaconConstruction_2.mwm" />
+      </BuildProgressModels>
+      <BlockPairName>IFFBeacon</BlockPairName>
+      <MirroringY>Z</MirroringY>
+      <EdgeType>Light</EdgeType>
+      <BuildTimeSeconds>15</BuildTimeSeconds>
+      <DamageEffectName>Damage_Electrical_Damaged</DamageEffectName>
+      <DamagedSound>ParticleElectrical</DamagedSound>
+
+      <!-- Beacon properties -->
+      <ResourceSinkGroup>Utility</ResourceSinkGroup>
+      <MaxBroadcastRadius>200000</MaxBroadcastRadius>
+      <Flare>BeaconSmall</Flare>
+      <MaxBroadcastPowerDrainkW>20</MaxBroadcastPowerDrainkW>
+      <!-- End Beacon Props-->
+
+      <EmissiveColorPreset>Beacon</EmissiveColorPreset>
+      <DestroyEffect>BlockDestroyedExplosion_Small</DestroyEffect>
       <DestroySound>WepSmallWarheadExpl</DestroySound>
       <PCU>50</PCU>
       <IsAirTight>false</IsAirTight>

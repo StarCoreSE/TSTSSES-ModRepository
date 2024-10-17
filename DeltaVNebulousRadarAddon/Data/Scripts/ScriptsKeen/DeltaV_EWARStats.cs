@@ -22,8 +22,8 @@ namespace NerdRadar.DeltaVAddon
                 ["DeltaV_Search_Radar_Large"] = new RadarStat()
                 {
                     MaxRadiatedPower = 30000, // 30 MW
-                    Gain = 50,
-                    Sensitivity = -40,
+                    Gain = 500,
+                    Sensitivity = -400,
                     MaxSearchRange = 10000000, // 10,000 km
 
                     ApertureSize = 300,
@@ -45,8 +45,8 @@ namespace NerdRadar.DeltaVAddon
                 ["DeltaV_Track_Radar_Large"] = new RadarStat()
                 {
                     MaxRadiatedPower = 5000, // 5 MW
-                    Gain = 55,
-                    Sensitivity = -45,
+                    Gain = 500,
+                    Sensitivity = -400,
                     MaxSearchRange = 250000, // 250 km
 
                     ApertureSize = 50,
@@ -68,8 +68,8 @@ namespace NerdRadar.DeltaVAddon
                 ["DeltaV_Search_Radar_Small"] = new RadarStat()
                 {
                     MaxRadiatedPower = 1500, // 1.5 MW
-                    Gain = 45,
-                    Sensitivity = -38,
+                    Gain = 400,
+                    Sensitivity = -300,
                     MaxSearchRange = 500000, // 500 km
 
                     ApertureSize = 15,
@@ -91,8 +91,8 @@ namespace NerdRadar.DeltaVAddon
                 ["DeltaV_Track_Radar_Small"] = new RadarStat()
                 {
                     MaxRadiatedPower = 250, // 250 kW
-                    Gain = 50,
-                    Sensitivity = -40,
+                    Gain = 5,
+                    Sensitivity = -400,
                     MaxSearchRange = 50000, // 50 km
 
                     ApertureSize = 5,
@@ -136,12 +136,12 @@ namespace NerdRadar.DeltaVAddon
             // IFF beacons are vanilla beacons which when placed on a grid, will replace the ship name given on its radar track with whatever its HUD name is set to.
             IFFBlockStats = new Dictionary<string, IFFBlockStat>()
             {
-                ["LargeBlockBeacon"] = new IFFBlockStat()
+                ["LargeBlockIFFBeacon"] = new IFFBlockStat()
                 {
                     MaxCharacters = 0,
                     ShowClass = false,
                 },
-                ["SmallBlockBeacon"] = new IFFBlockStat()
+                ["SmallBlockIFFBeacon"] = new IFFBlockStat()
                 {
                     MaxCharacters = 0,
                     ShowClass = false,
