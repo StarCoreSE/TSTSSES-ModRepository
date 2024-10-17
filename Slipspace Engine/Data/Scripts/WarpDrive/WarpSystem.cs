@@ -63,18 +63,18 @@ namespace WarpDriveMod
         private bool WarpDropSound = false;
         private int timeInWarpCounter = 0;
 
-        public string warnDestablalized = "Supercruise destabilized!";
+        public string warnDestablalized = "Slipspace destabilized!";
         public string warnAborted = "Charging procedure aborted!";
-        public string warnOverload = "Frame shift drive overloaded!";
-        public string warnDamaged = "Frame shift drive Offline or Damaged!";
+        public string warnOverload = "Slipspace Drive overloaded!";
+        public string warnDamaged = "Slipspace Drive Offline or Damaged!";
         public string warnNoPower = "Not enough power!";
         public string TooFast = "Decrease your speed!";
         public string EmergencyDropSpeed = "Emergency Stop!";
         public string warnStatic = "Unable to move static grid!";
-        public string warnInUse = "Grid is already at supercruise!";
-        public string warnNoEstablish = "Unable to establish supercruise!";
-        public string warnOverheat = "Frame shift drive overheated!";
-        public string ProximytyAlert = "Can't Start FSD, Proximity Alert!";
+        public string warnInUse = "Grid is already at Slipspace!";
+        public string warnNoEstablish = "Unable to establish Slipspace!";
+        public string warnOverheat = "Slipspace Drive overheated!";
+        public string ProximytyAlert = "Can't Start SSD, Proximity Alert!";
 
         public const float EARTH_GRAVITY = 9.806652f;
 

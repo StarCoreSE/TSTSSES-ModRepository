@@ -257,7 +257,7 @@ namespace WarpDriveMod
                 }
                 else
                 {
-                    MyLog.Default.Info("[Frame Shift Drive] Config file not found. Loading default settings");
+                    MyLog.Default.Info("[Slipspace Drive] Config file not found. Loading default settings");
 					
 					settings.maxSpeed = settings.maxSpeed * 60d / 1000;
 					settings.startSpeed = settings.startSpeed * 60d / 1000;
@@ -275,7 +275,7 @@ namespace WarpDriveMod
             }
             catch (Exception e)
             {
-                MyLog.Default.Info($"[Frame Shift Drive] Failed to load saved configuration. Loading defaults\n {e}");
+                MyLog.Default.Info($"[Slipspace Drive] Failed to load saved configuration. Loading defaults\n {e}");
 
                 settings = defaults;
 
@@ -300,14 +300,14 @@ namespace WarpDriveMod
         {
             try
             {
-                MyLog.Default.Info($"[Frame Shift Drive] Saving Settings");
+                MyLog.Default.Info($"[Slipspace Drive] Saving Settings");
                 TextWriter writer = MyAPIGateway.Utilities.WriteFileInWorldStorage(Filename, typeof(Settings));
                 writer.Write(MyAPIGateway.Utilities.SerializeToXML(settings));
                 writer.Close();
             }
             catch (Exception e)
             {
-                MyLog.Default.Info($"[Frame Shift Drive] Failed to save settings\n {e}");
+                MyLog.Default.Info($"[Slipspace Drive] Failed to save settings\n {e}");
             }
         }
 
@@ -350,7 +350,7 @@ namespace WarpDriveMod
             }
             catch (Exception e)
             {
-                MyLog.Default.Info($"[Frame Shift Drive] Failed to save client settings\n {e}");
+                MyLog.Default.Info($"[Slipspace Drive] Failed to save client settings\n {e}");
             }
         }
     }
