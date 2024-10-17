@@ -1,0 +1,100 @@
+<?xml version="1.0"?>
+<Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <CubeBlocks>
+     <Definition xsi:type="MyObjectBuilder_UpgradeModuleDefinition">
+      <Id>
+        <TypeId>UpgradeModule</TypeId>
+        <SubtypeId>SlipspaceCoreSmall</SubtypeId>
+      </Id>
+      <Public>true</Public>
+      <DisplayName>Slipspace™ Core (Small)</DisplayName>
+      <Icon>Textures\GUI\Icons\slipspacecore1x1x1_sg.png</Icon>
+      <Description>Use the [REDACTED] within Saturn's magnetic field to propel your ship unusually fast. Requires a large amount of energy. After 60 seconds in slipspace, a signature will appear upon leaving it. Do not use to boil water.</Description>
+      <CubeSize>Small</CubeSize>
+      <BlockTopology>TriangleMesh</BlockTopology>
+       <Size x="1" y="1" z="1"/>
+      <ModelOffset x="0" y="0" z="0" />
+      <Model>Models\Slipspace_Core_1x1_SG.mwm</Model>
+      <Components>
+        <Component Subtype="SteelPlate" Count="40" />
+        <Component Subtype="MetalGrid" Count="60" />
+        <Component Subtype="GravityGenerator" Count="20" />
+        <Component Subtype="Detector" Count="20" />
+        <Component Subtype="PowerCell" Count="120" />
+        <Component Subtype="Superconductor" Count="1000" />
+        <Component Subtype="Computer" Count="160" />
+        <Component Subtype="Construction" Count="40" />
+        <Component Subtype="SteelPlate" Count="20" />
+      </Components>
+      <CriticalComponent Subtype="Computer" Index="0" />
+      <MountPoints>
+        <MountPoint Side="Top" StartX="0" StartY="0" EndX="3" EndY="2" />
+        <MountPoint Side="Back" StartX="0" StartY="0" EndX="3" EndY="3" />
+        <MountPoint Side="Left" StartX="0" StartY="0" EndX="2" EndY="3" />
+        <MountPoint Side="Front" StartX="0" StartY="0" EndX="3" EndY="3" />
+        <MountPoint Side="Right" StartX="0" StartY="0" EndX="2" EndY="3" />
+        <MountPoint Side="Bottom" StartX="0" StartY="0" EndX="3" EndY="2" Default="true" />
+      </MountPoints>
+      <BuildProgressModels>
+     </BuildProgressModels>
+      <BlockPairName>SlipspaceCore1</BlockPairName>
+      <MirroringY>Z</MirroringY>
+      <MirroringZ>Y</MirroringZ>
+      <EdgeType>Light</EdgeType>
+      <Upgrades></Upgrades>
+      <ResourceSinkGroup>Utility</ResourceSinkGroup>
+      <RequiredPowerInput>32</RequiredPowerInput>
+      <DamageEffectId>214</DamageEffectId>
+      <PCU>250</PCU>
+      <IsAirTight>true</IsAirTight>
+    </Definition>
+
+    <Definition xsi:type="MyObjectBuilder_UpgradeModuleDefinition">
+      <Id>
+        <TypeId>UpgradeModule</TypeId>
+        <SubtypeId>SlipspaceDriveLarge</SubtypeId>
+      </Id>
+      <Public>true</Public>
+      <DisplayName>Slipspace™ Core (Large)</DisplayName>
+      <Icon>Textures\GUI\Icons\slipspacecore3x3x1.png</Icon>
+      <Description>Use the [REDACTED] within Saturn's magnetic field to propel your ship unusually fast. Requires a large amount of energy. After 60 seconds in slipspace, a signature will appear upon leaving it. Do not use to boil water.</Description>
+      <CubeSize>Large</CubeSize>
+      <BlockTopology>TriangleMesh</BlockTopology>
+      <Size x="3" y="3" z="2" />
+      <ModelOffset x="0" y="0" z="0" />
+      <Model>Models\Slipspace_Core_3x3x1.mwm</Model>
+      <Components>
+        <Component Subtype="SteelPlate" Count="180" />
+        <Component Subtype="MetalGrid" Count="300" />
+        <Component Subtype="GravityGenerator" Count="120" />
+        <Component Subtype="Detector" Count="120" />
+        <Component Subtype="PowerCell" Count="480" />
+        <Component Subtype="Superconductor" Count="3000" />
+        <Component Subtype="Computer" Count="400" />
+        <Component Subtype="Construction" Count="140" />
+        <Component Subtype="SteelPlate" Count="100" />
+      </Components>
+      <Size x="3" y="1" z="3"/>
+      <MountPoints>
+        <MountPoint Side="Top" StartX="0" StartY="0" EndX="3" EndY="2" />
+        <MountPoint Side="Back" StartX="0" StartY="0" EndX="3" EndY="3" />
+        <MountPoint Side="Left" StartX="0" StartY="0" EndX="2" EndY="3" />
+        <MountPoint Side="Front" StartX="0" StartY="0" EndX="3" EndY="3" />
+        <MountPoint Side="Right" StartX="0" StartY="0" EndX="2" EndY="3" />
+        <MountPoint Side="Bottom" StartX="0" StartY="0" EndX="3" EndY="2" Default="true" />
+      </MountPoints>
+      <BuildProgressModels>
+      </BuildProgressModels>
+      <BlockPairName>SlipspaceCore1</BlockPairName>
+      <MirroringY>Z</MirroringY>
+      <MirroringZ>Y</MirroringZ>
+      <EdgeType>Light</EdgeType>
+      <Upgrades></Upgrades>
+      <ResourceSinkGroup>Utility</ResourceSinkGroup>
+      <RequiredPowerInput>44</RequiredPowerInput>
+      <DamageEffectId>214</DamageEffectId>
+      <PCU>250</PCU>
+      <IsAirTight>true</IsAirTight>
+    </Definition>
+    </CubeBlocks>
+</Definitions>

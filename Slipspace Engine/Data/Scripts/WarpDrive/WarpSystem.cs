@@ -1,4 +1,5 @@
-﻿using Sandbox.Game;
+﻿using Sandbox.Definitions;
+using Sandbox.Game;
 using Sandbox.Game.Entities;
 using Sandbox.Game.Entities.Blocks;
 using Sandbox.Game.GameSystems;
@@ -7,6 +8,7 @@ using Sandbox.Game.World.Generator;
 using Sandbox.ModAPI;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using VRage.Game;
 using VRage.Game.Entity;
@@ -59,6 +61,7 @@ namespace WarpDriveMod
         private int MassChargeUpdate = 180;
         private bool TeleportNow = false;
         private bool WarpDropSound = false;
+        private int timeInWarpCounter = 0;
 
         public string warnDestablalized = "Supercruise destabilized!";
         public string warnAborted = "Charging procedure aborted!";
@@ -182,11 +185,14 @@ namespace WarpDriveMod
 
             if (WarpState == State.Active)
             {
+                timeInWarpCounter++;
+
                 if (!MyAPIGateway.Utilities.IsDedicated)
                     sound.SetPosition(MainGrid.PositionComp.GetPosition());
 
                 if (InWarp())
                     TeleportNow = true;
+
 
                 if (!MyAPIGateway.Utilities.IsDedicated)
                 {
@@ -1180,6 +1186,8 @@ namespace WarpDriveMod
 
         private void StartWarp()
         {
+            timeInWarpCounter = 0;
+
             if (grid.MainGrid == null)
                 return;
 
@@ -1317,6 +1325,33 @@ namespace WarpDriveMod
 
         public void Dewarp(bool Collision = false)
         {
+            // Check if we've been in warp for more than 1 minute (assuming 60 updates per second)
+            if (WarpState == State.Active &&
+                grid?.MainGrid != null &&
+                currentSpeedPt > 0 &&
+                timeInWarpCounter >= 3600) // 60 seconds * 60 updates
+            {
+                Vector3D exitPosition = grid.MainGrid.PositionComp.GetPosition();
+
+                // Get faction color
+                long ownerId = grid.MainGrid.BigOwners.FirstOrDefault();
+                var faction = MyAPIGateway.Session.Factions.TryGetPlayerFaction(ownerId);
+                Color gpsColor = Color.Black; // Default color if no faction
+
+                if (faction != null)
+                {
+                    var colorMask = faction.CustomColor;
+                    gpsColor = MyColorPickerConstants.HSVOffsetToHSV(colorMask).HSVtoColor();
+                }
+
+                MyVisualScriptLogicProvider.AddGPSForAll(
+                    "Slipspace™ Exit Signature",
+                    "A ship has exited slipspace™ here!",
+                    exitPosition,
+                    gpsColor,
+                    30);
+            }
+
             if (PlayersInWarpList.Count > 0)
             {
                 foreach (var Player in PlayersInWarpList)
@@ -1410,6 +1445,7 @@ namespace WarpDriveMod
                 MainGrid?.Physics?.ClearSpeed();
 
             WarpState = State.Idle;
+            timeInWarpCounter = 0; // Reset the counter
 
             currentSpeedPt = WarpDrive.Instance.Settings.startSpeed;
 
@@ -1646,12 +1682,12 @@ namespace WarpDriveMod
 
                         if (drive.Block.CubeGrid.GridSizeEnum == MyCubeSize.Small)
                         {
-                            if (drive.Block.BlockDefinition.SubtypeId == "FSDriveSmall")
+                            if (drive.Block.BlockDefinition.SubtypeId == "SlipspaceCoreSmall")
                                 totalPower = WarpDrive.Instance.Settings.baseRequiredPowerSmall + (_mass * 2.1f / 100000f);
                         }
                         else
                         {
-                            if (drive.Block.BlockDefinition.SubtypeId == "FSDriveLarge")
+                            if (drive.Block.BlockDefinition.SubtypeId == "SlipspaceDriveLarge")
                                 totalPower = WarpDrive.Instance.Settings.baseRequiredPower + (_mass * 2.1f / 1000000f);
                         }
                     }
@@ -1702,12 +1738,12 @@ namespace WarpDriveMod
                         {
                             if (drive.Block.CubeGrid.GridSizeEnum == MyCubeSize.Small)
                             {
-                                if (drive.Block.BlockDefinition.SubtypeId == "FSDriveSmall")
+                                if (drive.Block.BlockDefinition.SubtypeId == "SlipspaceCoreSmall")
                                     totalPower = (WarpDrive.Instance.Settings.baseRequiredPowerSmall + percent) / WarpDrive.Instance.Settings.powerRequirementBySpeedDeviderSmall;
                             }
                             else
                             {
-                                if (drive.Block.BlockDefinition.SubtypeId == "FSDriveLarge")
+                                if (drive.Block.BlockDefinition.SubtypeId == "SlipspaceDriveLarge")
                                     totalPower = (WarpDrive.Instance.Settings.baseRequiredPower + percent) / WarpDrive.Instance.Settings.powerRequirementBySpeedDeviderLarge;
                             }
                         }

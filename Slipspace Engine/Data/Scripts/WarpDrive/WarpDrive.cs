@@ -20,7 +20,7 @@ using VRageMath;
 
 namespace WarpDriveMod
 {
-    [MyEntityComponentDescriptor(typeof(MyObjectBuilder_UpgradeModule), false, "FSDriveLarge", "FSDriveSmall")]
+    [MyEntityComponentDescriptor(typeof(MyObjectBuilder_UpgradeModule), false, "SlipspaceDriveLarge", "SlipspaceCoreSmall")]
     public class WarpDrive : MyGameLogicComponent
     {
         public IMyFunctionalBlock Block { get; private set; }
@@ -199,11 +199,11 @@ namespace WarpDriveMod
 
             var blocksubtupe = Block.BlockDefinition.SubtypeId;
 
-            if (blocksubtupe == "FSDriveSmall")
+            if (blocksubtupe == "SlipspaceCoreSmall")
                 powerSystem.Init(MyStringHash.GetOrCompute("Utility"), Settings.baseRequiredPowerSmall * Settings.powerRequirementMultiplier,
                     ComputeRequiredPower, (MyCubeBlock)Entity);
 
-            if (blocksubtupe == "FSDriveLarge")
+            if (blocksubtupe == "SlipspaceDriveLarge")
                 powerSystem.Init(MyStringHash.GetOrCompute("Utility"), Settings.baseRequiredPower * Settings.powerRequirementMultiplier,
                     ComputeRequiredPower, (MyCubeBlock)Entity);
 

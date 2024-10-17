@@ -10,7 +10,7 @@
       <Name>LargeBlocks</Name>
       <StrictSearch>true</StrictSearch>
       <ItemIds>
-        <string>UpgradeModule/FSDriveLarge</string>
+        <string>UpgradeModule/SlipspaceDriveLarge</string>
       </ItemIds>
     </Category>
     <Category xsi:type="MyObjectBuilder_GuiBlockCategoryDefinition">
@@ -22,7 +22,7 @@
       <Name>SmallBlocks</Name>
       <StrictSearch>true</StrictSearch>
       <ItemIds>
-        <string>UpgradeModule/FSDriveSmall</string>
+        <string>UpgradeModule/SlipspaceCoreSmall</string>
       </ItemIds>
     </Category>
   </CategoryClasses>
