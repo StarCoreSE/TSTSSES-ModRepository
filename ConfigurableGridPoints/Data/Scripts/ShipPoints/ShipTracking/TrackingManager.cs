@@ -13,7 +13,7 @@ namespace CGP.ShareTrack.ShipTracking
     internal class TrackingManager
     {
         public static TrackingManager I;
-        private static readonly string[] AutoTrackSubtypes = { "LargeFlightMovement", "RivalAIRemoteControlLarge" };
+        private static readonly string[] AutoTrackSubtypes = { "" };
         private readonly HashSet<long> _queuedGridTracks = new HashSet<long>();
         public HashSet<IMyCubeGrid> AllGrids = new HashSet<IMyCubeGrid>();
         public Dictionary<IMyCubeGrid, ShipTracker> TrackedGrids = new Dictionary<IMyCubeGrid, ShipTracker>();
