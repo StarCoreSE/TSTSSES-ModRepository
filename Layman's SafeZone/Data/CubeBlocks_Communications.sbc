@@ -17,9 +17,9 @@
       <Model>Models\Cubes\Large\SafeZoneBlock.mwm</Model>
 
       <Components>
-        <Component Subtype="AdminPack" Count="1" />	  
         <Component Subtype="SteelPlate" Count="750" />
         <Component Subtype="Construction" Count="180" />
+        <Component Subtype="AdminPack" Count="1" />	  		
         <Component Subtype="MetalGrid" Count="80" />
         <Component Subtype="Computer" Count="120" />
         <Component Subtype="SteelPlate" Count="50" />
