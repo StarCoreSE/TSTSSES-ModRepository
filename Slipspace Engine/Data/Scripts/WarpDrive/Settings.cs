@@ -78,7 +78,7 @@ namespace WarpDriveMod
         {
             return new Settings
             {
-                maxSpeed = 50000 / 60d, // in settings numbers from higher than startSpeed + 1, max 100 or if AllowUnlimittedSpeed=true up to 2000 (game possile limit)
+                maxSpeed = 100000 / 60d, // in settings numbers from higher than startSpeed + 1, max 100 or if AllowUnlimittedSpeed=true up to 2000 (game possile limit)
                 startSpeed = 1000 / 60d, // in settings numbers from 1 to less than maxSpeed and max 99, or if AllowUnlimittedSpeed=true up to 1999
                 maxHeat = 180f, // Shutdown when this amount of heat has been reached. this is in seconds if heatGain = 1 / 60f so it's 3 minutes;
                 heatGain = 0 / 60f, // Amount of heat gained per tick = 1% per second if set 1, max possible 10
@@ -87,7 +87,7 @@ namespace WarpDriveMod
                 baseRequiredPowerSmall = 5f, // MW
                 powerRequirementMultiplier = 2, // each speed step will take baseRequiredPower/Small and * powerRequirementMultiplier
                 powerRequirementBySpeedDeviderLarge = 6f, // Now power requirement is based on mass + speed!, to lower power requirement set this to higher number.
-                powerRequirementBySpeedDeviderSmall = 12f, // Now power requirement is based on mass + speed!, to lower power requirement set this to higher number.
+                powerRequirementBySpeedDeviderSmall = 6f, // Now power requirement is based on mass + speed!, to lower power requirement set this to higher number.
                 AllowInGravity = false, // allow to activate warp in gravity, ship will drop to 1km/s when in gravity and stop id altitude is below 300m
                 AllowUnlimittedSpeed = false, // if set to true, will allow setting max speed to any number, if false them max is 100km/s = 100000.
                 AllowToDetectEnemyGrids = false, // if set to true, then warp charge code will check if there is enemy grid in range, and delay jump by set amount.
@@ -257,7 +257,7 @@ namespace WarpDriveMod
                 }
                 else
                 {
-                    MyLog.Default.Info("[Frame Shift Drive] Config file not found. Loading default settings");
+                    MyLog.Default.Info("[Slipspace Drive] Config file not found. Loading default settings");
 					
 					settings.maxSpeed = settings.maxSpeed * 60d / 1000;
 					settings.startSpeed = settings.startSpeed * 60d / 1000;
@@ -275,7 +275,7 @@ namespace WarpDriveMod
             }
             catch (Exception e)
             {
-                MyLog.Default.Info($"[Frame Shift Drive] Failed to load saved configuration. Loading defaults\n {e}");
+                MyLog.Default.Info($"[Slipspace Drive] Failed to load saved configuration. Loading defaults\n {e}");
 
                 settings = defaults;
 
@@ -300,14 +300,14 @@ namespace WarpDriveMod
         {
             try
             {
-                MyLog.Default.Info($"[Frame Shift Drive] Saving Settings");
+                MyLog.Default.Info($"[Slipspace Drive] Saving Settings");
                 TextWriter writer = MyAPIGateway.Utilities.WriteFileInWorldStorage(Filename, typeof(Settings));
                 writer.Write(MyAPIGateway.Utilities.SerializeToXML(settings));
                 writer.Close();
             }
             catch (Exception e)
             {
-                MyLog.Default.Info($"[Frame Shift Drive] Failed to save settings\n {e}");
+                MyLog.Default.Info($"[Slipspace Drive] Failed to save settings\n {e}");
             }
         }
 
@@ -350,7 +350,7 @@ namespace WarpDriveMod
             }
             catch (Exception e)
             {
-                MyLog.Default.Info($"[Frame Shift Drive] Failed to save client settings\n {e}");
+                MyLog.Default.Info($"[Slipspace Drive] Failed to save client settings\n {e}");
             }
         }
     }

@@ -5,7 +5,7 @@
       <Id Type="MyObjectBuilder_BlockVariantGroup" Subtype="SlipspaceCoreGroup" />
       <Icon>Textures\GUI\Icons\slipspacecore3x3x1.png</Icon>
       <DisplayName>Slipspace™ Core</DisplayName>
-      <Description>Friendship drive charging!</Description>
+      <Description>Do not use to boil water.</Description>
       <Blocks>
         <Block Type="MyObjectBuilder_UpgradeModule" Subtype="SlipspaceDriveLarge" />
         <Block Type="MyObjectBuilder_UpgradeModule" Subtype="SlipspaceCoreSmall" />

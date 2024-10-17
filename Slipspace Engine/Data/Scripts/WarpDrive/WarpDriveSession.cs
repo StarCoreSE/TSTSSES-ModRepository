@@ -19,7 +19,7 @@ namespace WarpDriveMod
 {
     public static class WarpConstants
     {
-        public static MySoundPair EmergencyDropSound = new MySoundPair("SuperCruiseGravity", true);
+        public static MySoundPair EmergencyDropSound = new MySoundPair("SlipspaceGravity", true);
         public static MySoundPair chargingSound = new MySoundPair("quantum_charging", true);
         public static MySoundPair jumpInSound = new MySoundPair("quantum_jumpin", true);
         public static MySoundPair jumpOutSound = new MySoundPair("quantum_jumpout", true);
@@ -105,7 +105,7 @@ namespace WarpDriveMod
                     {
                         // Session is client, tell the host to toggle the warp drive.
                         toggle = TransmitToggleWarp;
-                        MyLog.Default.WriteLineAndConsole("Initialized Frame Shift Drive mod on a multiplayer client.");
+                        MyLog.Default.WriteLineAndConsole("Initialized Slipspace Drive mod on a multiplayer client.");
                     }
                     else
                         throw new Exception("Session is not host or client. What?!");
@@ -123,7 +123,7 @@ namespace WarpDriveMod
 
                 IMyTerminalAction startWarp = MyAPIGateway.TerminalControls.CreateAction<IMyUpgradeModule>("ToggleWarp");
                 startWarp.Enabled = IsWarpDrive;
-                startWarp.Name = new StringBuilder("Toggle Supercruise");
+                startWarp.Name = new StringBuilder("Toggle Slipspace");
                 startWarp.Action = toggle;
                 startWarp.Icon = "Textures\\GUI\\Icons\\Actions\\Toggle.dds";
                 MyAPIGateway.TerminalControls.AddAction<IMyUpgradeModule>(startWarp);
