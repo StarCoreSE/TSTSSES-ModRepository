@@ -34,7 +34,7 @@ namespace CGP.ShareTrack
             TimerMessage,
             Ticketmessage;
 
-        //public static ShipTracker.NametagSettings NametagViewState = ShipTracker.NametagSettings.PlayerName;
+        public static ShipTracker.NametagSettings NametagViewState = ShipTracker.NametagSettings.PlayerName;
 
         private readonly Dictionary<string, double> _bp = new Dictionary<string, double>();
 
@@ -169,94 +169,94 @@ namespace CGP.ShareTrack
                     pair.Value.Invoke();
         }
 
-        //private void UpdateTrackingData()
-        //{
-        //    if (MasterSession.I.Ticks % 59 != 0)
-        //        return;
-        //
-        //    lock (TrackingManager.I.TrackedGrids)
-        //    {
-        //        foreach (var shipTracker in TrackingManager.I.TrackedGrids.Values)
-        //        {
-        //            shipTracker.Update();
-        //        }
-        //    }
-        //
-        //    if (IntegretyMessage == null || !MasterSession.I.TextHudApi.Heartbeat)
-        //        return;
-        //
-        //    var tt = new StringBuilder();
-        //
-        //    // Clear the dictionaries to remove old data
-        //    _ts.Clear();
-        //    _m.Clear();
-        //    _bp.Clear();
-        //    _mbp.Clear();
-        //    _pbp.Clear();
-        //    _obp.Clear();
-        //    _mobp.Clear();
-        //
-        //    MainTrackerUpdate(_ts, _m, _bp, _mbp, _pbp, _obp, _mobp);
-        //
-        //    TeamBpCalc(tt, _ts, _m, _bp, _mbp, _pbp, _obp, _mobp);
-        //
-        //    if (!IntegretyMessage.Message.Equals(tt))
-        //    {
-        //        IntegretyMessage.Message = tt;
-        //    }
-        //    
-        //    IntegretyMessage.Origin = new Vector2D(0.975 - IntegretyMessage.GetTextLength().X, IntegretyMessage.Origin.Y);
-        //}
+        private void UpdateTrackingData()
+        {
+            if (MasterSession.I.Ticks % 59 != 0)
+                return;
+
+            lock (TrackingManager.I.TrackedGrids)
+            {
+                foreach (var shipTracker in TrackingManager.I.TrackedGrids.Values)
+                {
+                    shipTracker.Update();
+                }
+            }
+
+            if (IntegretyMessage == null || !MasterSession.I.TextHudApi.Heartbeat)
+                return;
+
+            var tt = new StringBuilder();
+
+            // Clear the dictionaries to remove old data
+            _ts.Clear();
+            _m.Clear();
+            _bp.Clear();
+            _mbp.Clear();
+            _pbp.Clear();
+            _obp.Clear();
+            _mobp.Clear();
+
+            MainTrackerUpdate(_ts, _m, _bp, _mbp, _pbp, _obp, _mobp);
+
+            TeamBpCalc(tt, _ts, _m, _bp, _mbp, _pbp, _obp, _mobp);
+
+            if (!IntegretyMessage.Message.Equals(tt))
+            {
+                IntegretyMessage.Message = tt;
+            }
+            
+            IntegretyMessage.Origin = new Vector2D(0.975 - IntegretyMessage.GetTextLength().X, IntegretyMessage.Origin.Y);
+        }
 
 
-        //private void MainTrackerUpdate(Dictionary<string, List<string>> ts, Dictionary<string, double> m,
-        //    Dictionary<string, double> bp, Dictionary<string, double> mbp, Dictionary<string, double> pbp,
-        //    Dictionary<string, double> obp, Dictionary<string, double> mobp)
-        //{
-        //    foreach (var shipTracker in TrackingManager.I.TrackedGrids.Values)
-        //    {
-        //        var fn = shipTracker.FactionName.Length > 6 ? shipTracker.FactionName.Substring(0, 6) : shipTracker.FactionName;
-        //        var o = shipTracker.OwnerName;
-        //        var nd = shipTracker.IsFunctional;
-        //
-        //        if (!ts.ContainsKey(fn))
-        //        {
-        //            ts.Add(fn, new List<string>());
-        //            m[fn] = 0;
-        //            bp[fn] = 0;
-        //            mbp[fn] = 0;
-        //            pbp[fn] = 0;
-        //            obp[fn] = 0;
-        //            mobp[fn] = 0;
-        //        }
-        //
-        //        if (nd)
-        //        {
-        //            m[fn] += shipTracker.Mass;
-        //            bp[fn] += shipTracker.BattlePoints;
-        //        }
-        //        else
-        //        {
-        //            continue;
-        //        }
-        //
-        //        mbp[fn] += shipTracker.RemainingPoints;
-        //        pbp[fn] += shipTracker.PowerPoints;
-        //        obp[fn] += shipTracker.OffensivePoints;
-        //        mobp[fn] += shipTracker.MovementPoints;
-        //
-        //        var wep = 0;
-        //        foreach (var kvp in shipTracker.WeaponCounts)
-        //        {
-        //            wep += kvp.Value;
-        //        }
-        //
-        //        var pwr = FormatPower(Math.Round(shipTracker.TotalPower, 1));
-        //        var ts2 = FormatThrust(Math.Round(shipTracker.TotalThrust, 2));
-        //
-        //        ts[fn].Add(CreateDisplayString(o, shipTracker, wep, pwr, ts2));
-        //    }
-        //}
+        private void MainTrackerUpdate(Dictionary<string, List<string>> ts, Dictionary<string, double> m,
+            Dictionary<string, double> bp, Dictionary<string, double> mbp, Dictionary<string, double> pbp,
+            Dictionary<string, double> obp, Dictionary<string, double> mobp)
+        {
+            foreach (var shipTracker in TrackingManager.I.TrackedGrids.Values)
+            {
+                var fn = shipTracker.FactionName.Length > 6 ? shipTracker.FactionName.Substring(0, 6) : shipTracker.FactionName;
+                var o = shipTracker.OwnerName;
+                var nd = shipTracker.IsFunctional;
+
+                if (!ts.ContainsKey(fn))
+                {
+                    ts.Add(fn, new List<string>());
+                    m[fn] = 0;
+                    bp[fn] = 0;
+                    mbp[fn] = 0;
+                    pbp[fn] = 0;
+                    obp[fn] = 0;
+                    mobp[fn] = 0;
+                }
+
+                if (nd)
+                {
+                    m[fn] += shipTracker.Mass;
+                    bp[fn] += shipTracker.BattlePoints;
+                }
+                else
+                {
+                    continue;
+                }
+
+                mbp[fn] += shipTracker.RemainingPoints;
+                pbp[fn] += shipTracker.PowerPoints;
+                obp[fn] += shipTracker.OffensivePoints;
+                mobp[fn] += shipTracker.MovementPoints;
+
+                var wep = 0;
+                foreach (var kvp in shipTracker.WeaponCounts)
+                {
+                    wep += kvp.Value;
+                }
+
+                var pwr = FormatPower(Math.Round(shipTracker.TotalPower, 1));
+                var ts2 = FormatThrust(Math.Round(shipTracker.TotalThrust, 2));
+
+                ts[fn].Add(CreateDisplayString(o, shipTracker, wep, pwr, ts2));
+            }
+        }
 
         private string FormatPower(double currentPower)
         {
@@ -269,26 +269,26 @@ namespace CGP.ShareTrack
             return thrustInMega > 1e2 ? $"{Math.Round(thrustInMega / 1e3, 2)}GN" : $"{thrustInMega}MN";
         }
 
-        //private string CreateDisplayString(string ownerName, ShipTracker tracker, int wep, string power, string thrust)
-        //{
-        //    var ownerDisplay = ownerName != null
-        //        ? ownerName.Substring(0, Math.Min(ownerName.Length, 7))
-        //        : tracker.GridName;
-        //    var integrityPercent =
-        //        (int)(tracker.GridIntegrity / tracker.OriginalGridIntegrity *
-        //              100); // TODO fix this to use hull integrity
-        //    var shieldPercent = (int)tracker.CurrentShieldPercent;
-        //    var shieldColor = shieldPercent <= 0
-        //        ? "red"
-        //        : $"{255},{255 - tracker.CurrentShieldHeat * 2.5f},{255 - tracker.CurrentShieldHeat * 2.5f}";
-        //    var weaponColor = wep == 0 ? "red" : "Orange";
-        //
-        //    var functionalColor = tracker.IsFunctional ? "white" : "red";
-        //    var integrityColor = integrityPercent >= 75 ? "White" : integrityPercent >= 50 ? "LightCoral" : integrityPercent >= 25 ? "IndianRed" : "FireBrick";
-        //
-        //    return
-        //        $"<color={functionalColor}>{ownerDisplay,-8}<color={integrityColor}>{integrityPercent,3}%<color={functionalColor}> P:<color=orange>{power,3}<color={functionalColor}> T:<color=orange>{thrust,3}<color={functionalColor}> W:<color={weaponColor}>{wep}<color={functionalColor}> S:<color={shieldColor}>{shieldPercent,3}%<color=white>";
-        //}
+        private string CreateDisplayString(string ownerName, ShipTracker tracker, int wep, string power, string thrust)
+        {
+            var ownerDisplay = ownerName != null
+                ? ownerName.Substring(0, Math.Min(ownerName.Length, 7))
+                : tracker.GridName;
+            var integrityPercent =
+                (int)(tracker.GridIntegrity / tracker.OriginalGridIntegrity *
+                      100); // TODO fix this to use hull integrity
+            var shieldPercent = (int)tracker.CurrentShieldPercent;
+            var shieldColor = shieldPercent <= 0
+                ? "red"
+                : $"{255},{255 - tracker.CurrentShieldHeat * 2.5f},{255 - tracker.CurrentShieldHeat * 2.5f}";
+            var weaponColor = wep == 0 ? "red" : "Orange";
+
+            var functionalColor = tracker.IsFunctional ? "white" : "red";
+            var integrityColor = integrityPercent >= 75 ? "White" : integrityPercent >= 50 ? "LightCoral" : integrityPercent >= 25 ? "IndianRed" : "FireBrick";
+
+            return
+                $"<color={functionalColor}>{ownerDisplay,-8}<color={integrityColor}>{integrityPercent,3}%<color={functionalColor}> P:<color=orange>{power,3}<color={functionalColor}> T:<color=orange>{thrust,3}<color={functionalColor}> W:<color={weaponColor}>{wep}<color={functionalColor}> S:<color={shieldColor}>{shieldPercent,3}%<color=white>";
+        }
 
 
         private static void TeamBpCalc(StringBuilder tt, Dictionary<string, List<string>> trackedShip,
@@ -410,14 +410,14 @@ namespace CGP.ShareTrack
                 _awaitingTrackRequest = false;
             }
 
-            //try
-            //{
-            //    UpdateTrackingData();
-            //}
-            //catch (Exception e)
-            //{
-            //    Log.Error($"Exception in UpdateAfterSimulation TryCatch 01: {e}");
-            //}
+            try
+            {
+                UpdateTrackingData();
+            }
+            catch (Exception e)
+            {
+                Log.Error($"Exception in UpdateAfterSimulation TryCatch 01: {e}");
+            }
 
             try
             {
