@@ -92,11 +92,15 @@ namespace FactionsStruct
             },
             SellGridsPlanets = new List<string> // prefab subtypes that will be sold on planetary economy stations when held by this faction (on top of the default ones)
             {
-
+                "GLF Fighter",
+                "GLF Frigate",
+                "GLF Miner",
             },
             SellGridsSpace = new List<string> // prefab subtypes that will be sold on space economy stations when held by this faction (on top of the default ones)
             {
-
+                "GLF Fighter",
+                "GLF Frigate",
+                "GLF Miner",
             },
 
             // politics and relations
