@@ -19,8 +19,8 @@
             <W>1</W>
           </Color>
           <Size>
-            <X>40000</X>
-            <Y>40000</Y>
+            <X>20000</X>
+            <Y>20000</Y>
           </Size>
           <ScreenIntensityMultiplierCenter>1</ScreenIntensityMultiplierCenter>
           <ScreenIntensityMultiplierEdge>1</ScreenIntensityMultiplierEdge>
@@ -40,8 +40,8 @@
             <W>1</W>
           </Color>
           <Size>
-            <X>12000</X>
-            <Y>12000</Y>
+            <X>9000</X>
+            <Y>9000</Y>
           </Size>
           <ScreenIntensityMultiplierCenter>3</ScreenIntensityMultiplierCenter>
           <ScreenIntensityMultiplierEdge>1</ScreenIntensityMultiplierEdge>
@@ -62,8 +62,8 @@
             <W>1</W>
           </Color>
           <Size>
-            <X>42000</X>
-            <Y>42000</Y>
+            <X>20000</X>
+            <Y>20000</Y>
           </Size>
           <ScreenIntensityMultiplierCenter>1</ScreenIntensityMultiplierCenter>
           <ScreenIntensityMultiplierEdge>1</ScreenIntensityMultiplierEdge>
@@ -95,8 +95,8 @@
             <W>1</W>
           </Color>
           <Size>
-            <X>35000</X>
-            <Y>35000</Y>
+            <X>30000</X>
+            <Y>30000</Y>
           </Size>
           <ScreenIntensityMultiplierCenter>1</ScreenIntensityMultiplierCenter>
           <ScreenIntensityMultiplierEdge>1</ScreenIntensityMultiplierEdge>
