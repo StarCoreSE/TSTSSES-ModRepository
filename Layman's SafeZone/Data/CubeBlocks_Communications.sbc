@@ -26,7 +26,7 @@
         <Component Subtype="Computer" Count="1" />
       </Components>
 
-      <CriticalComponent Subtype="Computer" Index="0" />
+      <CriticalComponent Subtype="AdminPack" Index="0" />
 
       <MountPoints>
         <MountPoint Side="Bottom" StartX="0" StartY="0.5" EndX="2" EndY="1" />
