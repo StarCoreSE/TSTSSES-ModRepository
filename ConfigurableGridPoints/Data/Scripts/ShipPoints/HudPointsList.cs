@@ -170,6 +170,7 @@ namespace CGP.ShareTrack
 
             // Handle page wrapping
             var blockList = blockCountDict.ToList();
+            blockList.Sort((x, y) => string.Compare(x.Key, y.Key, StringComparison.Ordinal)); // Sort alphabetically
             int totalPages = (int)Math.Ceiling((double)blockList.Count / ItemsPerPage);
             if (totalPages > 0)
             {
