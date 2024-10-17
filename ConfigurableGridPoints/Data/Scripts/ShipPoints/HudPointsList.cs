@@ -27,6 +27,10 @@ namespace CGP.ShareTrack
         private int _currentPage = 0;
         private const int ItemsPerPage = 10; // Number of items to display per page
 
+        private int _pageCounter = 0; // Counter for automatic page change
+        private const int PageChangeInterval = 5; // Number of ticks between page changes (5 seconds at 60 ticks per second)
+
+
 
         private readonly HudAPIv2.HUDMessage
             _statMessage = new HudAPIv2.HUDMessage(scale: 1f, font: "BI_SEOutlined", Message: new StringBuilder(""),
@@ -156,12 +160,28 @@ namespace CGP.ShareTrack
                 }
             }
 
-            // Build the special block text with pagination
-            var specialBlockTextBuilder = new StringBuilder();
+            // Update the page periodically
+            _pageCounter++;
+            if (_pageCounter >= PageChangeInterval)
+            {
+                _pageCounter = 0; // Reset the counter
+                _currentPage++; // Move to the next page
+            }
+
+            // Handle page wrapping
             var blockList = blockCountDict.ToList();
             int totalPages = (int)Math.Ceiling((double)blockList.Count / ItemsPerPage);
-            _currentPage = Math.Max(0, Math.Min(_currentPage, totalPages - 1)); // Clamp current page
+            if (totalPages > 0)
+            {
+                _currentPage = _currentPage % totalPages; // Wrap around if we exceed the total pages
+            }
+            else
+            {
+                _currentPage = 0; // Reset if there are no pages
+            }
 
+            // Build the special block text with pagination
+            var specialBlockTextBuilder = new StringBuilder();
             int startIndex = _currentPage * ItemsPerPage;
             int endIndex = Math.Min(startIndex + ItemsPerPage, blockList.Count);
 
@@ -172,7 +192,7 @@ namespace CGP.ShareTrack
             }
 
             // Add page navigation info
-            specialBlockTextBuilder.AppendFormat("\nPage {0}/{1} - Use Up/Down arrows to scroll", _currentPage + 1, totalPages);
+            specialBlockTextBuilder.AppendFormat("\nPage {0}/{1}", _currentPage + 1, totalPages);
 
             var specialBlockText = specialBlockTextBuilder.ToString();
 

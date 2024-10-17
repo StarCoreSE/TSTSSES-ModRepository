@@ -29,18 +29,18 @@ namespace CGP.ShareTrack.ShipTracking
 
         private TrackingManager()
         {
-            MyAPIGateway.Entities.OnEntityAdd += OnEntityAdd;
-            MyAPIGateway.Entities.OnEntityRemove += OnEntityRemove;
+            //MyAPIGateway.Entities.OnEntityAdd += OnEntityAdd;
+            //MyAPIGateway.Entities.OnEntityRemove += OnEntityRemove;
         }
 
         public void StartTracking()
         {
-            Log.Info("Starting grid tracking");
-            _isTracking = true;
-            var entities = new HashSet<IMyEntity>();
-            MyAPIGateway.Entities.GetEntities(entities);
-            foreach (var entity in entities)
-                ProcessEntity(entity);
+            //Log.Info("Starting grid tracking");
+            //_isTracking = true;
+            //var entities = new HashSet<IMyEntity>();
+            //MyAPIGateway.Entities.GetEntities(entities);
+            //foreach (var entity in entities)
+            //    ProcessEntity(entity);
         }
 
         private void ProcessEntity(IMyEntity entity)
@@ -177,62 +177,62 @@ namespace CGP.ShareTrack.ShipTracking
 
         public void TrackGrid(IMyCubeGrid grid, bool share = true)
         {
-            if (!_isTracking)
-            {
-                _queuedGridTracks.Add(grid.EntityId);
-                return;
-            }
-
-            if (grid == null)
-            {
-                Log.Error("TrackGrid called with null grid");
-                return;
-            }
-
-            if (((MyCubeGrid)grid).IsStatic || TrackedGrids.ContainsKey(grid))
-                return;
-
-            // Don't allow tracking grids that are already tracked in the group.
-            var allAttachedGrids = new List<IMyCubeGrid>();
-            var gridGroup = grid.GetGridGroup(GridLinkTypeEnum.Physical);
-            if (gridGroup != null)
-            {
-                gridGroup.GetGrids(allAttachedGrids);
-            }
-            else
-            {
-                Log.Error($"Grid {grid.DisplayName} has no physical grid group");
-                allAttachedGrids.Add(grid);
-            }
-
-            foreach (var attachedGrid in allAttachedGrids)
-                if (TrackedGrids.ContainsKey(attachedGrid))
-                    return;
-
-            try
-            {
-                var tracker = new ShipTracker(grid);
-                TrackedGrids[grid] = tracker;
-                // Automatically added to tracked grid list
-                Log.Info($"TrackGrid Tracked grid {grid.DisplayName}. Visible: true");
-                OnShipTracked?.Invoke(grid, true);
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"Error creating ShipTracker for grid {grid.DisplayName}: {ex}");
-                return;
-            }
-
-            if (!share) return;
-            if (MyAPIGateway.Session.IsServer)
-            {
-                ServerDoSync();
-            }
-            else
-            {
-                var packet = new TrackingSyncPacket(grid.EntityId, true);
-                HeartNetwork.I.SendToServer(packet);
-            }
+           // if (!_isTracking)
+           // {
+           //     _queuedGridTracks.Add(grid.EntityId);
+           //     return;
+           // }
+           //
+           // if (grid == null)
+           // {
+           //     Log.Error("TrackGrid called with null grid");
+           //     return;
+           // }
+           //
+           // if (((MyCubeGrid)grid).IsStatic || TrackedGrids.ContainsKey(grid))
+           //     return;
+           //
+           // // Don't allow tracking grids that are already tracked in the group.
+           // var allAttachedGrids = new List<IMyCubeGrid>();
+           // var gridGroup = grid.GetGridGroup(GridLinkTypeEnum.Physical);
+           // if (gridGroup != null)
+           // {
+           //     gridGroup.GetGrids(allAttachedGrids);
+           // }
+           // else
+           // {
+           //     Log.Error($"Grid {grid.DisplayName} has no physical grid group");
+           //     allAttachedGrids.Add(grid);
+           // }
+           //
+           // foreach (var attachedGrid in allAttachedGrids)
+           //     if (TrackedGrids.ContainsKey(attachedGrid))
+           //         return;
+           //
+           // try
+           // {
+           //     var tracker = new ShipTracker(grid);
+           //     TrackedGrids[grid] = tracker;
+           //     // Automatically added to tracked grid list
+           //     Log.Info($"TrackGrid Tracked grid {grid.DisplayName}. Visible: true");
+           //     OnShipTracked?.Invoke(grid, true);
+           // }
+           // catch (Exception ex)
+           // {
+           //     Log.Error($"Error creating ShipTracker for grid {grid.DisplayName}: {ex}");
+           //     return;
+           // }
+           //
+           // if (!share) return;
+           // if (MyAPIGateway.Session.IsServer)
+           // {
+           //     ServerDoSync();
+           // }
+           // else
+           // {
+           //     var packet = new TrackingSyncPacket(grid.EntityId, true);
+           //     HeartNetwork.I.SendToServer(packet);
+           // }
         }
 
         public void TrackGrid(long gridId, bool share = true)
