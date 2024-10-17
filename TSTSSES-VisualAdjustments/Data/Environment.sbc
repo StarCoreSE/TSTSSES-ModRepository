@@ -71,7 +71,7 @@
     <!-- Disables vignette effect -->
     <PostProcessSettings>
       <EnableTonemapping>true</EnableTonemapping>
-      <EnableEyeAdaptation>true</EnableEyeAdaptation>
+      <EnableEyeAdaptation>false</EnableEyeAdaptation>
       <HighQualityBloom>true</HighQualityBloom>
       <BloomAntiFlickerFilter>true</BloomAntiFlickerFilter>
 
