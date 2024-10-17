@@ -15,6 +15,7 @@
 			<Model>Models\Cubes\Large\FlightMovementBlock.mwm</Model>
 			<ModelOffset x="0" y="0" z="0" />
 			<Components>
+				<Component Subtype="RedactedComponent" Count="1" />
 				<Component Subtype="SteelPlate" Count="80" />
 				<Component Subtype="Construction" Count="30" />
 				<Component Subtype="LargeTube" Count="10" />

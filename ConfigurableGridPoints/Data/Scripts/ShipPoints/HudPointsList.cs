@@ -24,6 +24,13 @@ namespace CGP.ShareTrack
 
         private ShipTracker _shipTracker = null;
 
+        private int _currentPage = 0;
+        private const int ItemsPerPage = 10; // Number of items to display per page
+
+        private int _pageCounter = 0; // Counter for automatic page change
+        private const int PageChangeInterval = 5; // Number of ticks between page changes (5 seconds at 60 ticks per second)
+
+
 
         private readonly HudAPIv2.HUDMessage
             _statMessage = new HudAPIv2.HUDMessage(scale: 1f, font: "BI_SEOutlined", Message: new StringBuilder(""),
@@ -105,7 +112,9 @@ namespace CGP.ShareTrack
                 return;
             var stopwatch = new System.Diagnostics.Stopwatch();
             stopwatch.Start();
-            if (_shipTracker?.Grid?.GetGridGroup(GridLinkTypeEnum.Physical) != focusedGrid.GetGridGroup(GridLinkTypeEnum.Physical) && !TrackingManager.I.TrackedGrids.TryGetValue(focusedGrid, out _shipTracker))
+
+            if (_shipTracker?.Grid?.GetGridGroup(GridLinkTypeEnum.Physical) != focusedGrid.GetGridGroup(GridLinkTypeEnum.Physical)
+                && !TrackingManager.I.TrackedGrids.TryGetValue(focusedGrid, out _shipTracker))
             {
                 _shipTracker = new ShipTracker(focusedGrid, false);
                 Log.Info($"ShiftTCalcs Tracked grid {focusedGrid.DisplayName}. Visible: false");
@@ -125,13 +134,67 @@ namespace CGP.ShareTrack
                 gunTextBuilder.AppendFormat("<color=Green>{0}<color=White> x {1}\n", _shipTracker.WeaponCounts[x], x);
             var gunText = gunTextBuilder.ToString();
 
-            var specialBlockTextBuilder = new StringBuilder();
-            foreach (var x in _shipTracker.SpecialBlockCounts.Keys)
+            // Count the number of each type of FatBlock and get their PCU
+            var blockCountDict = new Dictionary<string, int>();
+            var fatBlocks = new List<IMySlimBlock>();
+            focusedGrid.GetBlocks(fatBlocks, block => block.FatBlock != null);
+
+            foreach (var block in fatBlocks)
             {
-                specialBlockTextBuilder.AppendFormat("<color=Green>{0}<color=White> x {1}\n",
-                    _shipTracker.SpecialBlockCounts[x], x);
+                var fatBlock = block.FatBlock;
+                var blockDef = MyDefinitionManager.Static.GetCubeBlockDefinition(fatBlock.BlockDefinition);
+
+                if (blockDef != null)
+                {
+                    int blockPCU = blockDef.PCU; // Get the PCU value from the block definition
+                    string blockType = $"{blockDef.DisplayNameText}";
+
+                    if (blockCountDict.ContainsKey(blockType))
+                    {
+                        blockCountDict[blockType] += blockPCU;
+                    }
+                    else
+                    {
+                        blockCountDict[blockType] = blockPCU;
+                    }
+                }
             }
-                
+
+            // Update the page periodically
+            _pageCounter++;
+            if (_pageCounter >= PageChangeInterval)
+            {
+                _pageCounter = 0; // Reset the counter
+                _currentPage++; // Move to the next page
+            }
+
+            // Handle page wrapping
+            var blockList = blockCountDict.ToList();
+            blockList.Sort((x, y) => string.Compare(x.Key, y.Key, StringComparison.Ordinal)); // Sort alphabetically
+            int totalPages = (int)Math.Ceiling((double)blockList.Count / ItemsPerPage);
+            if (totalPages > 0)
+            {
+                _currentPage = _currentPage % totalPages; // Wrap around if we exceed the total pages
+            }
+            else
+            {
+                _currentPage = 0; // Reset if there are no pages
+            }
+
+            // Build the special block text with pagination
+            var specialBlockTextBuilder = new StringBuilder();
+            int startIndex = _currentPage * ItemsPerPage;
+            int endIndex = Math.Min(startIndex + ItemsPerPage, blockList.Count);
+
+            for (int i = startIndex; i < endIndex; i++)
+            {
+                var kvp = blockList[i];
+                specialBlockTextBuilder.AppendFormat("<color=Green>{0}<color=White>: {1} total PCU\n", kvp.Key, kvp.Value);
+            }
+
+            // Add page navigation info
+            specialBlockTextBuilder.AppendFormat("\nPage {0}/{1}", _currentPage + 1, totalPages);
+
             var specialBlockText = specialBlockTextBuilder.ToString();
 
             var massString = $"{_shipTracker.Mass}";
@@ -140,7 +203,8 @@ namespace CGP.ShareTrack
             var mass = _shipTracker.Mass;
             var twr = (float)Math.Round(thrustInKilograms / mass, 1);
 
-            if (_shipTracker.Mass > 1000000) massString = $"{Math.Round(_shipTracker.Mass / 1000000f, 1):F2}m";
+            if (_shipTracker.Mass > 1000000)
+                massString = $"{Math.Round(_shipTracker.Mass / 1000000f, 1):F2}m";
 
             var twRs = $"{twr:F3}";
             var thrustString = $"{Math.Round(_shipTracker.TotalThrust, 1)}";
@@ -164,7 +228,6 @@ namespace CGP.ShareTrack
                 reducedAngularSpeed = RtsApi.GetReducedAngularSpeed(focusedGrid);
             }
 
-
             var pwrNotation = _shipTracker.TotalPower > 1000 ? "GW" : "MW";
             var tempPwr = _shipTracker.TotalPower > 1000
                 ? $"{Math.Round(_shipTracker.TotalPower / 1000, 1):F1}"
@@ -181,10 +244,8 @@ namespace CGP.ShareTrack
                     : $"{Math.Round(tempGyro2, 1):F1}M";
             }
 
-
             var sb = new StringBuilder();
             double lastExecutionTime = _executionTimes.Count > 0 ? _executionTimes.Last() : 0;
-
 
             sb.AppendLine($"Last Update took: {lastExecutionTime:F2} ms");
             // Basic Info
@@ -199,27 +260,13 @@ namespace CGP.ShareTrack
             sb.AppendFormat("<color=Green>Size<color=White>: {0}\n",
                 (focusedGrid.Max + Vector3.Abs(focusedGrid.Min)).ToString());
             sb.AppendFormat("<color=Green>Max Speed<color=White>: {0}\n", speed);
-            //sb.AppendFormat("<color=Green>Max Speed<color=White>: {0} | <color=Green>TWR<color=White>: {1}\n", speed, twRs);
-            //sb.AppendFormat(
-            //    "<color=Green>Max Speed<color=White>: {0} | <color=Green>Reduced Angular Speed<color=White>: {1:F2} | <color=Green>TWR<color=White>: {2}\n",
-            //    speed, reducedAngularSpeed, twRs); //this is for CGP's weird RTS fork that can reduce angular speed limits
+            //sb.AppendFormat("<color=Green>Reduced Angular Speed (rad/s):<color=White>: {0}\n", reducedAngularSpeed);
             sb.AppendLine(); //blank line
 
             // Battle Stats
             sb.AppendLine("<color=Orange>----Battle Stats----");
-            sb.AppendFormat("<color=Green>Battle Points<color=White>: {0}\n", _shipTracker.BattlePoints);
-            //sb.AppendFormat(
-            //    "<color=Orange>[<color=Red> {0}% <color=Orange>| <color=Green>{1}% <color=Orange>| <color=DeepSkyBlue>{2}% <color=Orange>| <color=LightGray>{3}% <color=Orange>]\n",
-            //    Math.Round(_shipTracker.OffensivePointsRatio * 100f), Math.Round(_shipTracker.PowerPointsRatio * 100f),
-            //    Math.Round(_shipTracker.MovementPointsRatio * 100f),
-            //    Math.Round(_shipTracker.RemainingPointsRatio * 100f));
-            //sb.Append(
-            //    $"<color=Green>PD Investment<color=White>: <color=Orange>( <color=white>{_shipTracker.PointDefensePointsRatio * 100:N0}% <color=Orange>|<color=Crimson> {(_shipTracker.OffensivePoints == 0 ? 0 : (float)_shipTracker.PointDefensePoints / _shipTracker.OffensivePoints) * 100f:N0}%<color=Orange> )\n");
-            //sb.AppendFormat(
-            //    "<color=Green>Shield Max HP<color=White>: {0} <color=Orange>(<color=White>{1:N0}%<color=Orange>)\n",
-            //    totalShieldString, _shipTracker.CurrentShieldPercent);
+            //sb.AppendFormat("<color=Green>Battle Points<color=White>: {0}\n", _shipTracker.BattlePoints);
             sb.AppendFormat("<color=Green>Thrust<color=White>: {0}N\n", thrustString);
-            //sb.AppendFormat("<color=Green>Gyro<color=White>: {0}N\n", gyroString);
             sb.AppendFormat("<color=Green>Power<color=White>: {0}\n", pwr);
             sb.AppendLine(); //blank line
 
