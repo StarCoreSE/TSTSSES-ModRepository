@@ -8,7 +8,7 @@ using VRageMath;
 namespace NerdRadar.DeltaVAddon
 {
     [MySessionComponentDescriptor(MyUpdateOrder.NoUpdate)]
-    public class Example_EWARStats : MySessionComponentBase
+    public class DeltaVEWARstats : MySessionComponentBase
     {
         BlockConfig cfg => new BlockConfig()
         {
@@ -19,7 +19,7 @@ namespace NerdRadar.DeltaVAddon
             // RCS is calculated via (LG blockcount * 0.25)^2*2.5+(SG blockcount * 0.25)^2*0.01+(Generated power in MW) * 0.5
             RadarStats = new Dictionary<string, RadarStat>()
             {
-                ["LargeGrid_Search_Radar"] = new RadarStat()
+                ["DeltaV_Search_Radar_Large"] = new RadarStat()
                 {
                     MaxRadiatedPower = 30000, // 30 MW
                     Gain = 50,
@@ -42,7 +42,7 @@ namespace NerdRadar.DeltaVAddon
                     CanDetectLockedJumps = false,
                 },
 
-                ["LargeGrid_Target_Locking_Radar"] = new RadarStat()
+                ["DeltaV_Track_Radar_Large"] = new RadarStat()
                 {
                     MaxRadiatedPower = 5000, // 5 MW
                     Gain = 55,
@@ -57,7 +57,7 @@ namespace NerdRadar.DeltaVAddon
                     VelocityError = 1,
 
                     CanTargetLock = true,
-                    LOSCheckIncludesParentGrid = true,
+                    LOSCheckIncludesParentGrid = false,
 
                     StealthMultiplier = 1,
 
@@ -65,7 +65,7 @@ namespace NerdRadar.DeltaVAddon
                     CanDetectLockedJumps = true,
                 },
 
-                ["SmallGrid_Search_Radar"] = new RadarStat()
+                ["DeltaV_Search_Radar_Small"] = new RadarStat()
                 {
                     MaxRadiatedPower = 1500, // 1.5 MW
                     Gain = 45,
@@ -88,7 +88,7 @@ namespace NerdRadar.DeltaVAddon
                     CanDetectLockedJumps = false,
                 },
 
-                ["SmallGrid_Target_Locking_Radar"] = new RadarStat()
+                ["DeltaV_Track_Radar_Small"] = new RadarStat()
                 {
                     MaxRadiatedPower = 250, // 250 kW
                     Gain = 50,
@@ -103,7 +103,7 @@ namespace NerdRadar.DeltaVAddon
                     VelocityError = 1,
 
                     CanTargetLock = true,
-                    LOSCheckIncludesParentGrid = true,
+                    LOSCheckIncludesParentGrid = false,
 
                     StealthMultiplier = 1,
 
@@ -116,7 +116,7 @@ namespace NerdRadar.DeltaVAddon
             // stat interactions can be found here http://nebfltcom.wikidot.com/mechanics:electronic-warfare
             JammerStats = new Dictionary<string, JammerStat>()
             {
-                ["LargeGrid_Jammer"] = new JammerStat()
+                ["DeltaV_LargeJammer"] = new JammerStat()
                 {
                     MaxRadiatedPower = 15000, // 15 MW
                     Gain = 15,
@@ -127,44 +127,24 @@ namespace NerdRadar.DeltaVAddon
 
                     LOSCheckIncludesParentGrid = true, // Determines whether the jammer can jam through its own grid
 
-                    MaxHeat = 90 * 60, // Maximum heat before shutdown (75 minutes)
+                    MaxHeat = 90 * 60, // Maximum heat before shutdown (7.5 minutes)
                     HeatDrainPerTick = 1.5f, // Higher heat dissipation rate
                 },
 
             },
 
-            UpgradeBlockStats = new Dictionary<string, UpgradeBlockStat>()
-            {
-                ["Example_UpgradeBlockStats"] = new UpgradeBlockStat()
-                {
-                    // these two are incompatible with eachother.
-                    ApplyOnlyWhenFiring = false, // WEAPON BLOCKS ONLY. Makes all of the addons/multipliers apply only when the weapon is firing.
-                    ApplyOnlyWhenOn = false, // FUNCTIONAL BLOCKS ONLY. Makes all of the addons/multipliers apply only if the block is functional.
-
-                    PositionalErrorMultiplier = 1, // Positional error multiplier for ALL radars on the grid this is mounted on. Multipliers are calculated BEFORE addons.
-                    PositionalErrorAddon = 0, // Positional error addon for ALL radars on the grid this is mounted on. Addons are calculated AFTER multipliers.
-
-                    VelocityErrorMultiplier = 1, // Velocity error multiplier for ALL radars on the grid this is mounted on. Multipliers are calculated BEFORE addons.
-                    VelocityErrorAddon = 0, // Velocity error addon for ALL radars on the grid this is mounted on. Addons are calculated AFTER multipliers.
-
-                    NoiseFilterMultiplier = 1, // Noise filter multiplier for ALL radars on the grid this is mounted on. Multipliers are calculated BEFORE addons.
-                    NoiseFilterAddon = 0, // Noise filter addon for ALL radars on the grid this is mounted on. Addons are calculated AFTER multipliers.
-
-                    RCSMultiplier = 1, // RCS multiplier for the grid this is mounted on. Multipliers are calculated BEFORE addons.
-                    RCSAddon = 0, //  RCS addon for the grid this is mounted on. Addons are calculated AFTER multipliers.
-
-                    SensitivityMultiplier = 1, // Sensitivity multiplier for ALL radars on the grid this is mounted on. Multipliers are calculated BEFORE addons.
-                    SensitivityAddon = 0, // Sensitivity addon for ALL radars on the grid this is mounted on. Addons are calculated AFTER multipliers.
-                }
-            },
-
             // IFF beacons are vanilla beacons which when placed on a grid, will replace the ship name given on its radar track with whatever its HUD name is set to.
             IFFBlockStats = new Dictionary<string, IFFBlockStat>()
             {
-                ["LargeBlockIFFBeacon"] = new IFFBlockStat()
+                ["LargeBlockBeacon"] = new IFFBlockStat()
                 {
-                    MaxCharacters = 0, // maximum characters the IFF beacon will use
-                    ShowClass = false, // whether or not the IFF beacon name change will completely replace (false) or only add its name after the class name (true)
+                    MaxCharacters = 0,
+                    ShowClass = false,
+                },
+                ["SmallBlockBeacon"] = new IFFBlockStat()
+                {
+                    MaxCharacters = 0,
+                    ShowClass = false,
                 },
             }
         };
