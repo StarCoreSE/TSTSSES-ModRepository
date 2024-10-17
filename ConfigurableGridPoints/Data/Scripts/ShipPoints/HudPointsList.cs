@@ -260,11 +260,12 @@ namespace CGP.ShareTrack
             sb.AppendFormat("<color=Green>Size<color=White>: {0}\n",
                 (focusedGrid.Max + Vector3.Abs(focusedGrid.Min)).ToString());
             sb.AppendFormat("<color=Green>Max Speed<color=White>: {0}\n", speed);
+            //sb.AppendFormat("<color=Green>Reduced Angular Speed (rad/s):<color=White>: {0}\n", reducedAngularSpeed);
             sb.AppendLine(); //blank line
 
             // Battle Stats
             sb.AppendLine("<color=Orange>----Battle Stats----");
-            sb.AppendFormat("<color=Green>Battle Points<color=White>: {0}\n", _shipTracker.BattlePoints);
+            //sb.AppendFormat("<color=Green>Battle Points<color=White>: {0}\n", _shipTracker.BattlePoints);
             sb.AppendFormat("<color=Green>Thrust<color=White>: {0}N\n", thrustString);
             sb.AppendFormat("<color=Green>Power<color=White>: {0}\n", pwr);
             sb.AppendLine(); //blank line
