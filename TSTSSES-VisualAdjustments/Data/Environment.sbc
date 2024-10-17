@@ -71,7 +71,7 @@
     <!-- Disables vignette effect -->
     <PostProcessSettings>
       <EnableTonemapping>true</EnableTonemapping>
-      <EnableEyeAdaptation>false</EnableEyeAdaptation>
+      <EnableEyeAdaptation>true</EnableEyeAdaptation>
       <HighQualityBloom>true</HighQualityBloom>
       <BloomAntiFlickerFilter>true</BloomAntiFlickerFilter>
 
@@ -81,8 +81,8 @@
       <HistogramFilterMin>65</HistogramFilterMin>
       <HistogramFilterMax>98</HistogramFilterMax>
       <HistogramSkyboxFactor>0.25</HistogramSkyboxFactor>
-      <MinEyeAdaptationLogBrightness>-6.0</MinEyeAdaptationLogBrightness>
-      <MaxEyeAdaptationLogBrightness>0.95</MaxEyeAdaptationLogBrightness>
+      <MinEyeAdaptationLogBrightness>-5.0</MinEyeAdaptationLogBrightness>
+      <MaxEyeAdaptationLogBrightness>5.0</MaxEyeAdaptationLogBrightness>
       <DirtTexture>Textures\SunGlare\Dirt.dds</DirtTexture>
       <ChromaticIterations>1</ChromaticIterations>
       <EyeAdaptationPrioritizeScreenCenter>false</EyeAdaptationPrioritizeScreenCenter>
