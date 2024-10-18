@@ -52,7 +52,7 @@
     <Definition xsi:type="MyObjectBuilder_UpgradeModuleDefinition">
       <Id>
         <TypeId>UpgradeModule</TypeId>
-        <SubtypeId>SlipspaceDriveLarge</SubtypeId>
+        <SubtypeId>SlipspaceCoreLarge</SubtypeId>
       </Id>
       <Public>true</Public>
       <DisplayName>Slipspace™ Core (Large)</DisplayName>
