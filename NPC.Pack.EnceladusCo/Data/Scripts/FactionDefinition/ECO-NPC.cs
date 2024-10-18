@@ -140,7 +140,7 @@ namespace FactionsStruct
             },
             Player = new List<string>
             {
-                "ECO"
+               // "ECO"
             },
 
             // formations
