@@ -12,9 +12,11 @@ namespace FORCERELATIONS
     {
         public static bool isInit = false;
         public int runCount = 0;
+        private static readonly HashSet<string> AdmPeaceWhitelist = new HashSet<string> { "ECO", "ECO-NPC", "GLF", "GLF-NPC" };
 
         public override void UpdateBeforeSimulation()
         {
+            // Ensure that only the server runs this logic.
             if (!MyAPIGateway.Multiplayer.IsServer && !MyAPIGateway.Utilities.IsDedicated)
                 return;
 
@@ -31,7 +33,8 @@ namespace FORCERELATIONS
         public void init()
         {
             isInit = true;
-            MyLog.Default.WriteLineAndConsole("ForceRelations: Initialized with hardcoded faction logic.");
+            MyLog.Default.WriteLineAndConsole("ForceRelations: Initialized with faction war/peace logic.");
+            //MyVisualScriptLogicProvider.SendChatMessage("ForceRelations: Initialized faction logic", "Server");
         }
 
         public void main()
@@ -42,56 +45,45 @@ namespace FORCERELATIONS
 
                 foreach (var faction in factionList)
                 {
-                    // ADM should be friendly to everyone
+                    // ADM should make peace with factions in the whitelist only (ECO, ECO-NPC, GLF, GLF-NPC)
                     if (faction.Value.Tag == "ADM")
                     {
                         foreach (var otherFaction in factionList)
                         {
-                            if (otherFaction.Value.Tag != "ADM")
-                                MyVisualScriptLogicProvider.SetRelationBetweenFactions("ADM", otherFaction.Value.Tag, 1500);
+                            if (AdmPeaceWhitelist.Contains(otherFaction.Value.Tag))
+                            {
+                                // ADM makes peace with the whitelisted factions
+                                MyAPIGateway.Session.Factions.SendPeaceRequest(faction.Value.FactionId, otherFaction.Value.FactionId);
+                                MyAPIGateway.Session.Factions.AcceptPeace(faction.Value.FactionId, otherFaction.Value.FactionId);
+
+                                //MyVisualScriptLogicProvider.SendChatMessage($"ADM has made peace with {otherFaction.Value.Tag}", "Server");
+                            }
                         }
                     }
 
-                    // ECO and ECO-NPC should be friendly to each other
-                    if (faction.Value.Tag == "ECO")
-                    {
-                        MyVisualScriptLogicProvider.SetRelationBetweenFactions("ECO", "ECO-NPC", 1500);
-                    }
-
-                    if (faction.Value.Tag == "ECO-NPC")
-                    {
-                        MyVisualScriptLogicProvider.SetRelationBetweenFactions("ECO-NPC", "ECO", 1500);
-                    }
-
-                    // GLF and GLF-NPC should be friendly to each other
-                    if (faction.Value.Tag == "GLF")
-                    {
-                        MyVisualScriptLogicProvider.SetRelationBetweenFactions("GLF", "GLF-NPC", 1500);
-                    }
-
-                    if (faction.Value.Tag == "GLF-NPC")
-                    {
-                        MyVisualScriptLogicProvider.SetRelationBetweenFactions("GLF-NPC", "GLF", 1500);
-                    }
-
-                    // GLF and GLF-NPC should always be hostile to ECO and ECO-NPC
+                    // GLF and GLF-NPC should declare war on ECO and ECO-NPC
                     if (faction.Value.Tag == "GLF" || faction.Value.Tag == "GLF-NPC")
                     {
-                        MyVisualScriptLogicProvider.SetRelationBetweenFactions(faction.Value.Tag, "ECO", -1500);
-                        MyVisualScriptLogicProvider.SetRelationBetweenFactions(faction.Value.Tag, "ECO-NPC", -1500);
+                        MyAPIGateway.Session.Factions.DeclareWar(faction.Value.FactionId, MyAPIGateway.Session.Factions.TryGetFactionByTag("ECO").FactionId);
+                        MyAPIGateway.Session.Factions.DeclareWar(faction.Value.FactionId, MyAPIGateway.Session.Factions.TryGetFactionByTag("ECO-NPC").FactionId);
+
+                        //MyVisualScriptLogicProvider.SendChatMessage($"{faction.Value.Tag} has declared war on ECO and ECO-NPC", "Server");
                     }
 
-                    // ECO and ECO-NPC should always be hostile to GLF and GLF-NPC
+                    // ECO and ECO-NPC should declare war on GLF and GLF-NPC
                     if (faction.Value.Tag == "ECO" || faction.Value.Tag == "ECO-NPC")
                     {
-                        MyVisualScriptLogicProvider.SetRelationBetweenFactions(faction.Value.Tag, "GLF", -1500);
-                        MyVisualScriptLogicProvider.SetRelationBetweenFactions(faction.Value.Tag, "GLF-NPC", -1500);
+                        MyAPIGateway.Session.Factions.DeclareWar(faction.Value.FactionId, MyAPIGateway.Session.Factions.TryGetFactionByTag("GLF").FactionId);
+                        MyAPIGateway.Session.Factions.DeclareWar(faction.Value.FactionId, MyAPIGateway.Session.Factions.TryGetFactionByTag("GLF-NPC").FactionId);
+
+                        //MyVisualScriptLogicProvider.SendChatMessage($"{faction.Value.Tag} has declared war on GLF and GLF-NPC", "Server");
                     }
                 }
             }
             catch (System.Exception ex)
             {
                 MyLog.Default.WriteLineAndConsole("Relations Main error: " + ex.ToString());
+                //MyVisualScriptLogicProvider.SendChatMessage("Relations error: " + ex.ToString(), "Server");
             }
         }
     }
