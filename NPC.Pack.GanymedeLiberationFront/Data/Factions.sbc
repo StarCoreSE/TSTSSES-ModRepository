@@ -12,7 +12,7 @@
             <StartingBalance>1000000000</StartingBalance>
             <Type>Trader</Type>
             <AcceptHumans>true</AcceptHumans>
-            <AutoAcceptMember>true</AutoAcceptMember>
+            <AutoAcceptMember>false</AutoAcceptMember>
             <AutoAcceptPeace>false</AutoAcceptPeace>
             <DiscoveredByDefault>true</DiscoveredByDefault>
             <DefaultRelation>Neutral</DefaultRelation>
