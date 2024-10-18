@@ -7,7 +7,7 @@
                 <TypeId>MyObjectBuilder_FactionDefinition</TypeId>
                 <SubtypeId>GLF-NPC</SubtypeId>
             </Id>
-            <DisplayName>GLF Logistics</DisplayName>
+            <DisplayName>Ganymede Liberation Front</DisplayName>
             <IsDefault>true</IsDefault>
             <StartingBalance>1000000000</StartingBalance>
             <Type>Trader</Type>
@@ -16,7 +16,7 @@
             <AutoAcceptPeace>false</AutoAcceptPeace>
             <DiscoveredByDefault>true</DiscoveredByDefault>
             <DefaultRelation>Neutral</DefaultRelation>
-            <Description>Ganymede Liberation Front NPCs</Description>
+            <Description>The Ganymede Liberation Front (GLF) emerged from a workers' revolt against the Enceladus Corporation (ECO) after years of labor exploitation.</Description>
         </Faction>
 
     </Factions>

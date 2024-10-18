@@ -141,7 +141,7 @@ namespace FactionsStruct
             },
             Player = new List<string>
             {
-                "GLF"
+                //"GLF"
             },
 
             // formations

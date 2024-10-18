@@ -7,7 +7,7 @@
                 <TypeId>MyObjectBuilder_FactionDefinition</TypeId>
                 <SubtypeId>ECO-NPC</SubtypeId>
             </Id>
-            <DisplayName>ECO Logistics</DisplayName>
+            <DisplayName>Enceladus Corporation</DisplayName>
             <IsDefault>true</IsDefault>
             <StartingBalance>1000000000</StartingBalance>
             <Type>Trader</Type>
@@ -16,7 +16,7 @@
             <AutoAcceptPeace>false</AutoAcceptPeace>
             <DiscoveredByDefault>true</DiscoveredByDefault>
             <DefaultRelation>Neutral</DefaultRelation>
-            <Description>Enceladus Corporation NPCs</Description>
+            <Description>The combined assets of several wealthy CEOs and government entities with the goal of harvesting the rings of Saturn for its riches.</Description>
         </Faction>
 
     </Factions>
