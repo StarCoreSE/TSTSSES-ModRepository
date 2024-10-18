@@ -23,7 +23,7 @@ namespace FORCERELATIONS
             if (!isInit)
                 init();
 
-            if (++runCount % 360 > 0) // Runs every minute (3600 ticks = 1 minute)
+            if (++runCount % 3600 > 0) // Runs every minute (3600 ticks = 1 minute)
                 return;
 
             runCount = 0;
@@ -34,7 +34,7 @@ namespace FORCERELATIONS
         {
             isInit = true;
             MyLog.Default.WriteLineAndConsole("ForceRelations: Initialized with faction war/peace logic.");
-            MyVisualScriptLogicProvider.SendChatMessage("ForceRelations: Initialized faction logic", "Server");
+            //MyVisualScriptLogicProvider.SendChatMessage("ForceRelations: Initialized faction logic", "Server");
         }
 
         public void main()
@@ -56,7 +56,7 @@ namespace FORCERELATIONS
                                 MyAPIGateway.Session.Factions.SendPeaceRequest(faction.Value.FactionId, otherFaction.Value.FactionId);
                                 MyAPIGateway.Session.Factions.AcceptPeace(faction.Value.FactionId, otherFaction.Value.FactionId);
 
-                                MyVisualScriptLogicProvider.SendChatMessage($"ADM has made peace with {otherFaction.Value.Tag}", "Server");
+                                //MyVisualScriptLogicProvider.SendChatMessage($"ADM has made peace with {otherFaction.Value.Tag}", "Server");
                             }
                         }
                     }
@@ -67,7 +67,7 @@ namespace FORCERELATIONS
                         MyAPIGateway.Session.Factions.DeclareWar(faction.Value.FactionId, MyAPIGateway.Session.Factions.TryGetFactionByTag("ECO").FactionId);
                         MyAPIGateway.Session.Factions.DeclareWar(faction.Value.FactionId, MyAPIGateway.Session.Factions.TryGetFactionByTag("ECO-NPC").FactionId);
 
-                        MyVisualScriptLogicProvider.SendChatMessage($"{faction.Value.Tag} has declared war on ECO and ECO-NPC", "Server");
+                        //MyVisualScriptLogicProvider.SendChatMessage($"{faction.Value.Tag} has declared war on ECO and ECO-NPC", "Server");
                     }
 
                     // ECO and ECO-NPC should declare war on GLF and GLF-NPC
@@ -76,14 +76,14 @@ namespace FORCERELATIONS
                         MyAPIGateway.Session.Factions.DeclareWar(faction.Value.FactionId, MyAPIGateway.Session.Factions.TryGetFactionByTag("GLF").FactionId);
                         MyAPIGateway.Session.Factions.DeclareWar(faction.Value.FactionId, MyAPIGateway.Session.Factions.TryGetFactionByTag("GLF-NPC").FactionId);
 
-                        MyVisualScriptLogicProvider.SendChatMessage($"{faction.Value.Tag} has declared war on GLF and GLF-NPC", "Server");
+                        //MyVisualScriptLogicProvider.SendChatMessage($"{faction.Value.Tag} has declared war on GLF and GLF-NPC", "Server");
                     }
                 }
             }
             catch (System.Exception ex)
             {
                 MyLog.Default.WriteLineAndConsole("Relations Main error: " + ex.ToString());
-                MyVisualScriptLogicProvider.SendChatMessage("Relations error: " + ex.ToString(), "Server");
+                //MyVisualScriptLogicProvider.SendChatMessage("Relations error: " + ex.ToString(), "Server");
             }
         }
     }
