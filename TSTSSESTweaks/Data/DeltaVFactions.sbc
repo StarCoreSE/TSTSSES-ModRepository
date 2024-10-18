@@ -41,7 +41,7 @@
           <TypeId>MyObjectBuilder_FactionDefinition</TypeId>
           <SubtypeId>GLF</SubtypeId>
         </Id>
-        <DisplayName>Enceladus Corporation</DisplayName>
+        <DisplayName>Ganymede Liberation Front</DisplayName>
         <IsDefault>true</IsDefault>
         <StartingBalance>1</StartingBalance>
         <Type>None</Type>
