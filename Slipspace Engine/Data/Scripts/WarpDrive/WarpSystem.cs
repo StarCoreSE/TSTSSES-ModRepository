@@ -1687,7 +1687,7 @@ namespace WarpDriveMod
                         }
                         else
                         {
-                            if (drive.Block.BlockDefinition.SubtypeId == "SlipspaceDriveLarge")
+                            if (drive.Block.BlockDefinition.SubtypeId == "SlipspaceCoreLarge")
                                 totalPower = WarpDrive.Instance.Settings.baseRequiredPower + (_mass * 2.1f / 1000000f);
                         }
                     }
@@ -1743,7 +1743,7 @@ namespace WarpDriveMod
                             }
                             else
                             {
-                                if (drive.Block.BlockDefinition.SubtypeId == "SlipspaceDriveLarge")
+                                if (drive.Block.BlockDefinition.SubtypeId == "SlipspaceCoreLarge")
                                     totalPower = (WarpDrive.Instance.Settings.baseRequiredPower + percent) / WarpDrive.Instance.Settings.powerRequirementBySpeedDeviderLarge;
                             }
                         }
