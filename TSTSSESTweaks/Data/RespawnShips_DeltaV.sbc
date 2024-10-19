@@ -47,8 +47,6 @@
       <SpawnPositionDispersionMax>10000000</SpawnPositionDispersionMax>
       <!-- maximum deviation from position -->
 
-      <InitialLinearVelocity x="0" y="0" z="0" />
-      <InitialAngularVelocity x="0.0" y="0.0" z="0.0" />
 
       <HelpTextLocalizationId>RespawnScreeenHelpTextSpawn</HelpTextLocalizationId>
     </Ship>
@@ -73,9 +71,6 @@
       <SpawnPositionDispersionMax>10000000</SpawnPositionDispersionMax>
       <!-- maximum deviation from position -->
 
-      <InitialLinearVelocity x="0" y="0" z="0" />
-      <InitialAngularVelocity x="0.0" y="0.0" z="0.0" />
-
       <HelpTextLocalizationId>RespawnScreeenHelpTextSpawn</HelpTextLocalizationId>
     </Ship>
 
@@ -98,9 +93,6 @@
       <!-- minimum deviation from position -->
       <SpawnPositionDispersionMax>10000000</SpawnPositionDispersionMax>
       <!-- maximum deviation from position -->
-
-      <InitialLinearVelocity x="0" y="0" z="0" />
-      <InitialAngularVelocity x="0.0" y="0.0" z="0.0" />
 
       <HelpTextLocalizationId>RespawnScreeenHelpTextSpawn</HelpTextLocalizationId>
     </Ship>
