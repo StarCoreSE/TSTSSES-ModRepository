@@ -1327,7 +1327,6 @@ namespace WarpDriveMod
 
         public void Dewarp(bool Collision = false)
         {
-
             // Check if we've been in warp for more than 1 minute (assuming 60 updates per second)
             if (WarpState == State.Active &&
                 grid?.MainGrid != null &&
@@ -1343,8 +1342,8 @@ namespace WarpDriveMod
                     ? MyColorPickerConstants.HSVOffsetToHSV(faction.CustomColor).HSVtoColor()
                     : Color.Black; // Default color if no faction
 
-                // Ensure this is only run on the server (dedicated or host) to avoid multiple executions
-                if (!(MyAPIGateway.Multiplayer.IsServer || MyAPIGateway.Utilities.IsDedicated))
+                // Server-only block for adding GPS
+                if (MyAPIGateway.Multiplayer.IsServer || MyAPIGateway.Utilities.IsDedicated)
                 {
                     // Only the server or dedicated server adds the GPS marker once, visible to all players
                     MyVisualScriptLogicProvider.AddGPSForAll(
@@ -1353,10 +1352,10 @@ namespace WarpDriveMod
                         exitPosition,
                         gpsColor,
                         30);
-                };
+                }
             }
 
-
+            // The rest of Dewarp() executes on both client and server to maintain synchronization
 
             if (PlayersInWarpList.Count > 0)
             {
@@ -1378,6 +1377,7 @@ namespace WarpDriveMod
             var MainGrid = grid.MainGrid;
             var WarpDriveOnGrid = GetActiveWarpDrive(MainGrid);
 
+            // Sending network message to other players for warp state changes
             if (WarpDriveOnGrid != null && WarpState == State.Active && (MyAPIGateway.Multiplayer.IsServer || MyAPIGateway.Utilities.IsDedicated))
             {
                 if (WarpDriveOnGrid != null)
