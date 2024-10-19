@@ -1323,8 +1323,17 @@ namespace WarpDriveMod
             return GridDrives;
         }
 
+        private bool isDewarping = false;
+
         public void Dewarp(bool Collision = false)
         {
+            // Check if already dewarping
+            if (isDewarping)
+            {
+                return;
+            }
+            isDewarping = true; // Set the flag to indicate dewarping is in progress
+
             // Check if we've been in warp for more than 1 minute (assuming 60 updates per second)
             if (WarpState == State.Active &&
                 grid?.MainGrid != null &&
@@ -1333,20 +1342,24 @@ namespace WarpDriveMod
             {
                 Vector3D exitPosition = grid.MainGrid.PositionComp.GetPosition();
 
-                // Get faction color or use a default color
+                // Get faction color
                 long ownerId = grid.MainGrid.BigOwners.FirstOrDefault();
                 var faction = MyAPIGateway.Session.Factions.TryGetPlayerFaction(ownerId);
-                Color gpsColor = faction != null
-                    ? MyColorPickerConstants.HSVOffsetToHSV(faction.CustomColor).HSVtoColor()
-                    : Color.Black; // Default color if no faction
+                Color gpsColor = Color.Black; // Default color if no faction
 
-                // Add a GPS marker at the grid's exit position for all players
+                if (faction != null)
+                {
+                    var colorMask = faction.CustomColor;
+                    gpsColor = MyColorPickerConstants.HSVOffsetToHSV(colorMask).HSVtoColor();
+                }
+
+                // Add GPS marker once, visible to all players
                 MyVisualScriptLogicProvider.AddGPSForAll(
                     "Slipspace™ Exit Signature",
                     "A ship has exited slipspace™ here!",
                     exitPosition,
                     gpsColor,
-                    30); // The GPS disappears after 30 seconds
+                    30);
             }
 
             if (PlayersInWarpList.Count > 0)
@@ -1459,6 +1472,9 @@ namespace WarpDriveMod
                 else
                     WarpDriveSession.Instance.warpDrivesSpeeds[WarpDriveOnGrid] = currentSpeedPt;
             }
+
+            // Dewarping is complete, reset the flag
+            isDewarping = false;
         }
 
         private void InCharge()
