@@ -419,7 +419,7 @@ namespace WarpDriveMod
                     return true;
                 }
 
-                if (!(ent is MyCubeGrid || ent is MyVoxelMap || ent is IMyDestroyableObject ))
+                if (!(ent is MyCubeGrid || ent is MyVoxelMap ))
                     continue;
 
                 // Checking proximity to entities
