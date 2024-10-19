@@ -13,6 +13,7 @@ using VRage.Game;
 using VRage.Game.Components;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
+using VRage.Game.ModAPI.Interfaces;
 using VRage.ModAPI;
 using VRage.ObjectBuilders;
 using VRage.Utils;
@@ -312,7 +313,7 @@ namespace WarpDriveMod
                 if (ent is MySafeZone)
                     return true;
 
-                if (!(ent is MyCubeGrid || ent is MyVoxelMap))
+                if (!(ent is MyCubeGrid || ent is MyVoxelMap || ent is IMyDestroyableObject ))
                     continue;
 
                 // dont stop if grid speed is 20 or above.
@@ -418,7 +419,7 @@ namespace WarpDriveMod
                     return true;
                 }
 
-                if (!(ent is MyCubeGrid || ent is MyVoxelMap))
+                if (!(ent is MyCubeGrid || ent is MyVoxelMap || ent is IMyDestroyableObject ))
                     continue;
 
                 // Checking proximity to entities
