@@ -4,14 +4,14 @@
     <Ship>
       <Id>
         <TypeId>RespawnShipDefinition</TypeId>
-        <SubtypeId>K37 Trawler</SubtypeId>
+        <SubtypeId>K37_Trawler_Respawn</SubtypeId>
       </Id>
       <DisplayName>K37 Trawler</DisplayName>
       <Icon>Textures\GUI\Icons\RespawnShips\k37.png</Icon>
       <CooldownSeconds>900</CooldownSeconds>
-      <Prefab>K37_Trawler</Prefab>
+      <Prefab>K37 Trawler</Prefab>
 
-      <PlanetDeployAltitude>200000</PlanetDeployAltitude>
+      <PlanetDeployAltitude>2000</PlanetDeployAltitude>
 
       <UseForSpace>true</UseForSpace>
       <UseForPlanetsWithoutAtmosphere>true</UseForPlanetsWithoutAtmosphere>
