@@ -22,15 +22,15 @@ namespace NerdRadar.DeltaVAddon
                 ["DeltaV_Search_Radar_Large"] = new RadarStat()
                 {
                     MaxRadiatedPower = 30000, // 30 MW
-                    Gain = 50,
-                    Sensitivity = -40,
+                    Gain = 500,
+                    Sensitivity = -400,
                     MaxSearchRange = 10000000, // 10,000 km
 
                     ApertureSize = 300,
                     NoiseFilter = 2,
                     SignalToNoiseRatio = 1,
 
-                    PositionError = 800,
+                    PositionError = 80,
                     VelocityError = 5,
 
                     CanTargetLock = false,
@@ -45,15 +45,15 @@ namespace NerdRadar.DeltaVAddon
                 ["DeltaV_Track_Radar_Large"] = new RadarStat()
                 {
                     MaxRadiatedPower = 5000, // 5 MW
-                    Gain = 50,
-                    Sensitivity = -40,
+                    Gain = 500,
+                    Sensitivity = -400,
                     MaxSearchRange = 250000, // 250 km
 
                     ApertureSize = 50,
                     NoiseFilter = 1,
                     SignalToNoiseRatio = 1,
 
-                    PositionError = 20,
+                    PositionError = 2,
                     VelocityError = 1,
 
                     CanTargetLock = true,
@@ -68,15 +68,15 @@ namespace NerdRadar.DeltaVAddon
                 ["DeltaV_Search_Radar_Small"] = new RadarStat()
                 {
                     MaxRadiatedPower = 1500, // 1.5 MW
-                    Gain = 40,
-                    Sensitivity = -30,
+                    Gain = 400,
+                    Sensitivity = -300,
                     MaxSearchRange = 500000, // 500 km
 
                     ApertureSize = 15,
                     NoiseFilter = 2,
                     SignalToNoiseRatio = 1,
 
-                    PositionError = 400,
+                    PositionError = 40,
                     VelocityError = 5,
 
                     CanTargetLock = false,
@@ -91,15 +91,15 @@ namespace NerdRadar.DeltaVAddon
                 ["DeltaV_Track_Radar_Small"] = new RadarStat()
                 {
                     MaxRadiatedPower = 250, // 250 kW
-                    Gain = 50,
-                    Sensitivity = -40,
+                    Gain = 500,
+                    Sensitivity = -400,
                     MaxSearchRange = 50000, // 50 km
 
                     ApertureSize = 5,
                     NoiseFilter = 1,
                     SignalToNoiseRatio = 1,
 
-                    PositionError = 50,
+                    PositionError = 5,
                     VelocityError = 1,
 
                     CanTargetLock = true,
@@ -119,7 +119,7 @@ namespace NerdRadar.DeltaVAddon
                 ["DeltaV_LargeJammer"] = new JammerStat()
                 {
                     MaxRadiatedPower = 15000, // 15 MW
-                    Gain = 15,
+                    Gain = 150,
                     MaxSearchRange = 500000, // 500 km
 
                     AreaEffectRatio = 0.4f, // Larger area of effect
