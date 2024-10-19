@@ -1327,11 +1327,6 @@ namespace WarpDriveMod
 
         public void Dewarp(bool Collision = false)
         {
-            // Ensure this is only run on the server (dedicated or host) to avoid multiple executions
-            if (!(MyAPIGateway.Multiplayer.IsServer || MyAPIGateway.Utilities.IsDedicated))
-            {
-                return;
-            }
 
             // Check if we've been in warp for more than 1 minute (assuming 60 updates per second)
             if (WarpState == State.Active &&
@@ -1348,14 +1343,20 @@ namespace WarpDriveMod
                     ? MyColorPickerConstants.HSVOffsetToHSV(faction.CustomColor).HSVtoColor()
                     : Color.Black; // Default color if no faction
 
-                // Only the server or dedicated server adds the GPS marker once, visible to all players
-                MyVisualScriptLogicProvider.AddGPSForAll(
-                    "Slipspace™ Exit Signature",
-                    "A ship has exited slipspace™ here!",
-                    exitPosition,
-                    gpsColor,
-                    30);
+                // Ensure this is only run on the server (dedicated or host) to avoid multiple executions
+                if (!(MyAPIGateway.Multiplayer.IsServer || MyAPIGateway.Utilities.IsDedicated))
+                {
+                    // Only the server or dedicated server adds the GPS marker once, visible to all players
+                    MyVisualScriptLogicProvider.AddGPSForAll(
+                        "Slipspace™ Exit Signature",
+                        "A ship has exited slipspace™ here!",
+                        exitPosition,
+                        gpsColor,
+                        30);
+                };
             }
+
+
 
             if (PlayersInWarpList.Count > 0)
             {
