@@ -4,16 +4,17 @@
     <Ship>
       <Id>
         <TypeId>RespawnShipDefinition</TypeId>
-        <SubtypeId>SpawnShuttle</SubtypeId>
+        <SubtypeId>K37_Trawler_Respawn</SubtypeId>
       </Id>
-      <DisplayName>DisplayName_RespawnPodSpace</DisplayName>
-      <Icon>Textures\GUI\Icons\RespawnShips\shuttle.png</Icon>
+      <DisplayName>K37 Trawler</DisplayName>
+      <Icon>Textures\GUI\Icons\RespawnShips\k37.png</Icon>
       <CooldownSeconds>900</CooldownSeconds>
-      <Prefab>SpawnShuttle</Prefab>
+      <Prefab>K37 Trawler</Prefab>
 
       <PlanetDeployAltitude>2000</PlanetDeployAltitude>
 
       <UseForSpace>true</UseForSpace>
+      <UseForPlanetsWithoutAtmosphere>true</UseForPlanetsWithoutAtmosphere>
 
       <InitialLinearVelocity x="0" y="0" z="0" />
       <InitialAngularVelocity x="0.0" y="0.0" z="0.0" />
@@ -22,59 +23,5 @@
     </Ship>
   
 
-
-
-
-
-
-
-
-    <Ship Enabled ="false">
-      <Id>
-        <TypeId>RespawnShipDefinition</TypeId>
-        <SubtypeId>RespawnPlanetPod</SubtypeId>
-      </Id>
-      <DisplayName>DisplayName_PlanetaryLander</DisplayName>
-      <Icon>Textures\GUI\Icons\RespawnShips\RespawnPlanetPod.png</Icon>
-      <CooldownSeconds>900</CooldownSeconds>
-      <Prefab>RespawnPlanetPod</Prefab>
-      
-      <MinimalAirDensity>0.8</MinimalAirDensity>
-      <PlanetDeployAltitude>2000</PlanetDeployAltitude>
-      <UseForPlanetsWithAtmosphere>true</UseForPlanetsWithAtmosphere>
-
-      <InitialLinearVelocity x="0" y="-95" z="0" />
-      <InitialAngularVelocity x="0" y="0.5" z="0" />
-      <HelpTextLocalizationId>RespawnScreeenHelpTextSpawn</HelpTextLocalizationId>
-    </Ship>
-    
-    <Ship Enabled ="false">
-      <Id>
-        <TypeId>RespawnShipDefinition</TypeId>
-        <SubtypeId>RespawnMoonPod</SubtypeId>
-      </Id>
-      <DisplayName>DisplayName_PlanetaryLander</DisplayName>
-      <Icon>Textures\GUI\Icons\RespawnShips\RespawnMoonPod.png</Icon>
-      <CooldownSeconds>900</CooldownSeconds>
-      <Prefab>RespawnMoonPod</Prefab>
-      
-      <PlanetDeployAltitude>8</PlanetDeployAltitude>
-      <UseForPlanetsWithoutAtmosphere>true</UseForPlanetsWithoutAtmosphere>
-      <HelpTextLocalizationId>RespawnScreeenHelpTextSpawn</HelpTextLocalizationId>
-    </Ship>
-    
-    <Ship Enabled ="false">
-      <Id>
-        <TypeId>RespawnShipDefinition</TypeId>
-        <SubtypeId>RespawnSpacePod</SubtypeId>
-      </Id>
-      <DisplayName>DisplayName_RespawnPodSpace</DisplayName>
-      <Icon>Textures\GUI\Icons\RespawnShips\RespawnSpacePod.png</Icon>
-      <CooldownSeconds>900</CooldownSeconds>
-      <Prefab>RespawnSpacePod</Prefab>
-      
-      <UseForSpace>true</UseForSpace>
-      <HelpTextLocalizationId>RespawnScreeenHelpTextSpaceSpawn</HelpTextLocalizationId>
-    </Ship>
   </RespawnShips>
 </Definitions>
