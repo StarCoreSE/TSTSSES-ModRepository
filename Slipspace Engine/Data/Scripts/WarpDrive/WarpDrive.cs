@@ -369,12 +369,13 @@ namespace WarpDriveMod
             // Checking player permissions in safe zones (possibly null or causing issues)
             if (MyAPIGateway.Session?.Player != null)
             {
-                bool allowed = MySessionComponentSafeZones.IsActionAllowed(MyAPIGateway.Session.Player.Character.WorldMatrix.Translation, CastProhibit(MySessionComponentSafeZones.AllowedActions, 1));
-                if (!allowed)
-                {
-                    MyLog.Default.WriteLineAndConsole("ProxymityDangerCharge: Player is in a restricted area (safe zone).");
-                    return true;
-                }
+                //bool allowed = MySessionComponentSafeZones.IsActionAllowed(MyAPIGateway.Session.Player.Character.WorldMatrix.Translation, CastProhibit(MySessionComponentSafeZones.AllowedActions, 1));
+                bool allowed = true;
+                //if (!allowed)
+                //{
+                //    MyLog.Default.WriteLineAndConsole("ProxymityDangerCharge: Player is in a restricted area (safe zone).");
+                //    return true;
+                //}
             }
 
             // Calculate positions based on grid size
