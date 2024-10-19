@@ -1333,23 +1333,20 @@ namespace WarpDriveMod
             {
                 Vector3D exitPosition = grid.MainGrid.PositionComp.GetPosition();
 
-                // Get faction color
+                // Get faction color or use a default color
                 long ownerId = grid.MainGrid.BigOwners.FirstOrDefault();
                 var faction = MyAPIGateway.Session.Factions.TryGetPlayerFaction(ownerId);
-                Color gpsColor = Color.Black; // Default color if no faction
+                Color gpsColor = faction != null
+                    ? MyColorPickerConstants.HSVOffsetToHSV(faction.CustomColor).HSVtoColor()
+                    : Color.Black; // Default color if no faction
 
-                if (faction != null)
-                {
-                    var colorMask = faction.CustomColor;
-                    gpsColor = MyColorPickerConstants.HSVOffsetToHSV(colorMask).HSVtoColor();
-                }
-
+                // Add a GPS marker at the grid's exit position for all players
                 MyVisualScriptLogicProvider.AddGPSForAll(
                     "Slipspace™ Exit Signature",
                     "A ship has exited slipspace™ here!",
                     exitPosition,
                     gpsColor,
-                    30);
+                    30); // The GPS disappears after 30 seconds
             }
 
             if (PlayersInWarpList.Count > 0)
