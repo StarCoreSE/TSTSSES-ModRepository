@@ -22,8 +22,8 @@ namespace NerdRadar.DeltaVAddon
                 ["DeltaV_Search_Radar_Large"] = new RadarStat()
                 {
                     MaxRadiatedPower = 30000, // 30 MW
-                    Gain = 500,
-                    Sensitivity = -400,
+                    Gain = 50,
+                    Sensitivity = -40,
                     MaxSearchRange = 10000000, // 10,000 km
 
                     ApertureSize = 300,
@@ -45,8 +45,8 @@ namespace NerdRadar.DeltaVAddon
                 ["DeltaV_Track_Radar_Large"] = new RadarStat()
                 {
                     MaxRadiatedPower = 5000, // 5 MW
-                    Gain = 500,
-                    Sensitivity = -400,
+                    Gain = 50,
+                    Sensitivity = -40,
                     MaxSearchRange = 250000, // 250 km
 
                     ApertureSize = 50,
@@ -68,8 +68,8 @@ namespace NerdRadar.DeltaVAddon
                 ["DeltaV_Search_Radar_Small"] = new RadarStat()
                 {
                     MaxRadiatedPower = 1500, // 1.5 MW
-                    Gain = 400,
-                    Sensitivity = -300,
+                    Gain = 40,
+                    Sensitivity = -30,
                     MaxSearchRange = 500000, // 500 km
 
                     ApertureSize = 15,
@@ -91,8 +91,8 @@ namespace NerdRadar.DeltaVAddon
                 ["DeltaV_Track_Radar_Small"] = new RadarStat()
                 {
                     MaxRadiatedPower = 250, // 250 kW
-                    Gain = 5,
-                    Sensitivity = -400,
+                    Gain = 50,
+                    Sensitivity = -40,
                     MaxSearchRange = 50000, // 50 km
 
                     ApertureSize = 5,
