@@ -26,14 +26,14 @@ namespace invalid.BugReporter
             if (MyAPIGateway.Input.IsKeyPress(MyKeys.LeftShift) && MyAPIGateway.Input.IsNewKeyPressed(MyKeys.F2) && ValidInput()) //hey dumbass, use this before the url. fucking keen https://steamcommunity.com/linkfilter/?url={url}
             {
                
-                MyVisualScriptLogicProvider.OpenSteamOverlay("https://docs.google.com/document/d/1FywTQVZyCAt-eoNNNCeoVxqu6pSS32fvhnnBH4cN2gI/edit?usp=sharing");
+                MyVisualScriptLogicProvider.OpenSteamOverlay("https://steamcommunity.com/linkfilter/?url=https://docs.google.com/document/d/1FywTQVZyCAt-eoNNNCeoVxqu6pSS32fvhnnBH4cN2gI/edit?usp=sharing");
 						
             }	
 			
 			if (MyAPIGateway.Input.IsKeyPress(MyKeys.LeftControl) && MyAPIGateway.Input.IsNewKeyPressed(MyKeys.F2) && ValidInput()) //hey dumbass, use this before the url. fucking keen https://steamcommunity.com/linkfilter/?url={url}
             {
                
-                MyVisualScriptLogicProvider.OpenSteamOverlay("https://forms.gle/uWJQGmaJ2gTdGTFs5");
+                MyVisualScriptLogicProvider.OpenSteamOverlay("https://steamcommunity.com/linkfilter/?url=https://forms.gle/x8ZaBQVU86rQenJw9");
 						
             }	
 				
