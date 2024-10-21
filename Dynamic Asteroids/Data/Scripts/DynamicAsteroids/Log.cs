@@ -106,22 +106,19 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
         {
             lock (_lockObject)
             {
-                var currentTime = DateTime.UtcNow;
+                DateTime currentTime = DateTime.UtcNow;
                 var entriesToRemove = new List<string>();
 
                 foreach (var kvp in _cachedMessages)
                 {
-                    var entry = kvp.Value;
-                    if ((currentTime - entry.LastOccurrence).TotalSeconds >= _flushIntervalSeconds)
-                    {
-                        string logMessage = entry.Count > 1
-                            ? string.Format("[{0:HH:mm:ss}]: Repeated {1} times in {2:F1}s: {3}",
-                                currentTime, entry.Count, (entry.LastOccurrence - entry.FirstOccurrence).TotalSeconds, entry.Message)
-                            : string.Format("[{0:HH:mm:ss}]: {1}", currentTime, entry.Message);
+                    LogEntry entry = kvp.Value;
+                    if (!((currentTime - entry.LastOccurrence).TotalSeconds >= _flushIntervalSeconds)) continue;
+                    string logMessage = entry.Count > 1
+                        ? $"[{currentTime:HH:mm:ss}]: Repeated {entry.Count} times in {(entry.LastOccurrence - entry.FirstOccurrence).TotalSeconds:F1}s: {entry.Message}"
+                        : $"[{currentTime:HH:mm:ss}]: {entry.Message}";
 
-                        WriteToFile(logMessage);
-                        entriesToRemove.Add(kvp.Key);
-                    }
+                    WriteToFile(logMessage);
+                    entriesToRemove.Add(kvp.Key);
                 }
 
                 foreach (var key in entriesToRemove)
@@ -148,8 +145,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 return;
             }
 
-            string exceptionMessage = prefix + string.Format("Exception in {0}! {1}\n{2}\n{3}",
-                callingType.FullName, ex.Message, ex.StackTrace, ex.InnerException);
+            string exceptionMessage = prefix + $"Exception in {callingType.FullName}! {ex.Message}\n{ex.StackTrace}\n{ex.InnerException}";
 
             WriteToFile(exceptionMessage);
             MyAPIGateway.Utilities.ShowNotification($"{ex.GetType().Name} in Dynamic Asteroids! Check logs for more info.", 10000, "Red");
