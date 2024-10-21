@@ -235,6 +235,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 if (++_testTimer < 240) return;
                 _testTimer = 0;
                 TestNearestGasGiant();
+                Log.Update();
             }
             catch (Exception ex)
             {

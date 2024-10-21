@@ -43,7 +43,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         private ConcurrentDictionary<long, PlayerMovementData> playerMovementData = new ConcurrentDictionary<long, PlayerMovementData>();
 
         private ConcurrentQueue<AsteroidEntity> _updateQueue = new ConcurrentQueue<AsteroidEntity>();
-        private const int UpdatesPerTick = 50;
+        private const int UpdatesPerTick = 50;   // update rate of the roids
 
         private RealGasGiantsApi _realGasGiantsApi;
 
@@ -51,7 +51,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         private class ZoneCache {
             public AsteroidZone Zone { get; set; }
             public DateTime LastUpdateTime { get; set; }
-            public const int CacheExpirationSeconds = 5;
+            const int CacheExpirationSeconds = 5;
 
             public bool IsExpired()
             {
@@ -94,7 +94,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         private class NetworkMessageCache {
             private ConcurrentDictionary<long, AsteroidNetworkMessage> _messageCache = new ConcurrentDictionary<long, AsteroidNetworkMessage>();
             private ConcurrentQueue<AsteroidNetworkMessage> _messageQueue = new ConcurrentQueue<AsteroidNetworkMessage>();
-            private const int MessageBatchSize = 10;
+            private const int MessageBatchSize = 100;  //the metal pipes sent to the client (we can probably hit 10k without issue, all server load is physics!!)
             private const int MessageExpirationSeconds = 10;
 
             public void AddMessage(AsteroidNetworkMessage message)
@@ -161,10 +161,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
             if (!_stateCache.ShouldSave()) return;
 
-            var dirtyStates = _stateCache.GetDirtyStates();
+            List<AsteroidState> dirtyStates = _stateCache.GetDirtyStates();
             if (dirtyStates.Count == 0) return;
 
-            var allStates = _asteroids.Select(asteroid => new AsteroidState {
+            List<AsteroidState> allStates = _asteroids.Select(asteroid => new AsteroidState {
                 Position = asteroid.PositionComp.GetPosition(),
                 Size = asteroid.Size,
                 Type = asteroid.Type,
@@ -172,7 +172,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             }).Concat(dirtyStates).ToList();
 
             allStates.AddRange(_despawnedAsteroids);
-            var stateBytes = MyAPIGateway.Utilities.SerializeToBinary(allStates);
+            byte[] stateBytes = MyAPIGateway.Utilities.SerializeToBinary(allStates);
 
             using (BinaryWriter writer = MyAPIGateway.Utilities.WriteBinaryFileInLocalStorage("asteroid_states.dat", typeof(AsteroidSpawner)))
             {
@@ -201,10 +201,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             {
                 stateBytes = reader.ReadBytes((int)reader.BaseStream.Length);
             }
-            var asteroidStates = MyAPIGateway.Utilities.SerializeFromBinary<List<AsteroidState>>(stateBytes);
+            List<AsteroidState> asteroidStates = MyAPIGateway.Utilities.SerializeFromBinary<List<AsteroidState>>(stateBytes);
             foreach (AsteroidState state in asteroidStates)
             {
-                if (ContainsAsteroid(state.EntityId)) // Use the ContainsAsteroid method
+                if (ContainsAsteroid(state.EntityId))// Use the ContainsAsteroid method
                 {
                     Log.Info($"Skipping duplicate asteroid with ID {state.EntityId}");
                     continue;
@@ -239,7 +239,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 asteroid.EntityId = state.EntityId;
                 _asteroids.Add(asteroid);
                 AsteroidNetworkMessage message = new AsteroidNetworkMessage(state.Position, state.Size, Vector3D.Zero, Vector3D.Zero, state.Type, false, asteroid.EntityId, false, true, Quaternion.Identity);
-                var messageBytes = MyAPIGateway.Utilities.SerializeToBinary(message);
+                byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(message);
                 MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
                 _despawnedAsteroids.Remove(state);
 
@@ -369,7 +369,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 AsteroidZone newZone = new AsteroidZone(playerPosition, AsteroidSettings.ZoneRadius);
                 updatedZones[player.IdentityId] = newZone;
             }
-            foreach (var kvp in playerZones)
+            foreach (KeyValuePair<long, AsteroidZone> kvp in playerZones)
             {
                 if (players.Any(p => kvp.Value.IsPointInZone(p.GetPosition())))
                 {
@@ -770,7 +770,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         {
             _messageCache.ProcessMessages(message =>
             {
-                var messageBytes = MyAPIGateway.Utilities.SerializeToBinary(message);
+                byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(message);
                 MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
                 Log.Info($"Server: Sent message for asteroid ID {message.EntityId}");
             });
@@ -816,9 +816,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
         private Vector3D RandVector()
         {
-            var theta = rand.NextDouble() * 2.0 * Math.PI;
-            var phi = Math.Acos(2.0 * rand.NextDouble() - 1.0);
-            var sinPhi = Math.Sin(phi);
+            double theta = rand.NextDouble() * 2.0 * Math.PI;
+            double phi = Math.Acos(2.0 * rand.NextDouble() - 1.0);
+            double sinPhi = Math.Sin(phi);
             return Math.Pow(rand.NextDouble(), 1 / 3d) * new Vector3D(sinPhi * Math.Cos(theta), sinPhi * Math.Sin(theta), Math.Cos(phi));
         }
     }
