@@ -47,7 +47,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public static double GoldWeight = 0.05;
         public static double PlatinumWeight = 0.05;
         public static double UraniniteWeight = 0.05;
-        public static float BaseIntegrity = 1f;
+        public static float BaseIntegrity = 100f;
         public static float MinAsteroidSize = 50f;
         public static float MaxAsteroidSize = 250f;
         public static float MinSubChunkSize = 5f;
