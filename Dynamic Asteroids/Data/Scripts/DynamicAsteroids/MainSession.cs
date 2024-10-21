@@ -190,40 +190,34 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             {
                 if (MyAPIGateway.Session.IsServer)
                 {
-                    _spawner.UpdateTick();
-                    if (_saveStateTimer > 0)
+                    if (_spawner != null)
                     {
-                        _saveStateTimer--;
-                    }
-                    else
-                    {
-                        _spawner.SaveAsteroidState();
-                        _saveStateTimer = AsteroidSettings.SaveStateInterval;
-                    }
+                        _spawner.UpdateTick();
+                        if (_saveStateTimer > 0)
+                        {
+                            _saveStateTimer--;
+                        }
+                        else
+                        {
+                            _spawner.SaveAsteroidState();
+                            _saveStateTimer = AsteroidSettings.SaveStateInterval;
+                        }
 
-                    if (_networkMessageTimer > 0)
-                    {
-                        _networkMessageTimer--;
-                    }
-                    else
-                    {
-                        Log.Info($"Server: Sending network messages, asteroid count: {_spawner._asteroids.Count}");
-                        _spawner.SendNetworkMessages();
-                        _networkMessageTimer = AsteroidSettings.NetworkMessageInterval;
+                        if (_networkMessageTimer > 0)
+                        {
+                            _networkMessageTimer--;
+                        }
+                        else
+                        {
+                            _spawner.SendNetworkMessages();
+                            _networkMessageTimer = AsteroidSettings.NetworkMessageInterval;
+                        }
                     }
                 }
 
-                if (MyAPIGateway.Session?.Player?.Character != null)
+                if (MyAPIGateway.Session?.Player?.Character != null && _spawner != null)
                 {
-                    if (_spawner == null)
-                    {
-                        Log.Warning("_spawner is null when checking for nearest asteroid");
-                    }
-                    else if (_spawner._asteroids == null)
-                    {
-                        Log.Warning("_spawner._asteroids is null when checking for nearest asteroid");
-                    }
-                    else
+                    if (_spawner._asteroids != null)
                     {
                         Vector3D characterPosition = MyAPIGateway.Session.Player.Character.PositionComp.GetPosition();
                         AsteroidEntity nearestAsteroid = FindNearestAsteroid(characterPosition);
@@ -232,7 +226,11 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                             Vector3D angularVelocity = nearestAsteroid.Physics.AngularVelocity;
                             string rotationString = $"({angularVelocity.X:F2}, {angularVelocity.Y:F2}, {angularVelocity.Z:F2})";
                             string message = $"Nearest Asteroid: {nearestAsteroid.EntityId} ({nearestAsteroid.Type})\nRotation: {rotationString}";
-                            if (AsteroidSettings.EnableLogging) MyAPIGateway.Utilities.ShowNotification(message, 1000 / 60);
+                            if (AsteroidSettings.EnableLogging && _logInterval % 300 == 0)
+                            {
+                                MyAPIGateway.Utilities.ShowNotification(message, 1000 / 60);
+                                Log.Info(message);
+                            }
                         }
                     }
                 }
@@ -245,7 +243,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                         var velocity = MyAPIGateway.Session.Player?.Character?.Physics?.LinearVelocity ?? Vector3D.Zero;
                         AsteroidType type = DetermineAsteroidType();
                         AsteroidEntity.CreateAsteroid(position, Rand.Next(50), velocity, type);
-                        Log.Info($"Asteroid created at {position} with velocity {velocity}");
+                        if (_logInterval % 300 == 0)
+                        {
+                            Log.Info($"Asteroid created at {position} with velocity {velocity}");
+                        }
                     }
                 }
 
@@ -255,12 +256,19 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     TestNearestGasGiant();
                 }
 
-                if (++_logInterval >= 300)
-                {
-                    _logInterval = 0;
-                    Log.Info($"Client: _spawner._asteroids is {(_spawner._asteroids == null ? "null" : $"not null (count: {_spawner._asteroids.Count})")}");
-                    Log.Info($"Client: MyAPIGateway.Session?.Player?.Character is {(MyAPIGateway.Session?.Player?.Character == null ? "null" : "not null")}");
-                }
+                //if (++_logInterval >= 300)
+                //{
+                //    _logInterval = 0;
+                //    if (_spawner != null)
+                //    {
+                //        Log.Info($"Client: _spawner._asteroids is {(_spawner._asteroids == null ? "null" : $"not null (count: {_spawner._asteroids.Count})")}");
+                //    }
+                //    else
+                //    {
+                //        Log.Info("Client: _spawner is null");
+                //    }
+                //    Log.Info($"Client: MyAPIGateway.Session?.Player?.Character is {(MyAPIGateway.Session?.Player?.Character == null ? "null" : "not null")}");
+                //}
             }
             catch (Exception ex)
             {
