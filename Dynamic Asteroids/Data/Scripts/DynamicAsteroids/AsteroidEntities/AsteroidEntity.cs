@@ -475,17 +475,16 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         public float _integrity;
 
-        public bool DoDamage(float damage, MyStringHash damageSource, bool sync, MyHitInfo? hitInfo = null, long attackerId = 0,
-            long realHitEntityId = 0, bool shouldDetonateAmmo = true, MyStringHash? extraInfo = null)
+        public bool DoDamage(float damage, MyStringHash damageSource, bool sync, MyHitInfo? hitInfo = null, long attackerId = 0, long realHitEntityId = 0, bool shouldDetonateAmmo = true, MyStringHash? extraInfo = null)
         {
             try
             {
-                // Pass the damageSource to ReduceIntegrity
-                ReduceIntegrity(damage, damageSource);
+                // Pass the damageSource and hitInfo to ReduceIntegrity
+                ReduceIntegrity(damage, damageSource, hitInfo);
 
                 if (_integrity <= 0)
                 {
-                    OnDestroy();
+                    OnDestroy();  // Call destruction logic when integrity reaches zero
                 }
 
                 return true;
@@ -497,7 +496,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             }
         }
 
-        public void ReduceIntegrity(float damage, MyStringHash damageSource)
+        public void ReduceIntegrity(float damage, MyStringHash damageSource, MyHitInfo? hitInfo)
         {
             float finalDamage = damage;
 
@@ -506,31 +505,36 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 finalDamage *= 10.0f;
                 Log.Info($"Explosion detected! Applying 10x damage multiplier. Original Damage: {damage}, Final Damage: {finalDamage}");
 
-                // Asteroid destroyed by explosion
                 _integrity -= finalDamage;
                 if (_integrity <= 0)
                 {
-                    OnDestroy();  // Split the asteroid on explosive damage
+                    OnDestroy();  // Destroy on explosion
                 }
             }
             else if (damageSource.String == "Bullet")
             {
                 Log.Info($"Bullet damage detected. Original Damage: {damage}");
 
-                // Apply damage and check if the asteroid "dies" for the current stage
                 _integrity -= finalDamage;
 
                 if (_integrity <= 0)
                 {
-                    // If it's not the final ablation stage, move to the next one
                     if (AblationStage < MaxAblationStages - 1)
                     {
-                        AblateAsteroid();  // Perform ablation
+                        AblateAsteroid(hitInfo);  // Ablate asteroid at the impact point
                     }
                     else
                     {
                         Log.Info("Asteroid fully ablated and destroyed.");
                         OnDestroy();  // Final destruction after all stages
+                    }
+                }
+                else
+                {
+                    if (hitInfo.HasValue)
+                    {
+                        // Spawn debris at the impact location
+                        SpawnDebrisAtImpact(hitInfo.Value.Position);
                     }
                 }
             }
@@ -544,11 +548,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             }
         }
 
-        private void AblateAsteroid()
+        private void AblateAsteroid(MyHitInfo? hitInfo = null)
         {
             AblationStage++;  // Move to the next ablation stage
 
-            // Apply size reduction based on the current ablation stage
             Size *= ablationMultipliers[AblationStage];
 
             if (Size < AsteroidSettings.MinSubChunkSize)
@@ -558,18 +561,29 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 return;
             }
 
-            // Reset the integrity using the base integrity scaled by the new size and multiplier
             _integrity = AsteroidSettings.BaseIntegrity * Size * ablationMultipliers[AblationStage];
 
             Log.Info($"Asteroid ablated to stage {AblationStage}, new size: {Size}, new integrity: {_integrity}");
 
-            // Optionally, create debris or visual effects to show asteroid shrinking
+            // Spawn some debris at the bullet impact location, if available
+            if (hitInfo.HasValue)
+            {
+                SpawnDebrisAtImpact(hitInfo.Value.Position);
+            }
+        }
+
+        private void SpawnDebrisAtImpact(Vector3D impactPosition)
+        {
+            // Create the debris or floating objects at the impact site
             MyPhysicalItemDefinition item = MyDefinitionManager.Static.GetPhysicalItemDefinition(new MyDefinitionId(typeof(MyObjectBuilder_Ore), Type.ToString()));
             var newObject = MyObjectBuilderSerializer.CreateNewObject(item.Id.TypeId, item.Id.SubtypeId.ToString()) as MyObjectBuilder_PhysicalObject;
 
             int dropAmount = GetRandomDropAmount(Type);
-            MyFloatingObjects.Spawn(new MyPhysicalInventoryItem(dropAmount, newObject), PositionComp.GetPosition() + RandVector() * Size, Vector3D.Forward, Vector3D.Up, Physics);
+
+            // Spawn the debris at the impact position
+            MyFloatingObjects.Spawn(new MyPhysicalInventoryItem(dropAmount, newObject), impactPosition, Vector3D.Forward, Vector3D.Up, Physics);
         }
+
 
         private void CreatePhysics()
         {
