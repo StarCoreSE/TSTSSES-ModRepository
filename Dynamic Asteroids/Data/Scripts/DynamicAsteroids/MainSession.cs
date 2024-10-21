@@ -211,6 +211,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                         {
                             _spawner.SendNetworkMessages();
                             _networkMessageTimer = AsteroidSettings.NetworkMessageInterval;
+                            //Log.Info($"Server: Sending network messages, asteroid count: {_spawner._asteroids.Count}");
                         }
                     }
                 }
