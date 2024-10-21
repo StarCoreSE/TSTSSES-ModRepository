@@ -701,7 +701,7 @@ namespace Digi.GravityCollector {
             if (!collectors.Contains(collector))
             {
                 collectors.Add(collector);
-                Log.Info($"Collector {collector.Entity.EntityId} registered to grid network {gridId}");
+                //Log.Info($"Collector {collector.Entity.EntityId} registered to grid network {gridId}");
             }
         }
 
@@ -776,7 +776,7 @@ namespace Digi.GravityCollector {
             {
                 updateCounter = 0;
                 var processingTime = (DateTime.Now - startTime).TotalMilliseconds;
-                Log.Info($"Collection System Performance: {processingTime:F2}ms, Active Objects: {processingObjects.Count}, Queued: {collectionQueue.Count}");
+                //Log.Info($"Collection System Performance: {processingTime:F2}ms, Active Objects: {processingObjects.Count}, Queued: {collectionQueue.Count}");
             }
         }
 
