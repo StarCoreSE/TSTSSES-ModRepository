@@ -74,6 +74,11 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         private static readonly string[] PlatinumAsteroidModels = { @"Models\OreAsteroid_Platinum.mwm" };
         private static readonly string[] UraniniteAsteroidModels = { @"Models\OreAsteroid_Uraninite.mwm" };
 
+        public int AblationStage { get; private set; } = 0;  // Tracks the current ablation stage
+        public const int MaxAblationStages = 3;  // Maximum number of ablation stages
+        private float[] ablationMultipliers = new float[] { 1.0f, 0.75f, 0.5f };  // Multiplier for each ablation stage
+
+
         private void CreateEffects(Vector3D position)
         {
             MyVisualScriptLogicProvider.CreateParticleEffectAtPosition("roidbreakparticle1", position);
@@ -470,17 +475,16 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         public float _integrity;
 
-        public bool DoDamage(float damage, MyStringHash damageSource, bool sync, MyHitInfo? hitInfo = null, long attackerId = 0,
-            long realHitEntityId = 0, bool shouldDetonateAmmo = true, MyStringHash? extraInfo = null)
+        public bool DoDamage(float damage, MyStringHash damageSource, bool sync, MyHitInfo? hitInfo = null, long attackerId = 0, long realHitEntityId = 0, bool shouldDetonateAmmo = true, MyStringHash? extraInfo = null)
         {
             try
             {
-                // Pass the damageSource to ReduceIntegrity
-                ReduceIntegrity(damage, damageSource);
+                // Pass the damageSource and hitInfo to ReduceIntegrity
+                ReduceIntegrity(damage, damageSource, hitInfo);
 
                 if (_integrity <= 0)
                 {
-                    OnDestroy();
+                    OnDestroy();  // Call destruction logic when integrity reaches zero
                 }
 
                 return true;
@@ -492,29 +496,153 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             }
         }
 
-        public void ReduceIntegrity(float damage, MyStringHash damageSource)
+        public void ReduceIntegrity(float damage, MyStringHash damageSource, MyHitInfo? hitInfo)
         {
             float finalDamage = damage;
+            float initialIntegrity = _integrity;
 
-            // Check if the damage source is of type "Explosion"
             if (damageSource.String == "Explosion")
             {
-                finalDamage *= 10.0f; // Apply a 10x multiplier for explosions
+                finalDamage *= 10.0f;
                 Log.Info($"Explosion detected! Applying 10x damage multiplier. Original Damage: {damage}, Final Damage: {finalDamage}");
+
+                _integrity -= finalDamage;
+                if (_integrity <= 0)
+                {
+                    OnDestroy();  // Split the asteroid on explosive damage
+                }
+            }
+            else if (damageSource.String == "Bullet")
+            {
+                Log.Info($"Bullet damage detected. Original Damage: {damage}");
+
+                // Apply damage
+                _integrity -= finalDamage;
+
+                if (_integrity <= 0)
+                {
+                    // If it's not the final ablation stage, ablate and spawn debris at impact location
+                    if (AblationStage < MaxAblationStages - 1)
+                    {
+                        AblateAsteroid(hitInfo);  // Perform ablation at impact site
+                    }
+                    else
+                    {
+                        Log.Info("Asteroid fully ablated and destroyed.");
+                        OnDestroy();  // Final destruction after all stages
+                    }
+                }
+                else
+                {
+                    if (hitInfo.HasValue)
+                    {
+                        // Calculate the percentage of health lost and spawn debris accordingly
+                        float healthLostRatio = finalDamage / initialIntegrity;
+                        SpawnDebrisAtImpact(hitInfo.Value.Position, healthLostRatio);
+                    }
+                }
             }
             else
             {
-                Log.Info($"Non-explosion damage type. Original Damage: {damage}");
+                _integrity -= finalDamage;
+                if (_integrity <= 0)
+                {
+                    OnDestroy();
+                }
+            }
+        }
+
+        private void AblateAsteroid(MyHitInfo? hitInfo = null)
+        {
+            AblationStage++;  // Move to the next ablation stage
+
+            // Apply size reduction based on the current ablation stage
+            Size *= ablationMultipliers[AblationStage];
+
+            if (Size < AsteroidSettings.MinSubChunkSize)
+            {
+                Log.Info("Asteroid too small after ablation, removing it.");
+                OnDestroy();
+                return;
             }
 
-            // Reduce integrity by the final calculated damage
-            _integrity -= finalDamage;
-            Log.Info($"Integrity reduced by {finalDamage}, new integrity: {_integrity}");
+            // Reset the integrity using the base integrity scaled by the new size and multiplier
+            _integrity = AsteroidSettings.BaseIntegrity * Size * ablationMultipliers[AblationStage];
 
-            // Check if the asteroid's integrity has dropped to or below zero
-            if (!(_integrity <= 0)) return;
-            Log.Info("Integrity below or equal to 0, calling OnDestroy");
-            OnDestroy();
+            Log.Info($"Asteroid ablated to stage {AblationStage}, new size: {Size}, new integrity: {_integrity}");
+
+            // Spawn some debris at the bullet impact location, if available
+            if (hitInfo.HasValue)
+            {
+                // Provide a default healthLostRatio for ablation (e.g., 1 for full ablation)
+                SpawnDebrisAtImpact(hitInfo.Value.Position, 1.0f);  // Full drop for ablation
+            }
+        }
+
+        private void SpawnDebrisAtImpact(Vector3D impactPosition, float healthLostRatio)
+        {
+            // Define the drop range based on asteroid type
+            int[] dropRange = GetDropRange(Type);
+            if (dropRange == null)
+            {
+                Log.Warning("Invalid asteroid type or drop range not defined.");
+                return;
+            }
+
+            // Calculate the base drop amount proportional to health lost
+            int minDrop = dropRange[0];
+            int maxDrop = dropRange[1];
+
+            // Apply additional scaling for weak weapons to limit debris from small hits
+            // Weak hits result in almost no debris unless a significant amount of health is lost
+            float scalingFactor = 0.5f; // Adjust this as needed to fine-tune how much weak weapons contribute
+            int dropAmount = (int)((minDrop + (maxDrop - minDrop) * healthLostRatio) * scalingFactor);
+
+            // Ensure that very small drops (from weak hits) are handled
+            if (dropAmount < minDrop * 0.1f)
+            {
+                dropAmount = 1;  // Smallest possible drop, trace amount
+            }
+
+            Log.Info($"Spawning {dropAmount} debris at impact location due to {healthLostRatio:P} health lost.");
+
+            // Create the floating debris
+            MyPhysicalItemDefinition item = MyDefinitionManager.Static.GetPhysicalItemDefinition(new MyDefinitionId(typeof(MyObjectBuilder_Ore), Type.ToString()));
+            var newObject = MyObjectBuilderSerializer.CreateNewObject(item.Id.TypeId, item.Id.SubtypeId.ToString()) as MyObjectBuilder_PhysicalObject;
+
+            // Spawn the items at the impact site
+            MyFloatingObjects.Spawn(new MyPhysicalInventoryItem(dropAmount, newObject), impactPosition, Vector3D.Forward, Vector3D.Up, Physics);
+        }
+
+        private int[] GetDropRange(AsteroidType type)
+        {
+            switch (type)
+            {
+                case AsteroidType.Ice:
+                    return AsteroidSettings.IceDropRange;
+                case AsteroidType.Stone:
+                    return AsteroidSettings.StoneDropRange;
+                case AsteroidType.Iron:
+                    return AsteroidSettings.IronDropRange;
+                case AsteroidType.Nickel:
+                    return AsteroidSettings.NickelDropRange;
+                case AsteroidType.Cobalt:
+                    return AsteroidSettings.CobaltDropRange;
+                case AsteroidType.Magnesium:
+                    return AsteroidSettings.MagnesiumDropRange;
+                case AsteroidType.Silicon:
+                    return AsteroidSettings.SiliconDropRange;
+                case AsteroidType.Silver:
+                    return AsteroidSettings.SilverDropRange;
+                case AsteroidType.Gold:
+                    return AsteroidSettings.GoldDropRange;
+                case AsteroidType.Platinum:
+                    return AsteroidSettings.PlatinumDropRange;
+                case AsteroidType.Uraninite:
+                    return AsteroidSettings.UraniniteDropRange;
+                default:
+                    return null;
+            }
         }
 
         private void CreatePhysics()
