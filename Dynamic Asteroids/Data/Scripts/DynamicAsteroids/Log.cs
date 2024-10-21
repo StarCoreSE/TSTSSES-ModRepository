@@ -2,7 +2,6 @@
 using System.IO;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Threading;
 using DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities;
 using Sandbox.ModAPI;
 
@@ -21,9 +20,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
         private static Log I;
         private readonly TextWriter _writer;
         private readonly ConcurrentDictionary<string, LogEntry> _cachedMessages;
-        private readonly Timer _flushTimer;
-        private readonly int _flushIntervalSeconds;
         private readonly object _lockObject;
+        private readonly int _flushIntervalSeconds;
+        private DateTime _lastFlushTime;
 
         private Log()
         {
@@ -37,7 +36,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             _cachedMessages = new ConcurrentDictionary<string, LogEntry>();
             _flushIntervalSeconds = 10;
             _lockObject = new object();
-            _flushTimer = new Timer(FlushCache, null, TimeSpan.FromSeconds(_flushIntervalSeconds), TimeSpan.FromSeconds(_flushIntervalSeconds));
+            _lastFlushTime = DateTime.UtcNow;
         }
 
         public static void Info(string message)
@@ -69,12 +68,19 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             if (I != null)
             {
                 Info("Closing log writer.");
-                I._flushTimer.Dispose();
-                I.FlushCache(null);
+                I.FlushCache();
                 I._writer.Close();
             }
 
             I = null;
+        }
+
+        public static void Update()
+        {
+            if (I != null && (DateTime.UtcNow - I._lastFlushTime).TotalSeconds >= I._flushIntervalSeconds)
+            {
+                I.FlushCache();
+            }
         }
 
         private void CacheLogMessage(string message)
@@ -96,23 +102,26 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 });
         }
 
-        private void FlushCache(object state)
+        private void FlushCache()
         {
             lock (_lockObject)
             {
-                DateTime currentTime = DateTime.UtcNow;
+                var currentTime = DateTime.UtcNow;
                 var entriesToRemove = new List<string>();
 
                 foreach (var kvp in _cachedMessages)
                 {
-                    LogEntry entry = kvp.Value;
-                    if (!((currentTime - entry.LastOccurrence).TotalSeconds >= _flushIntervalSeconds)) continue;
-                    string logMessage = entry.Count > 1
-                        ? $"[{currentTime:HH:mm:ss}]: Repeated {entry.Count} times in {(entry.LastOccurrence - entry.FirstOccurrence).TotalSeconds:F1}s: {entry.Message}"
-                        : $"[{currentTime:HH:mm:ss}]: {entry.Message}";
+                    var entry = kvp.Value;
+                    if ((currentTime - entry.LastOccurrence).TotalSeconds >= _flushIntervalSeconds)
+                    {
+                        string logMessage = entry.Count > 1
+                            ? string.Format("[{0:HH:mm:ss}]: Repeated {1} times in {2:F1}s: {3}",
+                                currentTime, entry.Count, (entry.LastOccurrence - entry.FirstOccurrence).TotalSeconds, entry.Message)
+                            : string.Format("[{0:HH:mm:ss}]: {1}", currentTime, entry.Message);
 
-                    WriteToFile(logMessage);
-                    entriesToRemove.Add(kvp.Key);
+                        WriteToFile(logMessage);
+                        entriesToRemove.Add(kvp.Key);
+                    }
                 }
 
                 foreach (var key in entriesToRemove)
@@ -120,6 +129,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     LogEntry removedEntry;
                     _cachedMessages.TryRemove(key, out removedEntry);
                 }
+
+                _lastFlushTime = currentTime;
             }
         }
 
@@ -137,7 +148,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 return;
             }
 
-            string exceptionMessage = prefix + $"Exception in {callingType.FullName}! {ex.Message}\n{ex.StackTrace}\n{ex.InnerException}";
+            string exceptionMessage = prefix + string.Format("Exception in {0}! {1}\n{2}\n{3}",
+                callingType.FullName, ex.Message, ex.StackTrace, ex.InnerException);
 
             WriteToFile(exceptionMessage);
             MyAPIGateway.Utilities.ShowNotification($"{ex.GetType().Name} in Dynamic Asteroids! Check logs for more info.", 10000, "Red");
