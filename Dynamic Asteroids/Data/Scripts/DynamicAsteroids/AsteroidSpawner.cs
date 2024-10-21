@@ -43,7 +43,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         private ConcurrentDictionary<long, PlayerMovementData> playerMovementData = new ConcurrentDictionary<long, PlayerMovementData>();
 
         private ConcurrentQueue<AsteroidEntity> _updateQueue = new ConcurrentQueue<AsteroidEntity>();
-        private const int UpdatesPerTick = 50;
+        private const int UpdatesPerTick = 50;   // update rate of the roids
 
         private RealGasGiantsApi _realGasGiantsApi;
 
@@ -94,7 +94,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         private class NetworkMessageCache {
             private ConcurrentDictionary<long, AsteroidNetworkMessage> _messageCache = new ConcurrentDictionary<long, AsteroidNetworkMessage>();
             private ConcurrentQueue<AsteroidNetworkMessage> _messageQueue = new ConcurrentQueue<AsteroidNetworkMessage>();
-            private const int MessageBatchSize = 100;
+            private const int MessageBatchSize = 100;  //the metal pipes sent to the client (we can probably hit 10k without issue, all server load is physics!!)
             private const int MessageExpirationSeconds = 10;
 
             public void AddMessage(AsteroidNetworkMessage message)

@@ -16,7 +16,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public static bool EnableGasGiantRingSpawning = false;
         public static float MinimumRingInfluenceForSpawn = 0.1f;
         public static double RingAsteroidVelocityBase = 50.0; // Adjust as needed
-        public static float MaxRingAsteroidDensityMultiplier = 0f; // Adjust this value as needed
+        public static float MaxRingAsteroidDensityMultiplier = 1f; // Adjust this value as needed
         public static double VanillaAsteroidSpawnLatchingRadius = 10000;
         public static bool DisableZoneWhileMovingFast = true;
         public static double ZoneSpeedThreshold = 2000.0;
