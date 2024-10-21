@@ -283,7 +283,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 message = $"Current Ring Influence: {ringInfluence:F3}";
             }
 
-            MyAPIGateway.Utilities.ShowNotification(message, 4000, "White");
+            if (AsteroidSettings.EnableLogging)
+                MyAPIGateway.Utilities.ShowNotification(message, 4000, "White");
             //Log.Info(message); // Also log the message for easier debugging
         }
 
