@@ -182,6 +182,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             MyAPIGateway.Utilities.ShowMessage("DynamicAsteroids", $"Removed spawn area '{name}'");
         }
 
+        private int _logInterval = 0;
+
         public override void UpdateAfterSimulation()
         {
             try
@@ -205,23 +207,33 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     }
                     else
                     {
-                        //Log.Info($"Server: Sending network messages, asteroid count: {_spawner._asteroids.Count}");
+                        Log.Info($"Server: Sending network messages, asteroid count: {_spawner._asteroids.Count}");
                         _spawner.SendNetworkMessages();
                         _networkMessageTimer = AsteroidSettings.NetworkMessageInterval;
                     }
                 }
 
-
-                if (MyAPIGateway.Session?.Player?.Character != null && _spawner._asteroids != null)
+                if (MyAPIGateway.Session?.Player?.Character != null)
                 {
-                    Vector3D characterPosition = MyAPIGateway.Session.Player.Character.PositionComp.GetPosition();
-                    AsteroidEntity nearestAsteroid = FindNearestAsteroid(characterPosition);
-                    if (nearestAsteroid != null)
+                    if (_spawner == null)
                     {
-                        Vector3D angularVelocity = nearestAsteroid.Physics.AngularVelocity;
-                        string rotationString = $"({angularVelocity.X:F2}, {angularVelocity.Y:F2}, {angularVelocity.Z:F2})";
-                        string message = $"Nearest Asteroid: {nearestAsteroid.EntityId} ({nearestAsteroid.Type})\nRotation: {rotationString}";
-                        if (AsteroidSettings.EnableLogging) MyAPIGateway.Utilities.ShowNotification(message, 1000 / 60);
+                        Log.Warning("_spawner is null when checking for nearest asteroid");
+                    }
+                    else if (_spawner._asteroids == null)
+                    {
+                        Log.Warning("_spawner._asteroids is null when checking for nearest asteroid");
+                    }
+                    else
+                    {
+                        Vector3D characterPosition = MyAPIGateway.Session.Player.Character.PositionComp.GetPosition();
+                        AsteroidEntity nearestAsteroid = FindNearestAsteroid(characterPosition);
+                        if (nearestAsteroid != null)
+                        {
+                            Vector3D angularVelocity = nearestAsteroid.Physics.AngularVelocity;
+                            string rotationString = $"({angularVelocity.X:F2}, {angularVelocity.Y:F2}, {angularVelocity.Z:F2})";
+                            string message = $"Nearest Asteroid: {nearestAsteroid.EntityId} ({nearestAsteroid.Type})\nRotation: {rotationString}";
+                            if (AsteroidSettings.EnableLogging) MyAPIGateway.Utilities.ShowNotification(message, 1000 / 60);
+                        }
                     }
                 }
 
@@ -236,13 +248,19 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                         Log.Info($"Asteroid created at {position} with velocity {velocity}");
                     }
                 }
-                // Run the gas giant test every 10 seconds (600 frames at 60 FPS)
+
                 if (++_testTimer >= 240)
                 {
                     _testTimer = 0;
                     TestNearestGasGiant();
                 }
 
+                if (++_logInterval >= 300)
+                {
+                    _logInterval = 0;
+                    Log.Info($"Client: _spawner._asteroids is {(_spawner._asteroids == null ? "null" : $"not null (count: {_spawner._asteroids.Count})")}");
+                    Log.Info($"Client: MyAPIGateway.Session?.Player?.Character is {(MyAPIGateway.Session?.Player?.Character == null ? "null" : "not null")}");
+                }
             }
             catch (Exception ex)
             {

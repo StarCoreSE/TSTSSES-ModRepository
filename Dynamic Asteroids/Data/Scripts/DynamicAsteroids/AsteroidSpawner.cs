@@ -36,7 +36,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 
     public class AsteroidSpawner
     {
-        private ConcurrentBag<AsteroidEntity> _asteroids;
+        public ConcurrentBag<AsteroidEntity> _asteroids;
         private bool _canSpawnAsteroids = false;
         private DateTime _worldLoadTime;
         private Random rand;

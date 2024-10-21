@@ -386,7 +386,19 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 var removalMessageBytes = MyAPIGateway.Utilities.SerializeToBinary(removalMessage);
                 MyAPIGateway.Multiplayer.SendMessageToOthers(32000, removalMessageBytes);
 
-                MainSession.I._spawner._asteroids.Remove(this);
+                AsteroidEntity removedAsteroid;
+                if (MainSession.I._spawner._asteroids.TryTake(out removedAsteroid))
+                {
+                    if (removedAsteroid.EntityId == EntityId)
+                    {
+                        Close();
+                        return;
+                    }
+                    else
+                    {
+                        MainSession.I._spawner._asteroids.Add(removedAsteroid);
+                    }
+                }
                 Close();
                 return;
             }
@@ -415,7 +427,18 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             var finalRemovalMessageBytes = MyAPIGateway.Utilities.SerializeToBinary(finalRemovalMessage);
             MyAPIGateway.Multiplayer.SendMessageToOthers(32000, finalRemovalMessageBytes);
 
-            MainSession.I._spawner._asteroids.Remove(this);
+            AsteroidEntity finalRemovedAsteroid;
+            if (MainSession.I._spawner._asteroids.TryTake(out finalRemovedAsteroid))
+            {
+                if (finalRemovedAsteroid.EntityId == EntityId)
+                {
+                    Close();
+                }
+                else
+                {
+                    MainSession.I._spawner._asteroids.Add(finalRemovedAsteroid);
+                }
+            }
             Close();
         }
 
