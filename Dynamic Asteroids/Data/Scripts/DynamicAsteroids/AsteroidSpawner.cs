@@ -94,7 +94,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         private class NetworkMessageCache {
             private ConcurrentDictionary<long, AsteroidNetworkMessage> _messageCache = new ConcurrentDictionary<long, AsteroidNetworkMessage>();
             private ConcurrentQueue<AsteroidNetworkMessage> _messageQueue = new ConcurrentQueue<AsteroidNetworkMessage>();
-            private const int MessageBatchSize = 10;
+            private const int MessageBatchSize = 100;
             private const int MessageExpirationSeconds = 10;
 
             public void AddMessage(AsteroidNetworkMessage message)
