@@ -426,49 +426,51 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         public void UpdateSizeAndPhysics(float newSize)
         {
-            if (newSize < AsteroidSettings.MinSubChunkSize)
-            {
-                Log.Info("Size too small, asteroid will be removed.");
-                this.Close();  // Close the entity safely
-                return;
-            }
-
-            if (Physics != null)
-            {
-                Physics.Close();
-            }
-
             Size = newSize;
 
             // Store current position and orientation
             Vector3D position = PositionComp.GetPosition();
             MatrixD worldMatrix = WorldMatrix;
-            Vector3D linearVelocity = Physics.LinearVelocity;
-            Vector3D angularVelocity = Physics.AngularVelocity;
+            Vector3D linearVelocity = Physics?.LinearVelocity ?? Vector3D.Zero;
+            Vector3D angularVelocity = Physics?.AngularVelocity ?? Vector3D.Zero;
 
-            try
+            // Calculate scaling factor based on the new size
+            float scaleFactor = newSize / 2.0f; // Adjusting this factor based on base size assumptions
+
+            // Update the world matrix with scaling
+            MatrixD scaledWorldMatrix = MatrixD.CreateScale(scaleFactor) * worldMatrix;
+            PositionComp.SetWorldMatrix(ref scaledWorldMatrix); // Apply the new scaled world matrix
+
+            // Close existing physics and reinitialize with new size
+            if (Physics != null)
             {
-                // Close existing physics safely
-                if (Physics != null && !this.MarkedForClose)
-                {
-                    Physics.Close();
-                }
-
-                // Reinitialize physics with the new size
-                Init(position, newSize, linearVelocity, Type, Quaternion.CreateFromRotationMatrix(worldMatrix));
-
-                // Restore angular velocity
-                if (Physics != null)
-                {
-                    Physics.AngularVelocity = angularVelocity;
-                }
-
-                Log.Info($"Updated asteroid size to {Size} and recreated physics.");
+                Physics.Close();
             }
-            catch (Exception ex)
+
+            Init(position, newSize, linearVelocity, Type, Quaternion.CreateFromRotationMatrix(scaledWorldMatrix));
+
+            // Refresh the render component to reflect the updated size
+            RefreshRenderComponent();
+
+            // Restore angular velocity
+            if (Physics != null)
             {
-                Log.Exception(ex, typeof(AsteroidEntity), "Error during physics update");
+                Physics.AngularVelocity = angularVelocity;
+            }
+
+            Log.Info($"Updated asteroid size to {Size}, updated model and physics.");
+        }
+
+        // Helper method to refresh the render component
+        private void RefreshRenderComponent()
+        {
+            if (Render != null)
+            {
+                // Refresh the render to apply the scaling changes visually
+                Render.UpdateRenderObject(true, false);  // Trigger a refresh of the model to apply scale visually
+                Log.Info($"Render component updated to reflect new scale.");
             }
         }
+
     }
 }
