@@ -105,8 +105,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             Log.Info($"Spawning debris with mass lost: {massLost} at impact position.");
 
             // Create the floating debris item
-            MyPhysicalItemDefinition item = MyDefinitionManager.Static.GetPhysicalItemDefinition(new MyDefinitionId(typeof(MyObjectBuilder_Ore), asteroid.Type.ToString()));
-            var newObject = MyObjectBuilderSerializer.CreateNewObject(item.Id.TypeId, item.Id.SubtypeId.ToString()) as MyObjectBuilder_PhysicalObject;
+            MyPhysicalItemDefinition itemDefinition = MyDefinitionManager.Static.GetPhysicalItemDefinition(new MyDefinitionId(typeof(MyObjectBuilder_Ore), asteroid.Type.ToString()));
+            var newObject = MyObjectBuilderSerializer.CreateNewObject(itemDefinition.Id.TypeId, itemDefinition.Id.SubtypeId.ToString()) as MyObjectBuilder_PhysicalObject;
 
             // Group debris in a nearby radius (adjust the distance for debris grouping)
             float groupingRadius = 10.0f; // 10 meters radius for grouping debris
@@ -126,20 +126,11 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 // Add the debris mass to the closest existing debris
                 MyFloatingObject closestDebris = nearbyDebris[0];
 
-                // Retrieve the current amount and add the new mass
-                var currentAmount = closestDebris.Item.Amount;
-
-                // Calculate the new total amount
-                VRage.MyFixedPoint totalAmount = currentAmount + (VRage.MyFixedPoint)newAmount;
-
-                // Remove the old floating object and spawn a new one with the combined mass
-                MyEntities.Remove(closestDebris);
-
-                MyFloatingObjects.Spawn(new MyPhysicalInventoryItem(totalAmount, newObject),
-                    closestDebris.PositionComp.GetPosition(), Vector3D.Forward, Vector3D.Up, asteroid.Physics);
+                // Use the game's method to add the amount properly
+                MyFloatingObjects.AddFloatingObjectAmount(closestDebris, (VRage.MyFixedPoint)newAmount);
 
                 // Log mass added to the existing debris
-                Log.Info($"Combined debris and respawned new debris with total mass {totalAmount} at {closestDebris.PositionComp.GetPosition()}");
+                Log.Info($"Added {massLost} mass to existing debris at {closestDebris.PositionComp.GetPosition()}");
             }
             else
             {
@@ -151,7 +142,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 Log.Info($"Spawned new debris with mass {massLost} at impact position {impactPosition}");
             }
         }
-
 
         private List<MyFloatingObject> GetNearbyDebris(Vector3D position, float radius, MyObjectBuilder_PhysicalObject itemType)
         {
