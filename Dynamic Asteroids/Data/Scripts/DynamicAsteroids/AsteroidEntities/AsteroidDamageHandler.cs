@@ -225,6 +225,14 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
             Log.Info($"ReduceIntegrity called with damage: {damage}, damageSource: {damageSource}, initial integrity: {initialIntegrity}");
 
+            if (damageSource.String == "Explosion")
+            {
+                // Apply the 10x damage multiplier for explosions
+                finalDamage *= 10.0f;
+                Log.Info($"Explosion detected, applying 10x damage multiplier. Final damage: {finalDamage}");
+            }
+
+            // Apply the damage to the asteroid's integrity
             asteroid._integrity -= finalDamage;
             Log.Info($"Damage applied, new integrity: {asteroid._integrity}");
 
@@ -232,10 +240,24 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             float healthLostRatio = 1 - (asteroid._integrity / initialIntegrity);
             Log.Info($"Health lost ratio: {healthLostRatio}");
 
-            if (damageSource.String == "Bullet")
+            if (asteroid._integrity <= 0)
             {
-                // Size reduction proportional to health lost
-                float sizeReductionFactor = healthLostRatio * 0.1f; // Reduce more gradually
+                // Check if the asteroid was destroyed by an explosion
+                if (damageSource.String == "Explosion")
+                {
+                    Log.Info("Asteroid killed by explosion, splitting the asteroid.");
+                    asteroid.OnDestroy(); // Split the asteroid only if it was killed by an explosion
+                }
+                else
+                {
+                    Log.Info("Asteroid destroyed by non-explosive damage, no splitting.");
+                    asteroid.Close(); // Simply close the asteroid without splitting for non-explosive kills
+                }
+            }
+            else if (damageSource.String == "Bullet")
+            {
+                // Size reduction proportional to health lost for bullets
+                float sizeReductionFactor = healthLostRatio * 0.1f; // Reduce size gradually based on health lost
                 float newSize = Math.Max(AsteroidSettings.MinSubChunkSize, asteroid.Size * (1 - sizeReductionFactor));
 
                 Log.Info($"Size reduction factor: {sizeReductionFactor}, new size: {newSize}");
@@ -245,7 +267,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     // Update size and physics based on new size
                     asteroid.UpdateSizeAndPhysics(newSize);
 
-                    // Spawn debris on significant hit
+                    // Spawn debris if hit information is available
                     if (hitInfo.HasValue)
                     {
                         Log.Info($"Spawning debris at impact with health lost ratio: {healthLostRatio}");
