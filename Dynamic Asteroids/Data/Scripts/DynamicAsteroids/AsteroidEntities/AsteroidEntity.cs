@@ -128,11 +128,24 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 const float density = 917.0f; // Ice density (adjust based on material)
                 float mass = density * volume;
 
-                // Integrity is adjusted by the BaseIntegrity value
+                // Clamp mass according to the type's Min/Max values
+                AsteroidSettings.MassRange massRange;
+                if (AsteroidSettings.MinMaxMassByType.TryGetValue(type, out massRange))
+                {
+                    mass = MathHelper.Clamp(mass, massRange.MinMass, massRange.MaxMass);
+                    Log.Info($"Asteroid mass clamped to {mass}, type: {type}");
+
+                    // Now adjust the size (radius) based on the clamped mass
+                    float newVolume = mass / density;
+                    float newRadius = (float)Math.Pow((3.0f * newVolume) / (4.0f * MathHelper.Pi), 1.0f / 3.0f);
+                    size = newRadius * 2.0f;  // Set the new size based on the recalculated radius
+                }
+
+                // Integrity is adjusted based on the clamped mass
                 _integrity = (AsteroidSettings.BaseIntegrity / 100.0f) * mass;
                 Log.Info($"Calculated Integrity: {_integrity}, based on BaseIntegrity: {AsteroidSettings.BaseIntegrity}, Mass: {mass}");
 
-                // Initialize model, physics, and position
+                // Initialize model, physics, and position using adjusted size
                 Size = size;
                 Init(null, ModelString, null, Size);
                 SetupInitialPositionAndRotation(position, rotation);

@@ -171,6 +171,21 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         {
             Log.Info($"DoDamage called with damage: {damage}, damageSource: {damageSource}, integrity (mass) before damage: {asteroid._integrity}");
 
+            // If hit info is available, check if it's a ricochet based on velocity
+            if (hitInfo.HasValue)
+            {
+                Vector3D postImpactVelocity = hitInfo.Value.Velocity;
+
+                // If the projectile is still moving fast, we assume it ricocheted
+                const double ricochetVelocityThreshold = 50.0;  // Adjust based on game mechanics
+                bool isRicochet = postImpactVelocity.Length() > ricochetVelocityThreshold;
+
+                if (isRicochet)
+                {
+                    Log.Info("Ricochet detected. Applying damage as normal.");
+                }
+            }
+
             // Convert damage to mass removed using the WeaponDamagePerKg factor
             float massRemoved = damage / AsteroidSettings.WeaponDamagePerKg;
 
@@ -194,6 +209,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
             return true;
         }
+
 
         private void ReduceMass(AsteroidEntity asteroid, float damage, MyStringHash damageSource, MyHitInfo? hitInfo)
         {
