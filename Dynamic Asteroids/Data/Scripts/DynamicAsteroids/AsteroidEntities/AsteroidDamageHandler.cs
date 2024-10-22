@@ -147,33 +147,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             }
         }
 
-        private void AblateAsteroid(AsteroidEntity asteroid, MyHitInfo? hitInfo = null)
-        {
-            AblationStage++;
-            float newSize = asteroid.Size * ablationMultipliers[AblationStage];
-
-            if (newSize < AsteroidSettings.MinSubChunkSize)
-            {
-                Log.Info("Asteroid too small after ablation, removing it.");
-                asteroid.OnDestroy();
-                return;
-            }
-
-            float previousSize = asteroid.Size;
-            asteroid.UpdateSizeAndPhysics(newSize);
-
-            // Scale integrity based on size change
-            float integrityScale = newSize / previousSize;
-            asteroid._integrity = Math.Max(1f, asteroid._integrity * integrityScale);
-
-            Log.Info($"Asteroid ablated to stage {AblationStage}, new size: {newSize}, new integrity: {asteroid._integrity}");
-
-            if (hitInfo.HasValue)
-            {
-                SpawnDebrisAtImpact(asteroid, hitInfo.Value.Position, 1.0f);
-            }
-        }
-
         public void SpawnDebrisAtImpact(AsteroidEntity asteroid, Vector3D impactPosition, float healthLostRatio)
         {
             // Define the drop range based on asteroid type
@@ -254,16 +227,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     return;
                 }
             }
-            else if (damageSource.String == "SmallExplosion")
-            {
-                finalDamage *= 5.0f;
-                asteroid._integrity -= finalDamage;
-                if (asteroid._integrity <= 0)
-                {
-                    AblateAsteroid(asteroid, hitInfo);
-                    return;
-                }
-            }
             else if (damageSource.String == "Bullet")
             {
                 // Reduce size proportionally to the damage done by the bullet
@@ -288,19 +251,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                             SpawnDebrisAtImpact(asteroid, hitInfo.Value.Position, damagePercentage);
                         }
                     }
-                }
-            }
-
-            // Check if asteroid is destroyed
-            if (asteroid._integrity <= 0)
-            {
-                if (asteroid.Size <= AsteroidSettings.MinSubChunkSize)
-                {
-                    asteroid.OnDestroy();
-                }
-                else
-                {
-                    AblateAsteroid(asteroid, hitInfo);
                 }
             }
         }

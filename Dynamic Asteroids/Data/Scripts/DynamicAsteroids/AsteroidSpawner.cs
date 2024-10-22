@@ -641,7 +641,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                         newPosition = zone.Center + RandVector() * AsteroidSettings.ZoneRadius;
                         zoneSpawnAttempts++;
                         totalSpawnAttempts++;
-                        Log.Info($"Attempting to spawn asteroid at {newPosition} (attempt {totalSpawnAttempts})");
+                        //Log.Info($"Attempting to spawn asteroid at {newPosition} (attempt {totalSpawnAttempts})");
 
                         if (AsteroidSettings.EnableGasGiantRingSpawning && _realGasGiantsApi != null && _realGasGiantsApi.IsReady)
                         {
@@ -790,23 +790,23 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 float ringInfluence = _realGasGiantsApi.GetRingInfluenceAtPositionGlobal(position);
                 if (ringInfluence > AsteroidSettings.MinimumRingInfluenceForSpawn)
                 {
-                    Log.Info($"Valid position in ring: {position}, influence: {ringInfluence}");
+                    //Log.Info($"Valid position in ring: {position}, influence: {ringInfluence}");
                     return true;
                 }
             }
             foreach (SpawnableArea area in AsteroidSettings.ValidSpawnLocations)
             {
                 if (!area.ContainsPoint(position)) continue;
-                Log.Info($"Valid position in SpawnableArea: {position}");
+                //Log.Info($"Valid position in SpawnableArea: {position}");
                 return true;
             }
             foreach (AsteroidZone zone in zones)
             {
                 if (!zone.IsPointInZone(position)) continue;
-                Log.Info($"Valid position in player zone: {position}");
+                //Log.Info($"Valid position in player zone: {position}");
                 return true;
             }
-            Log.Info($"Invalid spawn position: {position}");
+            //Log.Info($"Invalid spawn position: {position}");
             return false;
         }
 
