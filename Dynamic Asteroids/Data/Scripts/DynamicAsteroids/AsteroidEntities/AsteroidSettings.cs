@@ -55,17 +55,21 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public static double SubChunkVelocityMax = 5.0;
         public static double SubChunkAngularVelocityMin = 0.01;
         public static double SubChunkAngularVelocityMax = 0.1;
-        public static int[] IceDropRange = { 1000, 10000 };
-        public static int[] StoneDropRange = { 1000, 10000 };
-        public static int[] IronDropRange = { 500, 2500 };
-        public static int[] NickelDropRange = { 500, 2500 };
-        public static int[] CobaltDropRange = { 500, 2500 };
-        public static int[] MagnesiumDropRange = { 500, 2500 };
-        public static int[] SiliconDropRange = { 500, 2500 };
-        public static int[] SilverDropRange = { 500, 2500 };
-        public static int[] GoldDropRange = { 500, 2500 };
-        public static int[] PlatinumDropRange = { 500, 2500 };
-        public static int[] UraniniteDropRange = { 500, 2500 };
+
+        public static readonly Dictionary<AsteroidType, float> MaxMassByType = new Dictionary<AsteroidType, float>
+        {
+            { AsteroidType.Ice, 50000f },
+            { AsteroidType.Stone, 40000f },
+            { AsteroidType.Iron, 30000f },
+            { AsteroidType.Nickel, 25000f },
+            { AsteroidType.Cobalt, 20000f },
+            { AsteroidType.Magnesium, 15000f },
+            { AsteroidType.Silicon, 35000f },
+            { AsteroidType.Silver, 10000f },
+            { AsteroidType.Gold, 8000f },
+            { AsteroidType.Platinum, 5000f },
+            { AsteroidType.Uraninite, 2000f }
+        };
 
         public static List<SpawnableArea> ValidSpawnLocations = new List<SpawnableArea>();
 
@@ -196,19 +200,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     writer.WriteLine($"SubChunkVelocityMax={SubChunkVelocityMax}");
                     writer.WriteLine($"SubChunkAngularVelocityMin={SubChunkAngularVelocityMin}");
                     writer.WriteLine($"SubChunkAngularVelocityMax={SubChunkAngularVelocityMax}");
-
-                    writer.WriteLine("[DropRanges]");
-                    WriteIntArray(writer, "IceDropRange", IceDropRange);
-                    WriteIntArray(writer, "StoneDropRange", StoneDropRange);
-                    WriteIntArray(writer, "IronDropRange", IronDropRange);
-                    WriteIntArray(writer, "NickelDropRange", NickelDropRange);
-                    WriteIntArray(writer, "CobaltDropRange", CobaltDropRange);
-                    WriteIntArray(writer, "MagnesiumDropRange", MagnesiumDropRange);
-                    WriteIntArray(writer, "SiliconDropRange", SiliconDropRange);
-                    WriteIntArray(writer, "SilverDropRange", SilverDropRange);
-                    WriteIntArray(writer, "GoldDropRange", GoldDropRange);
-                    WriteIntArray(writer, "PlatinumDropRange", PlatinumDropRange);
-                    WriteIntArray(writer, "UraniniteDropRange", UraniniteDropRange);
 
                     writer.WriteLine("[SpawnableAreas]");
                     foreach (var area in ValidSpawnLocations)
@@ -377,39 +368,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                                     break;
                                 case "SubChunkAngularVelocityMax":
                                     SubChunkAngularVelocityMax = double.Parse(value);
-                                    break;
-                                case "IceDropRange":
-                                    IceDropRange = ReadIntArray(value);
-                                    break;
-                                case "StoneDropRange":
-                                    StoneDropRange = ReadIntArray(value);
-                                    break;
-                                case "IronDropRange":
-                                    IronDropRange = ReadIntArray(value);
-                                    break;
-                                case "NickelDropRange":
-                                    NickelDropRange = ReadIntArray(value);
-                                    break;
-                                case "CobaltDropRange":
-                                    CobaltDropRange = ReadIntArray(value);
-                                    break;
-                                case "MagnesiumDropRange":
-                                    MagnesiumDropRange = ReadIntArray(value);
-                                    break;
-                                case "SiliconDropRange":
-                                    SiliconDropRange = ReadIntArray(value);
-                                    break;
-                                case "SilverDropRange":
-                                    SilverDropRange = ReadIntArray(value);
-                                    break;
-                                case "GoldDropRange":
-                                    GoldDropRange = ReadIntArray(value);
-                                    break;
-                                case "PlatinumDropRange":
-                                    PlatinumDropRange = ReadIntArray(value);
-                                    break;
-                                case "UraniniteDropRange":
-                                    UraniniteDropRange = ReadIntArray(value);
                                     break;
                                 case "Name":
                                     if (currentArea != null) ValidSpawnLocations.Add(currentArea);

@@ -3,6 +3,7 @@ using Sandbox.Game;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using System;
+using System.Collections.Generic;
 using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
@@ -44,7 +45,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 var newObject = MyObjectBuilderSerializer.CreateNewObject(item.Id.TypeId, item.Id.SubtypeId.ToString()) as MyObjectBuilder_PhysicalObject;
                 for (int i = 0; i < splits; i++)
                 {
-                    int dropAmount = GetRandomDropAmount(asteroid.Type);
+                    int dropAmount = GetDropAmount(asteroid); // Pass the entire asteroid entity, not just its type
                     MyFloatingObjects.Spawn(new MyPhysicalInventoryItem(dropAmount, newObject), asteroid.PositionComp.GetPosition() + RandVector(MainSession.I.Rand) * asteroid.Size, Vector3D.Forward, Vector3D.Up, asteroid.Physics);
                 }
 
@@ -85,101 +86,71 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             asteroid.Close();
         }
 
-        private int GetRandomDropAmount(AsteroidType type)
+        private int GetDropAmount(AsteroidEntity asteroid)
         {
-            switch (type)
-            {
-                case AsteroidType.Ice:
-                    return MainSession.I.Rand.Next(AsteroidSettings.IceDropRange[0], AsteroidSettings.IceDropRange[1]);
-                case AsteroidType.Stone:
-                    return MainSession.I.Rand.Next(AsteroidSettings.StoneDropRange[0], AsteroidSettings.StoneDropRange[1]);
-                case AsteroidType.Iron:
-                    return MainSession.I.Rand.Next(AsteroidSettings.IronDropRange[0], AsteroidSettings.IronDropRange[1]);
-                case AsteroidType.Nickel:
-                    return MainSession.I.Rand.Next(AsteroidSettings.NickelDropRange[0], AsteroidSettings.NickelDropRange[1]);
-                case AsteroidType.Cobalt:
-                    return MainSession.I.Rand.Next(AsteroidSettings.CobaltDropRange[0], AsteroidSettings.CobaltDropRange[1]);
-                case AsteroidType.Magnesium:
-                    return MainSession.I.Rand.Next(AsteroidSettings.MagnesiumDropRange[0], AsteroidSettings.MagnesiumDropRange[1]);
-                case AsteroidType.Silicon:
-                    return MainSession.I.Rand.Next(AsteroidSettings.SiliconDropRange[0], AsteroidSettings.SiliconDropRange[1]);
-                case AsteroidType.Silver:
-                    return MainSession.I.Rand.Next(AsteroidSettings.SilverDropRange[0], AsteroidSettings.SilverDropRange[1]);
-                case AsteroidType.Gold:
-                    return MainSession.I.Rand.Next(AsteroidSettings.GoldDropRange[0], AsteroidSettings.GoldDropRange[1]);
-                case AsteroidType.Platinum:
-                    return MainSession.I.Rand.Next(AsteroidSettings.PlatinumDropRange[0], AsteroidSettings.PlatinumDropRange[1]);
-                case AsteroidType.Uraninite:
-                    return MainSession.I.Rand.Next(AsteroidSettings.UraniniteDropRange[0], AsteroidSettings.UraniniteDropRange[1]);
-                default:
-                    return 0;
-            }
+            // Calculate debris amount based on asteroid mass
+            float mass = asteroid.Physics.Mass;
+            int debrisCount = (int)(mass / 500); // Adjust this divisor to control the number of debris pieces
+            return debrisCount > 0 ? debrisCount : 1; // Ensure at least one debris is spawned
         }
 
-        private int[] GetDropRange(AsteroidType type)
+        public void SpawnDebrisAtImpact(AsteroidEntity asteroid, Vector3D impactPosition, float massLost)
         {
-            switch (type)
-            {
-                case AsteroidType.Ice:
-                    return AsteroidSettings.IceDropRange;
-                case AsteroidType.Stone:
-                    return AsteroidSettings.StoneDropRange;
-                case AsteroidType.Iron:
-                    return AsteroidSettings.IronDropRange;
-                case AsteroidType.Nickel:
-                    return AsteroidSettings.NickelDropRange;
-                case AsteroidType.Cobalt:
-                    return AsteroidSettings.CobaltDropRange;
-                case AsteroidType.Magnesium:
-                    return AsteroidSettings.MagnesiumDropRange;
-                case AsteroidType.Silicon:
-                    return AsteroidSettings.SiliconDropRange;
-                case AsteroidType.Silver:
-                    return AsteroidSettings.SilverDropRange;
-                case AsteroidType.Gold:
-                    return AsteroidSettings.GoldDropRange;
-                case AsteroidType.Platinum:
-                    return AsteroidSettings.PlatinumDropRange;
-                case AsteroidType.Uraninite:
-                    return AsteroidSettings.UraniniteDropRange;
-                default:
-                    return null;
-            }
-        }
+            // Log debris spawning based on mass lost
+            Log.Info($"Spawning debris with mass lost: {massLost} at impact position.");
 
-        public void SpawnDebrisAtImpact(AsteroidEntity asteroid, Vector3D impactPosition, float healthLostRatio)
-        {
-            // Define the drop range based on asteroid type
-            int[] dropRange = GetDropRange(asteroid.Type);
-            if (dropRange == null)
-            {
-                Log.Warning("Invalid asteroid type or drop range not defined.");
-                return;
-            }
-
-            // Calculate the base drop amount proportional to health lost
-            int minDrop = dropRange[0];
-            int maxDrop = dropRange[1];
-
-            // Apply additional scaling for weak weapons to limit debris from small hits
-            // Weak hits result in almost no debris unless a significant amount of health is lost
-            float scalingFactor = 0.5f; // Adjust this as needed to fine-tune how much weak weapons contribute
-            int dropAmount = (int)((minDrop + (maxDrop - minDrop) * healthLostRatio) * scalingFactor);
-
-            // Ensure that very small drops (from weak hits) are handled
-            if (dropAmount < minDrop * 0.1f)
-            {
-                dropAmount = 1;  // Smallest possible drop, trace amount
-            }
-
-            Log.Info($"Spawning {dropAmount} debris at impact location due to {healthLostRatio:P} health lost.");
-
-            // Create the floating debris
+            // Create the floating debris item
             MyPhysicalItemDefinition item = MyDefinitionManager.Static.GetPhysicalItemDefinition(new MyDefinitionId(typeof(MyObjectBuilder_Ore), asteroid.Type.ToString()));
             var newObject = MyObjectBuilderSerializer.CreateNewObject(item.Id.TypeId, item.Id.SubtypeId.ToString()) as MyObjectBuilder_PhysicalObject;
 
-            // Spawn the items at the impact site
-            MyFloatingObjects.Spawn(new MyPhysicalInventoryItem(dropAmount, newObject), impactPosition, Vector3D.Forward, Vector3D.Up, asteroid.Physics);
+            // Group debris in a nearby radius (adjust the distance for debris grouping)
+            float groupingRadius = 10.0f; // 10 meters radius for grouping debris
+
+            // Find nearby debris to consolidate the mass into
+            List<MyFloatingObject> nearbyDebris = GetNearbyDebris(impactPosition, groupingRadius, newObject);
+
+            if (nearbyDebris.Count > 0)
+            {
+                // Add the debris mass to the closest existing debris
+                MyFloatingObject closestDebris = nearbyDebris[0];
+
+                // Calculate how much volume to add based on mass (assume 500 mass units per item)
+                float massPerItem = 500f;
+                float newAmount = massLost / massPerItem;
+
+                closestDebris.Item.Amount += (VRage.MyFixedPoint)newAmount;
+
+                // Log mass added to the existing debris
+                Log.Info($"Added {massLost} mass to existing debris at {closestDebris.PositionComp.GetPosition()}");
+            }
+            else
+            {
+                // No nearby debris found, create a new one at the impact position
+                float massPerItem = 500f;
+                float newAmount = massLost / massPerItem;
+
+                MyFloatingObjects.Spawn(new MyPhysicalInventoryItem((VRage.MyFixedPoint)newAmount, newObject),
+                    impactPosition, Vector3D.Forward, Vector3D.Up, asteroid.Physics);
+
+                // Log that new debris was spawned
+                Log.Info($"Spawned new debris with mass {massLost} at impact position {impactPosition}");
+            }
+        }
+
+        private List<MyFloatingObject> GetNearbyDebris(Vector3D position, float radius, MyObjectBuilder_PhysicalObject itemType)
+        {
+            List<MyFloatingObject> nearbyDebris = new List<MyFloatingObject>();
+            BoundingSphereD boundingSphereD = new BoundingSphereD(position, radius);
+
+            foreach (var entity in MyAPIGateway.Entities.GetEntitiesInSphere(ref boundingSphereD))
+            {
+                MyFloatingObject floatingObj = entity as MyFloatingObject;
+                if (floatingObj != null && floatingObj.Item.Content.GetType() == itemType.GetType())
+                {
+                    nearbyDebris.Add(floatingObj);
+                }
+            }
+            return nearbyDebris;
         }
 
         private Vector3D RandVector(Random rand)
@@ -192,91 +163,62 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         public bool DoDamage(AsteroidEntity asteroid, float damage, MyStringHash damageSource, bool sync, MyHitInfo? hitInfo = null, long attackerId = 0, long realHitEntityId = 0, bool shouldDetonateAmmo = true, MyStringHash? extraInfo = null)
         {
-            try
-            {
-                Log.Info($"DoDamage called with damage: {damage}, damageSource: {damageSource}, integrity before damage: {asteroid._integrity}");
+            Log.Info($"DoDamage called with damage: {damage}, damageSource: {damageSource}, integrity (mass) before damage: {asteroid._integrity}");
 
-                // Pass the damageSource and hitInfo to ReduceIntegrity
-                ReduceIntegrity(asteroid, damage, damageSource, hitInfo);
-
-                if (asteroid._integrity <= 0)
-                {
-                    Log.Info("Asteroid integrity reached 0, calling OnDestroy.");
-                    asteroid.OnDestroy();  // Call destruction logic when integrity reaches zero
-                }
-                else
-                {
-                    Log.Info($"Asteroid integrity after damage: {asteroid._integrity}");
-                }
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Log.Exception(ex, typeof(AsteroidEntity), "Exception in DoDamage");
-                return false;
-            }
-        }
-
-        private void ReduceIntegrity(AsteroidEntity asteroid, float damage, MyStringHash damageSource, MyHitInfo? hitInfo)
-        {
-            float initialIntegrity = asteroid._integrity;
-            float finalDamage = damage;
-
-            Log.Info($"ReduceIntegrity called with damage: {damage}, damageSource: {damageSource}, initial integrity: {initialIntegrity}");
-
-            if (damageSource.String == "Explosion")
-            {
-                // Apply the 10x damage multiplier for explosions
-                finalDamage *= 10.0f;
-                Log.Info($"Explosion detected, applying 10x damage multiplier. Final damage: {finalDamage}");
-            }
-
-            // Apply the damage to the asteroid's integrity
-            asteroid._integrity -= finalDamage;
-            Log.Info($"Damage applied, new integrity: {asteroid._integrity}");
-
-            // Calculate the percentage of integrity lost
-            float healthLostRatio = 1 - (asteroid._integrity / initialIntegrity);
-            Log.Info($"Health lost ratio: {healthLostRatio}");
+            // Directly reduce mass instead of health ratio
+            ReduceMass(asteroid, damage, damageSource, hitInfo);
 
             if (asteroid._integrity <= 0)
             {
-                // Check if the asteroid was destroyed by an explosion
-                if (damageSource.String == "Explosion")
-                {
-                    Log.Info("Asteroid killed by explosion, splitting the asteroid.");
-                    asteroid.OnDestroy(); // Split the asteroid only if it was killed by an explosion
-                }
-                else
-                {
-                    Log.Info("Asteroid destroyed by non-explosive damage, no splitting.");
-                    asteroid.Close(); // Simply close the asteroid without splitting for non-explosive kills
-                }
+                Log.Info("Asteroid mass reached 0, calling OnDestroy.");
+                asteroid.OnDestroy();
             }
-            else if (damageSource.String == "Bullet")
+            else
             {
-                // Size reduction proportional to health lost for bullets
-                float sizeReductionFactor = healthLostRatio * 0.1f; // Reduce size gradually based on health lost
+                Log.Info($"Asteroid mass after damage: {asteroid._integrity}");
+            }
+
+            return true;
+        }
+
+        private void ReduceMass(AsteroidEntity asteroid, float damage, MyStringHash damageSource, MyHitInfo? hitInfo)
+        {
+            float initialMass = asteroid._integrity;  // Integrity represents the scaled mass.
+            float finalDamage = damage;
+
+            Log.Info($"ReduceMass called with damage: {damage}, damageSource: {damageSource}, initial mass: {initialMass}");
+
+            // Apply a multiplier if needed (explosions, etc.)
+            if (damageSource.String == "Explosion")
+            {
+                finalDamage *= 10.0f; // Explosions do 10x damage
+            }
+
+            // Subtract the damage from the integrity
+            asteroid._integrity -= finalDamage;
+
+            // Ensure mass and integrity are linked, reducing size based on lost mass
+            Log.Info($"Damage applied, new integrity (mass): {asteroid._integrity}");
+
+            if (asteroid._integrity <= 0)
+            {
+                asteroid.OnDestroy();
+            }
+            else
+            {
+                float massLost = initialMass - asteroid._integrity;
+                float sizeReductionFactor = massLost / initialMass;
+
+                // Update the size and spawn debris based on mass lost
                 float newSize = Math.Max(AsteroidSettings.MinSubChunkSize, asteroid.Size * (1 - sizeReductionFactor));
+                asteroid.UpdateSizeAndPhysics(newSize);
 
-                Log.Info($"Size reduction factor: {sizeReductionFactor}, new size: {newSize}");
-
-                if (newSize < asteroid.Size)
+                if (hitInfo.HasValue)
                 {
-                    // Update size and physics based on new size
-                    asteroid.UpdateSizeAndPhysics(newSize);
-
-                    // Spawn debris if hit information is available
-                    if (hitInfo.HasValue)
-                    {
-                        Log.Info($"Spawning debris at impact with health lost ratio: {healthLostRatio}");
-                        SpawnDebrisAtImpact(asteroid, hitInfo.Value.Position, healthLostRatio);
-                    }
+                    SpawnDebrisAtImpact(asteroid, hitInfo.Value.Position, massLost);
                 }
             }
         }
-
 
     }
 }
