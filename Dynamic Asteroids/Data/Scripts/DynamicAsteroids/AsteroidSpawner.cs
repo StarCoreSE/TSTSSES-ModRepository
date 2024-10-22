@@ -693,51 +693,39 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                         break;
                     }
 
-                    float spawnChance = isInRing ?
-                        MathHelper.Lerp(0.1f, 1f, ringInfluence) * AsteroidSettings.MaxRingAsteroidDensityMultiplier :
-                        1f;
-
-                    if (MainSession.I.Rand.NextDouble() > spawnChance)
-                    {
-                        Log.Info($"Asteroid spawn skipped due to density scaling (spawn chance: {spawnChance})");
-                        continue;
-                    }
-
                     AsteroidType type = AsteroidSettings.GetAsteroidType(newPosition);
                     float size = AsteroidSettings.GetAsteroidSize(newPosition);
 
-                    if (isInRing)
-                    {
-                        size *= MathHelper.Lerp(0.5f, 1f, ringInfluence);
-                    }
+                    // Calculate volume and mass based on size
+                    float radius = size / 2.0f;
+                    float volume = (4.0f / 3.0f) * MathHelper.Pi * (float)Math.Pow(radius, 3);  // Volume of a sphere
+                    const float density = 917.0f; // Ice density (adjust based on material)
+                    float mass = density * volume;
 
-                    // Calculate mass and clamp between MinMass and MaxMass
+                    // Clamp mass according to the type's Min/Max values
                     AsteroidSettings.MassRange massRange;
                     if (AsteroidSettings.MinMaxMassByType.TryGetValue(type, out massRange))
                     {
-                        float radius = size / 2.0f;
-                        float volume = (4.0f / 3.0f) * MathHelper.Pi * (float)Math.Pow(radius, 3); // Volume of a sphere
-                        float density = 917.0f; // Ice density
-                        float mass = MathHelper.Clamp(density * volume, massRange.MinMass, massRange.MaxMass);
+                        mass = MathHelper.Clamp(mass, massRange.MinMass, massRange.MaxMass);
+                        Log.Info($"Asteroid mass clamped to {mass}, type: {type}");
+                    }
+                    else
+                    {
+                        Log.Warning($"Asteroid type {type} not found in MinMaxMassByType, mass not clamped.");
+                    }
 
-                        Log.Info($"Spawned asteroid type {type} with calculated mass {mass}, clamped between {massRange.MinMass} and {massRange.MaxMass}");
+                    Quaternion rotation = Quaternion.CreateFromYawPitchRoll(
+                        (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi,
+                        (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi,
+                        (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi);
 
-                        Quaternion rotation = Quaternion.CreateFromYawPitchRoll(
-                            (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi,
-                            (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi,
-                            (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi);
-
-                        AsteroidEntity asteroid = AsteroidEntity.CreateAsteroid(newPosition, size, newVelocity, type, rotation);
-
-                        if (asteroid == null) continue;
+                    AsteroidEntity asteroid = AsteroidEntity.CreateAsteroid(newPosition, size, newVelocity, type, rotation);
+                    if (asteroid != null)
+                    {
+                        Log.Info($"Spawned asteroid with clamped mass {mass} at position {newPosition}");
                         _asteroids.Add(asteroid);
                         zone.AsteroidCount++;
                         spawnedPositions.Add(newPosition);
-
-                        _messageCache.AddMessage(new AsteroidNetworkMessage(newPosition, size, newVelocity, Vector3D.Zero, type, false, asteroid.EntityId, false, true, rotation));
-                        asteroidsSpawned++;
-
-                        Log.Info($"Spawned asteroid at {newPosition} with size {size} and type {type}");
                     }
                 }
 
