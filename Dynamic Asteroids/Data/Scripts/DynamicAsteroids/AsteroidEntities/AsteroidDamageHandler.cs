@@ -90,8 +90,13 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         {
             // Calculate debris amount based on asteroid mass
             float mass = asteroid.Physics.Mass;
-            int debrisCount = (int)(mass / 500); // Adjust this divisor to control the number of debris pieces
-            return debrisCount > 0 ? debrisCount : 1; // Ensure at least one debris is spawned
+
+            // Adjust this divisor to control the number of debris pieces
+            // Use Math.Round to avoid strange fractional drop amounts
+            int debrisCount = (int)Math.Round(mass / 500.0f);
+
+            // Ensure at least one debris is spawned, even if the calculation rounds down to 0
+            return debrisCount > 0 ? debrisCount : 1;
         }
 
         public void SpawnDebrisAtImpact(AsteroidEntity asteroid, Vector3D impactPosition, float massLost)
@@ -165,17 +170,21 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         {
             Log.Info($"DoDamage called with damage: {damage}, damageSource: {damageSource}, integrity (mass) before damage: {asteroid._integrity}");
 
+            // Apply the BaseIntegrity multiplier to make the asteroid harder or easier to damage
+            float adjustedDamage = damage * (100.0f / AsteroidSettings.BaseIntegrity);
+            Log.Info($"Adjusted damage after applying BaseIntegrity: {adjustedDamage}");
+
             // Directly reduce mass instead of health ratio
-            ReduceMass(asteroid, damage, damageSource, hitInfo);
+            ReduceMass(asteroid, adjustedDamage, damageSource, hitInfo);
 
             if (asteroid._integrity <= 0)
             {
-                Log.Info("Asteroid mass reached 0, calling OnDestroy.");
+                Log.Info("Asteroid integrity reached 0, calling OnDestroy.");
                 asteroid.OnDestroy();
             }
             else
             {
-                Log.Info($"Asteroid mass after damage: {asteroid._integrity}");
+                Log.Info($"Asteroid integrity after damage: {asteroid._integrity}");
             }
 
             return true;

@@ -125,10 +125,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 // Calculate volume and mass based on size (assuming size is diameter)
                 float radius = size / 2.0f;
                 float volume = (4.0f / 3.0f) * MathHelper.Pi * (float)Math.Pow(radius, 3);  // Volume of a sphere
-                const float density = 917.0f; // Example density (adjust based on material)
+                const float density = 917.0f; // Ice density (adjust based on material)
                 float mass = density * volume;
 
-                // Set integrity proportional to the mass, scaled by BaseIntegrity (BaseIntegrity = 100 means 1:1 correlation)
+                // Integrity is adjusted by the BaseIntegrity value
                 _integrity = (AsteroidSettings.BaseIntegrity / 100.0f) * mass;
                 Log.Info($"Calculated Integrity: {_integrity}, based on BaseIntegrity: {AsteroidSettings.BaseIntegrity}, Mass: {mass}");
 
