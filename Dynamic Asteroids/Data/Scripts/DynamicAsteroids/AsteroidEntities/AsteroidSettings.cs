@@ -72,17 +72,17 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         public static readonly Dictionary<AsteroidType, MassRange> MinMaxMassByType = new Dictionary<AsteroidType, MassRange>
         {
-            { AsteroidType.Ice, new MassRange(10000f, 50000f) },
-            { AsteroidType.Stone, new MassRange(8000f, 40000f) },
-            { AsteroidType.Iron, new MassRange(5000f, 30000f) },
-            { AsteroidType.Nickel, new MassRange(4000f, 25000f) },
-            { AsteroidType.Cobalt, new MassRange(3000f, 20000f) },
-            { AsteroidType.Magnesium, new MassRange(2000f, 15000f) },
-            { AsteroidType.Silicon, new MassRange(5000f, 35000f) },
-            { AsteroidType.Silver, new MassRange(2000f, 10000f) },
-            { AsteroidType.Gold, new MassRange(1000f, 8000f) },
-            { AsteroidType.Platinum, new MassRange(500f, 5000f) },
-            { AsteroidType.Uraninite, new MassRange(300f, 2000f) }
+            { AsteroidType.Ice, new MassRange(100000000f, 500000000f) },
+            { AsteroidType.Stone, new MassRange(80000f, 400000f) },
+            { AsteroidType.Iron, new MassRange(50000f, 300000f) },
+            { AsteroidType.Nickel, new MassRange(40000f, 250000f) },
+            { AsteroidType.Cobalt, new MassRange(30000f, 200000f) },
+            { AsteroidType.Magnesium, new MassRange(20000f, 150000f) },
+            { AsteroidType.Silicon, new MassRange(50000f, 350000f) },
+            { AsteroidType.Silver, new MassRange(20000f, 100000f) },
+            { AsteroidType.Gold, new MassRange(10000f, 80000f) },
+            { AsteroidType.Platinum, new MassRange(5000f, 50000f) },
+            { AsteroidType.Uraninite, new MassRange(3000f, 20000f) }
         };
 
         public static List<SpawnableArea> ValidSpawnLocations = new List<SpawnableArea>();
