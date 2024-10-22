@@ -429,59 +429,46 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             {
                 Log.Info($"Updating asteroid size from {Size} to {newSize}");
 
-                Size = newSize;
-                Vector3D position = PositionComp.GetPosition();
-                MatrixD worldMatrix = WorldMatrix;
+                if (newSize == Size)
+                {
+                    Log.Info("New size is the same as the current size, skipping update.");
+                    return;
+                }
+
+                // Preserve the current velocities before destroying the old physics
                 Vector3D linearVelocity = Physics?.LinearVelocity ?? Vector3D.Zero;
                 Vector3D angularVelocity = Physics?.AngularVelocity ?? Vector3D.Zero;
 
-                // Calculate the scale factor
-                float scaleFactor = newSize / Size;
-
-                // Update the PositionComp scale
-                PositionComp.Scale = scaleFactor;
-
-                // Update the world matrix with the new scale
-                MatrixD scaledWorldMatrix = MatrixD.CreateScale(scaleFactor) * worldMatrix;
-                PositionComp.SetWorldMatrix(ref scaledWorldMatrix);
-
-                // Close the existing physics
+                // Dispose of old physics
                 if (Physics != null)
                 {
+                    Log.Info($"Disposing old physics for asteroid {EntityId}");
                     Physics.Close();
+                    Physics = null; // Ensure the reference is cleared
                 }
 
-                // Recreate physics with new size
+                // Update the size of the asteroid
+                Size = newSize;
+
+                // Recreate the physics with the new size
+                Log.Info($"Creating new physics for asteroid {EntityId} with new size {Size}");
                 CreatePhysics();
 
-                // Restore velocities
+                // Restore the velocities to the newly created physics body
                 if (Physics != null)
                 {
                     Physics.LinearVelocity = linearVelocity;
                     Physics.AngularVelocity = angularVelocity;
+                    Log.Info($"Restored linear velocity: {Physics.LinearVelocity}, angular velocity: {Physics.AngularVelocity}");
                 }
 
-                // Refresh the render component
-                RefreshRenderComponent();
-
-                Log.Info($"Updated asteroid size to {Size}, updated model scale and physics.");
+                Log.Info($"Successfully updated size and recreated physics for asteroid {EntityId}");
             }
             catch (Exception ex)
             {
                 Log.Exception(ex, typeof(AsteroidEntity), $"Error updating size and physics for asteroid {EntityId}");
             }
         }
-
-        private void RefreshRenderComponent()
-        {
-            if (Render != null)
-            {
-                Render.RemoveRenderObjects();
-                Render.AddRenderObjects();
-                Render.UpdateRenderObject(true, false);
-                Log.Info($"Render component fully updated to reflect new scale for asteroid {EntityId}.");
-            }
-        }
-
+        
     }
 }

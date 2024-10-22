@@ -194,12 +194,19 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         {
             try
             {
+                Log.Info($"DoDamage called with damage: {damage}, damageSource: {damageSource}, integrity before damage: {asteroid._integrity}");
+
                 // Pass the damageSource and hitInfo to ReduceIntegrity
                 ReduceIntegrity(asteroid, damage, damageSource, hitInfo);
 
                 if (asteroid._integrity <= 0)
                 {
+                    Log.Info("Asteroid integrity reached 0, calling OnDestroy.");
                     asteroid.OnDestroy();  // Call destruction logic when integrity reaches zero
+                }
+                else
+                {
+                    Log.Info($"Asteroid integrity after damage: {asteroid._integrity}");
                 }
 
                 return true;
@@ -216,43 +223,38 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             float initialIntegrity = asteroid._integrity;
             float finalDamage = damage;
 
-            // Handle explosions separately with large damage multipliers
-            if (damageSource.String == "Explosion")
+            Log.Info($"ReduceIntegrity called with damage: {damage}, damageSource: {damageSource}, initial integrity: {initialIntegrity}");
+
+            asteroid._integrity -= finalDamage;
+            Log.Info($"Damage applied, new integrity: {asteroid._integrity}");
+
+            // Calculate the percentage of integrity lost
+            float healthLostRatio = 1 - (asteroid._integrity / initialIntegrity);
+            Log.Info($"Health lost ratio: {healthLostRatio}");
+
+            if (damageSource.String == "Bullet")
             {
-                finalDamage *= 10.0f;
-                asteroid._integrity -= finalDamage;
-                if (asteroid._integrity <= 0)
+                // Size reduction proportional to health lost
+                float sizeReductionFactor = healthLostRatio * 0.1f; // Reduce more gradually
+                float newSize = Math.Max(AsteroidSettings.MinSubChunkSize, asteroid.Size * (1 - sizeReductionFactor));
+
+                Log.Info($"Size reduction factor: {sizeReductionFactor}, new size: {newSize}");
+
+                if (newSize < asteroid.Size)
                 {
-                    SplitAsteroid(asteroid);
-                    return;
-                }
-            }
-            else if (damageSource.String == "Bullet")
-            {
-                // Reduce size proportionally to the damage done by the bullet
-                asteroid._integrity -= finalDamage;
+                    // Update size and physics based on new size
+                    asteroid.UpdateSizeAndPhysics(newSize);
 
-                // Calculate the percentage of damage
-                float damagePercentage = finalDamage / initialIntegrity;
-
-                if (damagePercentage > 0.1f)  // Only reduce size if significant damage occurs
-                {
-                    float sizeReduction = asteroid.Size * (damagePercentage * 0.1f); // Reduce size proportionally
-                    float newSize = Math.Max(AsteroidSettings.MinSubChunkSize, asteroid.Size - sizeReduction);
-
-                    if (newSize < asteroid.Size)
+                    // Spawn debris on significant hit
+                    if (hitInfo.HasValue)
                     {
-                        // Update size and physics based on the new size
-                        asteroid.UpdateSizeAndPhysics(newSize);
-
-                        // Spawn debris based on the hit location and size reduction
-                        if (hitInfo.HasValue)
-                        {
-                            SpawnDebrisAtImpact(asteroid, hitInfo.Value.Position, damagePercentage);
-                        }
+                        Log.Info($"Spawning debris at impact with health lost ratio: {healthLostRatio}");
+                        SpawnDebrisAtImpact(asteroid, hitInfo.Value.Position, healthLostRatio);
                     }
                 }
             }
         }
+
+
     }
 }
