@@ -56,19 +56,32 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public static double SubChunkAngularVelocityMin = 0.01;
         public static double SubChunkAngularVelocityMax = 0.1;
 
-        public static readonly Dictionary<AsteroidType, float> MaxMassByType = new Dictionary<AsteroidType, float>
+        public struct MassRange
         {
-            { AsteroidType.Ice, 50000f },
-            { AsteroidType.Stone, 40000f },
-            { AsteroidType.Iron, 30000f },
-            { AsteroidType.Nickel, 25000f },
-            { AsteroidType.Cobalt, 20000f },
-            { AsteroidType.Magnesium, 15000f },
-            { AsteroidType.Silicon, 35000f },
-            { AsteroidType.Silver, 10000f },
-            { AsteroidType.Gold, 8000f },
-            { AsteroidType.Platinum, 5000f },
-            { AsteroidType.Uraninite, 2000f }
+            public float MinMass;
+            public float MaxMass;
+
+            public MassRange(float minMass, float maxMass)
+            {
+                MinMass = minMass;
+                MaxMass = maxMass;
+            }
+        }
+
+
+        public static readonly Dictionary<AsteroidType, MassRange> MinMaxMassByType = new Dictionary<AsteroidType, MassRange>
+        {
+            { AsteroidType.Ice, new MassRange(10000f, 50000f) },
+            { AsteroidType.Stone, new MassRange(8000f, 40000f) },
+            { AsteroidType.Iron, new MassRange(5000f, 30000f) },
+            { AsteroidType.Nickel, new MassRange(4000f, 25000f) },
+            { AsteroidType.Cobalt, new MassRange(3000f, 20000f) },
+            { AsteroidType.Magnesium, new MassRange(2000f, 15000f) },
+            { AsteroidType.Silicon, new MassRange(5000f, 35000f) },
+            { AsteroidType.Silver, new MassRange(2000f, 10000f) },
+            { AsteroidType.Gold, new MassRange(1000f, 8000f) },
+            { AsteroidType.Platinum, new MassRange(500f, 5000f) },
+            { AsteroidType.Uraninite, new MassRange(300f, 2000f) }
         };
 
         public static List<SpawnableArea> ValidSpawnLocations = new List<SpawnableArea>();

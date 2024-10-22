@@ -256,8 +256,12 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         public bool DoDamage(float damage, MyStringHash damageSource, bool sync, MyHitInfo? hitInfo = null, long attackerId = 0, long realHitEntityId = 0, bool shouldDetonateAmmo = true, MyStringHash? extraInfo = null)
         {
-            // Delegate to damage handler
+            Log.Info($"DoDamage called with damage: {damage}, damageSource: {damageSource}, integrity (mass) before damage: {_integrity}");
+
+            // Call the damage handler
             var damageHandler = new AsteroidDamageHandler();
+
+            // Ensure we aren't calling this method twice unnecessarily
             return damageHandler.DoDamage(this, damage, damageSource, sync, hitInfo, attackerId, realHitEntityId, shouldDetonateAmmo, extraInfo);
         }
 
@@ -308,7 +312,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             {
                 Log.Info($"Updating asteroid size from {Size} to {newSize}");
 
-                if (newSize == Size)
+                if (Math.Abs(newSize - Size) < 1)
                 {
                     Log.Info("New size is the same as the current size, skipping update.");
                     return;
