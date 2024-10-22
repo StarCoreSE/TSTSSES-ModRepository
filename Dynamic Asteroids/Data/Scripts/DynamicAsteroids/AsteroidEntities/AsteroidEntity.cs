@@ -427,29 +427,30 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public void UpdateSizeAndPhysics(float newSize)
         {
             Size = newSize;
-
-            // Store current position and orientation
             Vector3D position = PositionComp.GetPosition();
             MatrixD worldMatrix = WorldMatrix;
             Vector3D linearVelocity = Physics?.LinearVelocity ?? Vector3D.Zero;
             Vector3D angularVelocity = Physics?.AngularVelocity ?? Vector3D.Zero;
 
-            // Calculate scaling factor based on the new size
-            float scaleFactor = newSize / 2.0f; // Adjusting this factor based on base size assumptions
+            // Calculate scale factor
+            float scaleFactor = newSize / Size;  // Use the original size as the baseline
 
-            // Update the world matrix with scaling
+            // Scale the world matrix
             MatrixD scaledWorldMatrix = MatrixD.CreateScale(scaleFactor) * worldMatrix;
-            PositionComp.SetWorldMatrix(ref scaledWorldMatrix); // Apply the new scaled world matrix
 
-            // Close existing physics and reinitialize with new size
+            // Update position and matrix
+            PositionComp.SetWorldMatrix(ref scaledWorldMatrix);
+
+            // Recreate physics with new scale
             if (Physics != null)
             {
                 Physics.Close();
             }
 
+            // Reinitialize the asteroid with new size
             Init(position, newSize, linearVelocity, Type, Quaternion.CreateFromRotationMatrix(scaledWorldMatrix));
 
-            // Refresh the render component to reflect the updated size
+            // Refresh render component to update model scale
             RefreshRenderComponent();
 
             // Restore angular velocity
@@ -461,13 +462,12 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             Log.Info($"Updated asteroid size to {Size}, updated model and physics.");
         }
 
-        // Helper method to refresh the render component
         private void RefreshRenderComponent()
         {
             if (Render != null)
             {
-                // Refresh the render to apply the scaling changes visually
-                Render.UpdateRenderObject(true, false);  // Trigger a refresh of the model to apply scale visually
+                // Force a full update of the render object
+                Render.UpdateRenderObject(true, true);
                 Log.Info($"Render component updated to reflect new scale.");
             }
         }
