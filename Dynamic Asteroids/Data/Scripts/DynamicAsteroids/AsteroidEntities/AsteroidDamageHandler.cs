@@ -96,9 +96,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             return debrisCount > 0 ? debrisCount : 1;
         }
 
-        // Dictionary to track the last modified tick for debris consolidation (use 60 ticks for 1 second)
-        private Dictionary<MyFloatingObject, int> debrisCooldownTracker = new Dictionary<MyFloatingObject, int>();
-
         public void SpawnDebrisAtImpact(AsteroidEntity asteroid, Vector3D impactPosition, float massLost)
         {
             // Log debris spawning based on mass lost
@@ -121,74 +118,44 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             // Ensure at least 1 unit of debris is spawned
             newAmount = Math.Max(newAmount, 1);
 
-            // Get the current game tick
-            int currentTick = MyAPIGateway.Session.GameplayFrameCounter; // This will give you the current tick count
-
-            // Track if we found a debris object to add to
-            bool addedToExistingDebris = false;
-
             if (nearbyDebris.Count > 0)
             {
-                // Loop through nearby debris and check cooldowns based on ticks
-                foreach (var debris in nearbyDebris)
-                {
-                    int lastModifiedTick;
-                    if (debrisCooldownTracker.TryGetValue(debris, out lastModifiedTick))
-                    {
-                        // Check if the debris is within the 1-second (60 ticks) consolidation window
-                        if (currentTick - lastModifiedTick <= 60)
-                        {
-                            // Add the debris mass to the closest existing debris
-                            MyFloatingObjects.AddFloatingObjectAmount(debris, (VRage.MyFixedPoint)newAmount);
+                // Add the debris mass to the closest existing debris
+                MyFloatingObject closestDebris = nearbyDebris[0];
 
-                            // Update the last modified tick to the current tick
-                            debrisCooldownTracker[debris] = currentTick;
+                // Use the game's method to add the amount properly
+                MyFloatingObjects.AddFloatingObjectAmount(closestDebris, (VRage.MyFixedPoint)newAmount);
 
-                            // Log mass added to the existing debris
-                            Log.Info($"Added {massLost} mass to existing debris at {debris.PositionComp.GetPosition()}, tick: {currentTick}");
-                            addedToExistingDebris = true;
-                            break; // Stop after adding to the first valid debris object
-                        }
-                    }
-                    else
-                    {
-                        // First time debris is being tracked, add it to the dictionary
-                        debrisCooldownTracker[debris] = currentTick;
-                    }
-                }
+                // Log mass added to the existing debris
+                Log.Info($"Added {massLost} mass to existing debris at {closestDebris.PositionComp.GetPosition()}");
             }
-
-            if (!addedToExistingDebris)
+            else
             {
-                // No valid debris to add to, so create a new one at the impact position
+                // No nearby debris found, create a new one at the impact position
                 MyFloatingObjects.Spawn(new MyPhysicalInventoryItem((VRage.MyFixedPoint)newAmount, newObject),
                     impactPosition, Vector3D.Forward, Vector3D.Up, asteroid.Physics, entity =>
                     {
                         // Handle the entity after it is spawned (apply velocity, etc.)
-                        MyFloatingObject newDebris = entity as MyFloatingObject;
-                        if (newDebris != null && newDebris.Physics != null)
+                        MyFloatingObject debris = entity as MyFloatingObject;
+                        if (debris != null && debris.Physics != null)
                         {
                             // Inherit asteroid velocity
-                            newDebris.Physics.LinearVelocity = asteroid.Physics.LinearVelocity;
+                            debris.Physics.LinearVelocity = asteroid.Physics.LinearVelocity;
 
                             // Apply random velocity for debris flinging effect
                             Vector3D randomVelocity = MyUtils.GetRandomVector3Normalized() * 10; // Adjust factor for randomness
-                            newDebris.Physics.LinearVelocity += randomVelocity;
+                            debris.Physics.LinearVelocity += randomVelocity;
 
                             // Optionally, add random angular velocity for spinning debris
                             Vector3D randomAngularVelocity = MyUtils.GetRandomVector3Normalized() * 5; // Adjust factor if needed
-                            newDebris.Physics.AngularVelocity = randomAngularVelocity;
-
-                            // Track the new debris with the current tick count
-                            debrisCooldownTracker[newDebris] = currentTick;
+                            debris.Physics.AngularVelocity = randomAngularVelocity;
 
                             // Log that new debris was spawned with velocity
-                            Log.Info($"Spawned new debris with mass {massLost} at impact position {impactPosition}, initial velocity: {newDebris.Physics.LinearVelocity}, tick: {currentTick}");
+                            Log.Info($"Spawned new debris with mass {massLost} at impact position {impactPosition}, initial velocity: {debris.Physics.LinearVelocity}");
                         }
                     });
             }
         }
-
 
         private List<MyFloatingObject> GetNearbyDebris(Vector3D position, float radius, MyObjectBuilder_PhysicalObject itemType)
         {
