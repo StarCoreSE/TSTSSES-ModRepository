@@ -88,29 +88,73 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             try
             {
                 Log.Info("Unloading data in MainSession");
-                if (MyAPIGateway.Session.IsServer)
+
+                // Cleanup asteroids
+                if (_spawner != null)
                 {
-                    if (AsteroidSettings.EnablePersistence)
+                    // Remove all asteroid entities
+                    if (MyAPIGateway.Session.IsServer)
                     {
-                        _spawner.SaveAsteroidState();
+                        // Save state before closing
+                        if (AsteroidSettings.EnablePersistence)
+                        {
+                            _spawner.SaveAsteroidState();
+                        }
+
+                        // Remove all asteroids from the world
+                        var asteroidsToRemove = _spawner.GetAsteroids().ToList();
+                        foreach (var asteroid in asteroidsToRemove)
+                        {
+                            try
+                            {
+                                // Ensure entity is removed from the world
+                                MyEntities.Remove(asteroid);
+                                asteroid.Close();
+                            }
+                            catch (Exception removeEx)
+                            {
+                                Log.Exception(removeEx, typeof(MainSession), "Error removing asteroid during unload");
+                            }
+                        }
+
+                        // Close the spawner
+                        _spawner.Close();
+                        _spawner = null;
                     }
-                    _spawner.Close();
                 }
 
-                AsteroidSettings.SaveSettings();
-
+                // Unregister message handlers
                 MyAPIGateway.Multiplayer.UnregisterSecureMessageHandler(32000, OnSecureMessageReceived);
                 MyAPIGateway.Utilities.MessageEntered -= OnMessageEntered;
 
-                RealGasGiantsApi?.Unload();
+                // Cleanup Real Gas Giants API
+                if (RealGasGiantsApi != null)
+                {
+                    RealGasGiantsApi.Unload();
+                    RealGasGiantsApi = null;
+                }
+
+                // Save settings
+                AsteroidSettings.SaveSettings();
+
+                // Close logging
+                Log.Close();
+
+                // Clear static references
+                I = null;
             }
             catch (Exception ex)
             {
-                Log.Exception(ex, typeof(MainSession), "Error in UnloadData: ");
-            }
+                // Log any unloading errors
+                MyLog.Default.WriteLine($"Error in UnloadData: {ex}");
 
-            Log.Close();
-            I = null;
+                // Ensure logging happens even if other cleanup fails
+                try
+                {
+                    Log.Exception(ex, typeof(MainSession), "Error in UnloadData");
+                }
+                catch { }
+            }
         }
 
         private void OnMessageEntered(string messageText, ref bool sendToOthers)

@@ -258,10 +258,45 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         public void Close()
         {
             if (!MyAPIGateway.Session.IsServer) return;
-            SaveAsteroidState();
-            _zoneCache.Clear();
-            Log.Info("Closing AsteroidSpawner");
-            _asteroids = null;
+
+            try
+            {
+                Log.Info("Closing AsteroidSpawner");
+
+                // Save state if persistence is enabled
+                SaveAsteroidState();
+
+                // Clear caches
+                _zoneCache.Clear();
+                playerZones.Clear();
+                playerMovementData.Clear();
+
+                // Safely clear asteroids
+                if (_asteroids != null)
+                {
+                    foreach (var asteroid in _asteroids)
+                    {
+                        try
+                        {
+                            MyEntities.Remove(asteroid);
+                            asteroid.Close();
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Exception(ex, typeof(AsteroidSpawner), "Error closing individual asteroid");
+                        }
+                    }
+                    _asteroids = null;
+                }
+
+                // Clear update and network queues
+                _updateQueue = new ConcurrentQueue<AsteroidEntity>();
+                _networkMessages = new ConcurrentQueue<AsteroidNetworkMessage>();
+            }
+            catch (Exception ex)
+            {
+                Log.Exception(ex, typeof(AsteroidSpawner), "Error in Close method");
+            }
         }
 
         public void AssignZonesToPlayers()

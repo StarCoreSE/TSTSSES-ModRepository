@@ -396,24 +396,35 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         private void CreatePhysics()
         {
-            float radius = Size / 2; // Assuming Size represents the diameter
-            float volume = 4.0f / 3.0f * (float)Math.PI * (radius * radius * radius);
-            const float density = 917.0f;// Density of ice in kg/m³
-            float mass = density * volume;
+            try
+            {
+                float radius = Size / 2;
+                float volume = 4.0f / 3.0f * (float)Math.PI * (radius * radius * radius);
+                const float density = 917.0f;
+                float mass = density * volume;
 
-            PhysicsSettings settings = MyAPIGateway.Physics.CreateSettingsForPhysics(
-                this, this.WorldMatrix,
-                Vector3.Zero,
-                linearDamping: 0f,
-                angularDamping: 0f,
-                rigidBodyFlags: RigidBodyFlag.RBF_DEFAULT,
-                collisionLayer: CollisionLayers.NoVoxelCollisionLayer,
-                isPhantom: false,
-                mass: new ModAPIMass(volume, mass, Vector3.Zero, mass * this.PositionComp.LocalAABB.Height * this.PositionComp.LocalAABB.Height / 6 * Matrix.Identity));
+                PhysicsSettings settings = MyAPIGateway.Physics.CreateSettingsForPhysics(
+                    this,
+                    this.WorldMatrix,
+                    Vector3.Zero,
+                    linearDamping: 0f,
+                    angularDamping: 0f,
+                    rigidBodyFlags: RigidBodyFlag.RBF_DEFAULT,
+                    collisionLayer: CollisionLayers.NoVoxelCollisionLayer,
+                    isPhantom: false,
+                    mass: new ModAPIMass(volume, mass, Vector3.Zero, mass * this.PositionComp.LocalAABB.Height * this.PositionComp.LocalAABB.Height / 6 * Matrix.Identity)
+                );
 
-            MyAPIGateway.Physics.CreateSpherePhysics(settings, radius);
-            this.Physics.Enabled = true;
-            this.Physics.Activate();
+                MyAPIGateway.Physics.CreateSpherePhysics(settings, radius);
+                this.Physics.Enabled = true;
+                this.Physics.Activate();
+
+                Log.Info($"Created physics for asteroid {EntityId} with radius {radius} and mass {mass}");
+            }
+            catch (Exception ex)
+            {
+                Log.Exception(ex, typeof(AsteroidEntity), $"Error creating physics for asteroid {EntityId}");
+            }
         }
 
         private Vector3D RandVector()
@@ -426,49 +437,61 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         public void UpdateSizeAndPhysics(float newSize)
         {
-            Size = newSize;
-            Vector3D position = PositionComp.GetPosition();
-            MatrixD worldMatrix = WorldMatrix;
-            Vector3D linearVelocity = Physics?.LinearVelocity ?? Vector3D.Zero;
-            Vector3D angularVelocity = Physics?.AngularVelocity ?? Vector3D.Zero;
-
-            // Calculate scale factor
-            float scaleFactor = newSize / Size;  // Use the original size as the baseline
-
-            // Scale the world matrix
-            MatrixD scaledWorldMatrix = MatrixD.CreateScale(scaleFactor) * worldMatrix;
-
-            // Update position and matrix
-            PositionComp.SetWorldMatrix(ref scaledWorldMatrix);
-
-            // Recreate physics with new scale
-            if (Physics != null)
+            try
             {
-                Physics.Close();
+                Log.Info($"Updating asteroid size from {Size} to {newSize}");
+
+                Size = newSize;
+                Vector3D position = PositionComp.GetPosition();
+                MatrixD worldMatrix = WorldMatrix;
+                Vector3D linearVelocity = Physics?.LinearVelocity ?? Vector3D.Zero;
+                Vector3D angularVelocity = Physics?.AngularVelocity ?? Vector3D.Zero;
+
+                // Calculate the scale factor
+                float scaleFactor = newSize / Size;
+
+                // Update the PositionComp scale
+                PositionComp.Scale = scaleFactor;
+
+                // Update the world matrix with the new scale
+                MatrixD scaledWorldMatrix = MatrixD.CreateScale(scaleFactor) * worldMatrix;
+                PositionComp.SetWorldMatrix(ref scaledWorldMatrix);
+
+                // Close the existing physics
+                if (Physics != null)
+                {
+                    Physics.Close();
+                }
+
+                // Recreate physics with new size
+                CreatePhysics();
+
+                // Restore velocities
+                if (Physics != null)
+                {
+                    Physics.LinearVelocity = linearVelocity;
+                    Physics.AngularVelocity = angularVelocity;
+                }
+
+                // Refresh the render component
+                RefreshRenderComponent();
+
+                Log.Info($"Updated asteroid size to {Size}, updated model scale and physics.");
             }
-
-            // Reinitialize the asteroid with new size
-            Init(position, newSize, linearVelocity, Type, Quaternion.CreateFromRotationMatrix(scaledWorldMatrix));
-
-            // Refresh render component to update model scale
-            RefreshRenderComponent();
-
-            // Restore angular velocity
-            if (Physics != null)
+            catch (Exception ex)
             {
-                Physics.AngularVelocity = angularVelocity;
+                Log.Exception(ex, typeof(AsteroidEntity), $"Error updating size and physics for asteroid {EntityId}");
             }
-
-            Log.Info($"Updated asteroid size to {Size}, updated model and physics.");
         }
 
         private void RefreshRenderComponent()
         {
             if (Render != null)
             {
-                // Force a full update of the render object
-                Render.UpdateRenderObject(true, true);
-                Log.Info($"Render component updated to reflect new scale.");
+                Render.RemoveRenderObjects();
+                Render.AddRenderObjects();
+                Render.UpdateRenderObject(true, false);
+                Log.Info($"Render component fully updated to reflect new scale for asteroid {EntityId}.");
             }
         }
 
