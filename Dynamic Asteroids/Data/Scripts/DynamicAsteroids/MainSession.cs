@@ -329,7 +329,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 MyAPIGateway.Utilities.ShowNotification(message, 4000, "White");
         }
 
-        public MyPlanet FindNearestGasGiant(Vector3D position)
+        private MyPlanet FindNearestGasGiant(Vector3D position)
         {
             const double searchRadius = 1000000000;// 1 million km in meters
             MyPlanet nearestGasGiant = null;
@@ -426,7 +426,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 Log.Exception(ex, typeof(MainSession), "Error processing received message: ");
             }
         }
-
         private AsteroidEntity FindNearestAsteroid(Vector3D characterPosition)
         {
             if (_spawner == null || !_spawner.GetAsteroids().Any()) return null;

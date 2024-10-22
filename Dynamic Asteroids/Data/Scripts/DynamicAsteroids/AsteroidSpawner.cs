@@ -589,89 +589,82 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             }
 
             int totalAsteroidsSpawned = 0;
+            int totalZoneSpawnAttempts = 0;
+            List<Vector3D> skippedPositions = new List<Vector3D>();
             List<Vector3D> spawnedPositions = new List<Vector3D>();
 
             UpdatePlayerMovementData();
 
             foreach (AsteroidZone zone in zones)
             {
+                int asteroidsSpawned = 0;
+                int zoneSpawnAttempts = 0;
+
                 if (zone.AsteroidCount >= AsteroidSettings.MaxAsteroidsPerZone)
+                {
                     continue;
+                }
+
+                bool skipSpawning = false;
+                List<IMyPlayer> players = new List<IMyPlayer>();
+                MyAPIGateway.Players.GetPlayers(players);
+
+                foreach (IMyPlayer player in players)
+                {
+                    Vector3D playerPosition = player.GetPosition();
+                    if (!zone.IsPointInZone(playerPosition)) continue;
+                    PlayerMovementData data;
+                    if (!playerMovementData.TryGetValue(player.IdentityId, out data)) continue;
+                    if (!(data.Speed > 1000)) continue;
+                    Log.Info($"Skipping asteroid spawning for player {player.DisplayName} due to high speed: {data.Speed} m/s.");
+                    skipSpawning = true;
+                    break;
+                }
+
+                if (skipSpawning)
+                {
+                    continue;
+                }
 
                 while (zone.AsteroidCount < AsteroidSettings.MaxAsteroidsPerZone &&
-                       totalSpawnAttempts < AsteroidSettings.MaxTotalAttempts)
+                      asteroidsSpawned < 10 &&
+                      zoneSpawnAttempts < AsteroidSettings.MaxZoneAttempts &&
+                      totalSpawnAttempts < AsteroidSettings.MaxTotalAttempts)
                 {
                     Vector3D newPosition;
                     bool isInRing = false;
                     bool validPosition = false;
                     float ringInfluence = 0f;
 
-                    // Check if GPS-based arbitrary cluster spawning is enabled
-                    if (AsteroidSettings.ValidSpawnLocations.Count > 0)
+                    do
                     {
-                        newPosition = GetRandomSpawnLocation(AsteroidSettings.ValidSpawnLocations);
-                        validPosition = true; // Always consider valid when using predefined areas
-                        Log.Info($"Using predefined spawn location: {newPosition}");
-                    }
-                    else
-                    {
-                        // Try to find a valid spawn position for gas giant rings or standard areas
-                        do
+                        newPosition = zone.Center + RandVector() * AsteroidSettings.ZoneRadius;
+                        zoneSpawnAttempts++;
+                        totalSpawnAttempts++;
+                        //Log.Info($"Attempting to spawn asteroid at {newPosition} (attempt {totalSpawnAttempts})");
+
+                        if (AsteroidSettings.EnableGasGiantRingSpawning && _realGasGiantsApi != null && _realGasGiantsApi.IsReady)
                         {
-                            newPosition = zone.Center + RandVector() * AsteroidSettings.ZoneRadius;
-                            totalSpawnAttempts++;
-
-                            if (AsteroidSettings.EnableGasGiantRingSpawning && _realGasGiantsApi != null && _realGasGiantsApi.IsReady)
+                            ringInfluence = _realGasGiantsApi.GetRingInfluenceAtPositionGlobal(newPosition);
+                            if (ringInfluence > AsteroidSettings.MinimumRingInfluenceForSpawn)
                             {
-                                ringInfluence = _realGasGiantsApi.GetRingInfluenceAtPositionGlobal(newPosition);
-
-                                if (ringInfluence > AsteroidSettings.MinimumRingInfluenceForSpawn)
-                                {
-                                    validPosition = true;
-                                    isInRing = true;
-
-                                    // Get nearest gas giant and calculate the closest point in the ring
-                                    MyPlanet nearestGasGiant = MainSession.I.FindNearestGasGiant(newPosition);
-                                    if (nearestGasGiant != null)
-                                    {
-                                        var ringInfo = _realGasGiantsApi.GetGasGiantConfig_RingInfo_Size(nearestGasGiant);
-
-                                        if (ringInfo.Item1) // If ring data is valid
-                                        {
-                                            double innerRingRadius = ringInfo.Item3;
-                                            double outerRingRadius = ringInfo.Item4;
-
-                                            // Calculate distance to the core of the gas giant
-                                            double distanceFromGasGiantCore = Vector3D.Distance(newPosition, nearestGasGiant.PositionComp.GetPosition());
-
-                                            // Check if the position is within the ring boundaries
-                                            if (distanceFromGasGiantCore >= innerRingRadius && distanceFromGasGiantCore <= outerRingRadius)
-                                            {
-                                                Log.Info($"Asteroid spawned in valid ring region: {distanceFromGasGiantCore:N0}m from the gas giant's core. " +
-                                                         $"Ring bounds: [{innerRingRadius:N0}, {outerRingRadius:N0}]");
-                                            }
-                                            else
-                                            {
-                                                Log.Warning($"Skipping asteroid spawn: Position is outside the ring bounds. " +
-                                                            $"Distance from core: {distanceFromGasGiantCore:N0}m. " +
-                                                            $"Ring bounds: [{innerRingRadius:N0}, {outerRingRadius:N0}]");
-                                                continue; // Skip this spawn
-                                            }
-                                        }
-                                    }
-                                }
+                                validPosition = true;
+                                isInRing = true;
+                                Log.Info($"Position {newPosition} is within a gas giant ring (influence: {ringInfluence})");
                             }
+                        }
 
-                            if (!isInRing)
-                            {
-                                validPosition = IsValidSpawnPosition(newPosition, zones);
-                            }
+                        if (!isInRing)
+                        {
+                            validPosition = IsValidSpawnPosition(newPosition, zones);
+                        }
 
-                        } while (!validPosition && totalSpawnAttempts < AsteroidSettings.MaxTotalAttempts);
-                    }
+                    } while (!validPosition &&
+                            zoneSpawnAttempts < AsteroidSettings.MaxZoneAttempts &&
+                            totalSpawnAttempts < AsteroidSettings.MaxTotalAttempts);
 
-                    if (!validPosition)
-                        continue;
+                    if (zoneSpawnAttempts >= AsteroidSettings.MaxZoneAttempts || totalSpawnAttempts >= AsteroidSettings.MaxTotalAttempts)
+                        break;
 
                     Vector3D newVelocity;
                     if (!AsteroidSettings.CanSpawnAsteroidAtPoint(newPosition, out newVelocity, isInRing))
@@ -683,38 +676,40 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     if (IsNearVanillaAsteroid(newPosition))
                     {
                         Log.Info($"Position {newPosition} is near a vanilla asteroid, skipping.");
+                        skippedPositions.Add(newPosition);
                         continue;
                     }
 
                     if (AsteroidSettings.MaxAsteroidCount != -1 && _asteroids.Count >= AsteroidSettings.MaxAsteroidCount)
                     {
-                        Log.Warning($"Maximum asteroid count of {AsteroidSettings.MaxAsteroidCount} reached.");
+                        Log.Warning($"Maximum asteroid count of {AsteroidSettings.MaxAsteroidCount} reached. No more asteroids will be spawned until existing ones are removed.");
                         return;
                     }
 
-                    // Determine the asteroid type
-                    AsteroidType type = AsteroidSettings.GetAsteroidType(newPosition);
+                    if (zone.AsteroidCount >= AsteroidSettings.MaxAsteroidsPerZone)
+                    {
+                        Log.Info($"Zone at {zone.Center} has reached its maximum asteroid count ({AsteroidSettings.MaxAsteroidsPerZone}). Skipping further spawning in this zone.");
+                        break;
+                    }
 
-                    // Calculate mass based on the ring influence or random within Min/Max range
-                    float mass;
+                    float spawnChance = isInRing ?
+                        MathHelper.Lerp(0.1f, 1f, ringInfluence) * AsteroidSettings.MaxRingAsteroidDensityMultiplier :
+                        1f;
+
+                    if (MainSession.I.Rand.NextDouble() > spawnChance)
+                    {
+                        Log.Info($"Asteroid spawn skipped due to density scaling (spawn chance: {spawnChance})");
+                        continue;
+                    }
+
+                    AsteroidType type = AsteroidSettings.GetAsteroidType(newPosition);
+                    float size = AsteroidSettings.GetAsteroidSize(newPosition);
+
                     if (isInRing)
                     {
-                        var massRange = AsteroidSettings.MinMaxMassByType[type];
-                        mass = MathHelper.Lerp(massRange.MinMass, massRange.MaxMass, ringInfluence);
-                    }
-                    else
-                    {
-                        // Use a random mass within the range for non-ring spawns
-                        var massRange = AsteroidSettings.MinMaxMassByType[type];
-                        mass = MathHelper.Lerp(massRange.MinMass, massRange.MaxMass, (float)MainSession.I.Rand.NextDouble());
+                        size *= MathHelper.Lerp(0.5f, 1f, ringInfluence);
                     }
 
-                    // Now calculate the size based on the mass
-                    float density = 917.0f; // Use the same density as before
-                    float radius = (float)Math.Pow((3.0f * mass) / (4.0f * Math.PI * density), 1.0 / 3.0); // Reverse volume formula
-                    float size = 2.0f * radius; // Diameter = 2 * radius
-
-                    // Spawn the asteroid with calculated size and mass
                     Quaternion rotation = Quaternion.CreateFromYawPitchRoll(
                         (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi,
                         (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi,
@@ -723,31 +718,29 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     AsteroidEntity asteroid = AsteroidEntity.CreateAsteroid(newPosition, size, newVelocity, type, rotation);
 
                     if (asteroid == null) continue;
-
                     _asteroids.Add(asteroid);
                     zone.AsteroidCount++;
                     spawnedPositions.Add(newPosition);
 
                     _messageCache.AddMessage(new AsteroidNetworkMessage(newPosition, size, newVelocity, Vector3D.Zero, type, false, asteroid.EntityId, false, true, rotation));
+                    asteroidsSpawned++;
 
-                    Log.Info($"Spawned asteroid at {newPosition} with size {size} and type {type} (mass: {mass})");
-                    totalAsteroidsSpawned++;
+                    Log.Info($"Spawned asteroid at {newPosition} with size {size} and type {type}");
                 }
+
+                totalAsteroidsSpawned += asteroidsSpawned;
+                totalZoneSpawnAttempts += zoneSpawnAttempts;
             }
 
+            if (!AsteroidSettings.EnableLogging) return;
+            if (skippedPositions.Count > 0)
+            {
+                Log.Info($"Skipped spawning asteroids due to proximity to vanilla asteroids. Positions: {string.Join(", ", skippedPositions.Select(p => p.ToString()))}");
+            }
             if (spawnedPositions.Count > 0)
             {
                 Log.Info($"Spawned asteroids at positions: {string.Join(", ", spawnedPositions.Select(p => p.ToString()))}");
             }
-        }
-
-        // Method to get a random valid spawn location from predefined areas
-        private Vector3D GetRandomSpawnLocation(List<SpawnableArea> spawnableAreas)
-        {
-            int index = MainSession.I.Rand.Next(spawnableAreas.Count);
-            var area = spawnableAreas[index];
-            Vector3D randomPosition = area.CenterPosition + RandVector() * area.Radius;
-            return randomPosition;
         }
 
         private void UpdatePlayerMovementData()
