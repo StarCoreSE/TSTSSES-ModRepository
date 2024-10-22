@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using Sandbox.Definitions;
@@ -77,13 +78,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public int AblationStage { get; private set; } = 0;  // Tracks the current ablation stage
         public const int MaxAblationStages = 3;  // Maximum number of ablation stages
         private float[] ablationMultipliers = new float[] { 1.0f, 0.75f, 0.5f };  // Multiplier for each ablation stage
+        public AsteroidType Type { get; private set; }
 
-
-        private void CreateEffects(Vector3D position)
-        {
-            MyVisualScriptLogicProvider.CreateParticleEffectAtPosition("roidbreakparticle1", position);
-            MyVisualScriptLogicProvider.PlaySingleSoundAtPosition("roidbreak", position);
-        }
+        public float Size;
+        public string ModelString = "";
 
         public static AsteroidEntity CreateAsteroid(Vector3D position, float size, Vector3D initialVelocity, AsteroidType type, Quaternion? rotation = null, long? entityId = null)
         {
@@ -359,112 +357,11 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             }
         }
 
-        public float Size;
-        public string ModelString = "";
-        public AsteroidType Type;
-
-        public void SplitAsteroid()
-        {
-            if (!MyAPIGateway.Session.IsServer)
-                return;
-
-            int splits = MainSession.I.Rand.Next(2, 5);
-
-            if (splits > Size)
-                splits = (int)Math.Ceiling(Size);
-
-            float newSize = Size / splits;
-
-            CreateEffects(PositionComp.GetPosition());
-
-            if (newSize <= AsteroidSettings.MinSubChunkSize)
-            {
-                MyPhysicalItemDefinition item = MyDefinitionManager.Static.GetPhysicalItemDefinition(new MyDefinitionId(typeof(MyObjectBuilder_Ore), Type.ToString()));
-                var newObject = MyObjectBuilderSerializer.CreateNewObject(item.Id.TypeId, item.Id.SubtypeId.ToString()) as MyObjectBuilder_PhysicalObject;
-                for (int i = 0; i < splits; i++)
-                {
-                    int dropAmount = GetRandomDropAmount(Type);
-                    MyFloatingObjects.Spawn(new MyPhysicalInventoryItem(dropAmount, newObject), PositionComp.GetPosition() + RandVector() * Size, Vector3D.Forward, Vector3D.Up, Physics);
-                }
-
-                var removalMessage = new AsteroidNetworkMessage(PositionComp.GetPosition(), Size, Vector3D.Zero, Vector3D.Zero, Type, false, EntityId, true, false, Quaternion.Identity);
-                var removalMessageBytes = MyAPIGateway.Utilities.SerializeToBinary(removalMessage);
-                MyAPIGateway.Multiplayer.SendMessageToOthers(32000, removalMessageBytes);
-
-                MainSession.I._spawner.TryRemoveAsteroid(this); // Use the TryRemoveAsteroid method
-                Close();
-                return;
-            }
-
-            for (int i = 0; i < splits; i++)
-            {
-                Vector3D newPos = PositionComp.GetPosition() + RandVector() * Size;
-                Vector3D newVelocity = RandVector() * AsteroidSettings.GetRandomSubChunkVelocity(MainSession.I.Rand);
-                Vector3D newAngularVelocity = RandVector() * AsteroidSettings.GetRandomSubChunkAngularVelocity(MainSession.I.Rand);
-                Quaternion newRotation = Quaternion.CreateFromYawPitchRoll(
-                    (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi,
-                    (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi,
-                    (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi);
-
-                var subChunk = CreateAsteroid(newPos, newSize, newVelocity, Type, newRotation);
-                subChunk.Physics.AngularVelocity = newAngularVelocity;
-
-                MainSession.I._spawner.AddAsteroid(subChunk); // Use the AddAsteroid method
-
-                var message = new AsteroidNetworkMessage(newPos, newSize, newVelocity, newAngularVelocity, Type, true, subChunk.EntityId, false, true, newRotation);
-                var messageBytes = MyAPIGateway.Utilities.SerializeToBinary(message);
-                MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
-            }
-
-            var finalRemovalMessage = new AsteroidNetworkMessage(PositionComp.GetPosition(), Size, Vector3D.Zero, Vector3D.Zero, Type, false, EntityId, true, false, Quaternion.Identity);
-            var finalRemovalMessageBytes = MyAPIGateway.Utilities.SerializeToBinary(finalRemovalMessage);
-            MyAPIGateway.Multiplayer.SendMessageToOthers(32000, finalRemovalMessageBytes);
-
-            MainSession.I._spawner.TryRemoveAsteroid(this); // Use the TryRemoveAsteroid method
-            Close();
-        }
-        private int GetRandomDropAmount(AsteroidType type)
-        {
-            switch (type)
-            {
-                case AsteroidType.Ice:
-                    return MainSession.I.Rand.Next(AsteroidSettings.IceDropRange[0], AsteroidSettings.IceDropRange[1]);
-                case AsteroidType.Stone:
-                    return MainSession.I.Rand.Next(AsteroidSettings.StoneDropRange[0], AsteroidSettings.StoneDropRange[1]);
-                case AsteroidType.Iron:
-                    return MainSession.I.Rand.Next(AsteroidSettings.IronDropRange[0], AsteroidSettings.IronDropRange[1]);
-                case AsteroidType.Nickel:
-                    return MainSession.I.Rand.Next(AsteroidSettings.NickelDropRange[0], AsteroidSettings.NickelDropRange[1]);
-                case AsteroidType.Cobalt:
-                    return MainSession.I.Rand.Next(AsteroidSettings.CobaltDropRange[0], AsteroidSettings.CobaltDropRange[1]);
-                case AsteroidType.Magnesium:
-                    return MainSession.I.Rand.Next(AsteroidSettings.MagnesiumDropRange[0], AsteroidSettings.MagnesiumDropRange[1]);
-                case AsteroidType.Silicon:
-                    return MainSession.I.Rand.Next(AsteroidSettings.SiliconDropRange[0], AsteroidSettings.SiliconDropRange[1]);
-                case AsteroidType.Silver:
-                    return MainSession.I.Rand.Next(AsteroidSettings.SilverDropRange[0], AsteroidSettings.SilverDropRange[1]);
-                case AsteroidType.Gold:
-                    return MainSession.I.Rand.Next(AsteroidSettings.GoldDropRange[0], AsteroidSettings.GoldDropRange[1]);
-                case AsteroidType.Platinum:
-                    return MainSession.I.Rand.Next(AsteroidSettings.PlatinumDropRange[0], AsteroidSettings.PlatinumDropRange[1]);
-                case AsteroidType.Uraninite:
-                    return MainSession.I.Rand.Next(AsteroidSettings.UraniniteDropRange[0], AsteroidSettings.UraniniteDropRange[1]);
-                default:
-                    return 0;
-            }
-        }
 
         public void OnDestroy()
         {
-            try
-            {
-                SplitAsteroid();
-            }
-            catch (Exception ex)
-            {
-                Log.Exception(ex, typeof(AsteroidEntity), "Exception in OnDestroy:");
-                throw; // Rethrow the exception for the debugger
-            }
+            var damageHandler = new AsteroidDamageHandler();
+            damageHandler.SplitAsteroid(this);
         }
 
         // Required property implementation for `IMyDestroyableObject`
@@ -524,7 +421,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     // If it's not the final ablation stage, ablate and spawn debris at impact location
                     if (AblationStage < MaxAblationStages - 1)
                     {
-                        AblateAsteroid(hitInfo);  // Perform ablation at impact site
+                        var damageHandler = new AsteroidDamageHandler();
+                        damageHandler.AblateAsteroid(this, hitInfo);
                     }
                     else
                     {
@@ -537,8 +435,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     if (hitInfo.HasValue)
                     {
                         // Calculate the percentage of health lost and spawn debris accordingly
-                        float healthLostRatio = finalDamage / initialIntegrity;
-                        SpawnDebrisAtImpact(hitInfo.Value.Position, healthLostRatio);
+                        var damageHandler = new AsteroidDamageHandler();
+                        float healthLostRatio = finalDamage / initialIntegrity;  // Example ratio based on damage
+                        damageHandler.SpawnDebrisAtImpact(this, hitInfo.Value.Position, healthLostRatio);
                     }
                 }
             }
@@ -552,98 +451,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             }
         }
 
-        private void AblateAsteroid(MyHitInfo? hitInfo = null)
-        {
-            AblationStage++;  // Move to the next ablation stage
-
-            // Apply size reduction based on the current ablation stage
-            Size *= ablationMultipliers[AblationStage];
-
-            if (Size < AsteroidSettings.MinSubChunkSize)
-            {
-                Log.Info("Asteroid too small after ablation, removing it.");
-                OnDestroy();
-                return;
-            }
-
-            // Reset the integrity using the base integrity scaled by the new size and multiplier
-            _integrity = AsteroidSettings.BaseIntegrity * Size * ablationMultipliers[AblationStage];
-
-            Log.Info($"Asteroid ablated to stage {AblationStage}, new size: {Size}, new integrity: {_integrity}");
-
-            // Spawn some debris at the bullet impact location, if available
-            if (hitInfo.HasValue)
-            {
-                // Provide a default healthLostRatio for ablation (e.g., 1 for full ablation)
-                SpawnDebrisAtImpact(hitInfo.Value.Position, 1.0f);  // Full drop for ablation
-            }
-        }
-
-        private void SpawnDebrisAtImpact(Vector3D impactPosition, float healthLostRatio)
-        {
-            // Define the drop range based on asteroid type
-            int[] dropRange = GetDropRange(Type);
-            if (dropRange == null)
-            {
-                Log.Warning("Invalid asteroid type or drop range not defined.");
-                return;
-            }
-
-            // Calculate the base drop amount proportional to health lost
-            int minDrop = dropRange[0];
-            int maxDrop = dropRange[1];
-
-            // Apply additional scaling for weak weapons to limit debris from small hits
-            // Weak hits result in almost no debris unless a significant amount of health is lost
-            float scalingFactor = 0.5f; // Adjust this as needed to fine-tune how much weak weapons contribute
-            int dropAmount = (int)((minDrop + (maxDrop - minDrop) * healthLostRatio) * scalingFactor);
-
-            // Ensure that very small drops (from weak hits) are handled
-            if (dropAmount < minDrop * 0.1f)
-            {
-                dropAmount = 1;  // Smallest possible drop, trace amount
-            }
-
-            Log.Info($"Spawning {dropAmount} debris at impact location due to {healthLostRatio:P} health lost.");
-
-            // Create the floating debris
-            MyPhysicalItemDefinition item = MyDefinitionManager.Static.GetPhysicalItemDefinition(new MyDefinitionId(typeof(MyObjectBuilder_Ore), Type.ToString()));
-            var newObject = MyObjectBuilderSerializer.CreateNewObject(item.Id.TypeId, item.Id.SubtypeId.ToString()) as MyObjectBuilder_PhysicalObject;
-
-            // Spawn the items at the impact site
-            MyFloatingObjects.Spawn(new MyPhysicalInventoryItem(dropAmount, newObject), impactPosition, Vector3D.Forward, Vector3D.Up, Physics);
-        }
-
-        private int[] GetDropRange(AsteroidType type)
-        {
-            switch (type)
-            {
-                case AsteroidType.Ice:
-                    return AsteroidSettings.IceDropRange;
-                case AsteroidType.Stone:
-                    return AsteroidSettings.StoneDropRange;
-                case AsteroidType.Iron:
-                    return AsteroidSettings.IronDropRange;
-                case AsteroidType.Nickel:
-                    return AsteroidSettings.NickelDropRange;
-                case AsteroidType.Cobalt:
-                    return AsteroidSettings.CobaltDropRange;
-                case AsteroidType.Magnesium:
-                    return AsteroidSettings.MagnesiumDropRange;
-                case AsteroidType.Silicon:
-                    return AsteroidSettings.SiliconDropRange;
-                case AsteroidType.Silver:
-                    return AsteroidSettings.SilverDropRange;
-                case AsteroidType.Gold:
-                    return AsteroidSettings.GoldDropRange;
-                case AsteroidType.Platinum:
-                    return AsteroidSettings.PlatinumDropRange;
-                case AsteroidType.Uraninite:
-                    return AsteroidSettings.UraniniteDropRange;
-                default:
-                    return null;
-            }
-        }
 
         private void CreatePhysics()
         {
