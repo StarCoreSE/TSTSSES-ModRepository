@@ -15,9 +15,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 {
     public class AsteroidDamageHandler
     {
-        private int AblationStage { get; set; } = 0;  // Tracks the current ablation stage
-        private const int MaxAblationStages = 3;  // Maximum number of ablation stages
-        private readonly float[] ablationMultipliers = new float[] { 1.0f, 0.75f, 0.5f };  // Multiplier for each ablation stage
 
         private void CreateEffects(Vector3D position)
         {
@@ -136,10 +133,27 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             {
                 // No nearby debris found, create a new one at the impact position
                 MyFloatingObjects.Spawn(new MyPhysicalInventoryItem((VRage.MyFixedPoint)newAmount, newObject),
-                    impactPosition, Vector3D.Forward, Vector3D.Up, asteroid.Physics);
+                    impactPosition, Vector3D.Forward, Vector3D.Up, asteroid.Physics, entity =>
+                    {
+                        // Handle the entity after it is spawned (apply velocity, etc.)
+                        MyFloatingObject debris = entity as MyFloatingObject;
+                        if (debris != null && debris.Physics != null)
+                        {
+                            // Inherit asteroid velocity
+                            debris.Physics.LinearVelocity = asteroid.Physics.LinearVelocity;
 
-                // Log that new debris was spawned
-                Log.Info($"Spawned new debris with mass {massLost} at impact position {impactPosition}");
+                            // Apply random velocity for debris flinging effect
+                            Vector3D randomVelocity = MyUtils.GetRandomVector3Normalized() * 10; // Adjust factor for randomness
+                            debris.Physics.LinearVelocity += randomVelocity;
+
+                            // Optionally, add random angular velocity for spinning debris
+                            Vector3D randomAngularVelocity = MyUtils.GetRandomVector3Normalized() * 5; // Adjust factor if needed
+                            debris.Physics.AngularVelocity = randomAngularVelocity;
+
+                            // Log that new debris was spawned with velocity
+                            Log.Info($"Spawned new debris with mass {massLost} at impact position {impactPosition}, initial velocity: {debris.Physics.LinearVelocity}");
+                        }
+                    });
             }
         }
 
