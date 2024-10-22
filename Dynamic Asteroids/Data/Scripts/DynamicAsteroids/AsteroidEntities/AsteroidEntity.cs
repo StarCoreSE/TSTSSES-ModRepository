@@ -409,5 +409,32 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             return Math.Pow(MainSession.I.Rand.NextDouble(), 1 / 3d) * new Vector3D(sinPhi * Math.Cos(theta), sinPhi * Math.Sin(theta), Math.Cos(phi));
         }
 
+        public void UpdateSizeAndPhysics(float newSize)
+        {
+            Size = newSize;
+
+            // Store current position and orientation
+            Vector3D position = PositionComp.GetPosition();
+            MatrixD worldMatrix = WorldMatrix;
+            Vector3D linearVelocity = Physics?.LinearVelocity ?? Vector3D.Zero;
+            Vector3D angularVelocity = Physics?.AngularVelocity ?? Vector3D.Zero;
+
+            // Close existing physics
+            if (Physics != null)
+            {
+                Physics.Close();
+            }
+
+            // Reinitialize with new size
+            Init(position, Size - 10, linearVelocity, Type, Quaternion.CreateFromRotationMatrix(worldMatrix));
+
+            // Restore angular velocity
+            if (Physics != null)
+            {
+                Physics.AngularVelocity = angularVelocity;
+            }
+
+            Log.Info($"Updated asteroid size from to {Size}, recreated physics and model");
+        }
     }
 }

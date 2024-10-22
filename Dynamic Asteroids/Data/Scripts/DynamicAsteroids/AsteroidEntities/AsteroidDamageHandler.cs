@@ -86,7 +86,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             asteroid.Close();
         }
 
-
         private int GetRandomDropAmount(AsteroidType type)
         {
             switch (type)
@@ -149,30 +148,30 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             }
         }
 
-        public void AblateAsteroid(AsteroidEntity asteroid, MyHitInfo? hitInfo = null)
+        private void AblateAsteroid(AsteroidEntity asteroid, MyHitInfo? hitInfo = null)
         {
-            AblationStage++;  // Move to the next ablation stage
+            AblationStage++;
+            float newSize = asteroid.Size * ablationMultipliers[AblationStage];
 
-            // Apply size reduction based on the current ablation stage
-            asteroid.Size *= ablationMultipliers[AblationStage];
-
-            if (asteroid.Size < AsteroidSettings.MinSubChunkSize)
+            if (newSize < AsteroidSettings.MinSubChunkSize)
             {
                 Log.Info("Asteroid too small after ablation, removing it.");
                 asteroid.OnDestroy();
                 return;
             }
 
-            // Reset the integrity using the base integrity scaled by the new size and multiplier
-            asteroid._integrity = AsteroidSettings.BaseIntegrity * asteroid.Size * ablationMultipliers[AblationStage];
+            float previousSize = asteroid.Size;
+            asteroid.UpdateSizeAndPhysics(newSize);
 
-            Log.Info($"Asteroid ablated to stage {AblationStage}, new size: {asteroid.Size}, new integrity: {asteroid._integrity}");
+            // Scale integrity based on size change
+            float integrityScale = newSize / previousSize;
+            asteroid._integrity = Math.Max(1f, asteroid._integrity * integrityScale);
 
-            // Spawn some debris at the bullet impact location, if available
+            Log.Info($"Asteroid ablated to stage {AblationStage}, new size: {newSize}, new integrity: {asteroid._integrity}");
+
             if (hitInfo.HasValue)
             {
-                // Provide a default healthLostRatio for ablation (e.g., 1 for full ablation)
-                SpawnDebrisAtImpact(asteroid, hitInfo.Value.Position, 1.0f);  // Full drop for ablation
+                SpawnDebrisAtImpact(asteroid, hitInfo.Value.Position, 1.0f);
             }
         }
 
@@ -247,42 +246,67 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
             if (damageSource.String == "Explosion")
             {
+                // Large explosion (warheads, etc.) - splits the asteroid
                 finalDamage *= 10.0f;
-                Log.Info($"Explosion detected! Applying 10x damage multiplier. Original Damage: {damage}, Final Damage: {finalDamage}");
+                Log.Info($"Large explosion detected! Applying 10x damage multiplier. Original Damage: {damage}, Final Damage: {finalDamage}");
 
                 asteroid._integrity -= finalDamage;
                 if (asteroid._integrity <= 0)
                 {
-                    asteroid.OnDestroy();  // Split the asteroid on explosive damage
+                    SplitAsteroid(asteroid);
+                }
+            }
+            else if (damageSource.String == "SmallExplosion") // For rockets, missiles
+            {
+                finalDamage *= 5.0f;
+                Log.Info($"Small explosion detected! Applying 5x damage multiplier. Original Damage: {damage}, Final Damage: {finalDamage}");
+
+                asteroid._integrity -= finalDamage;
+                if (asteroid._integrity <= 0)
+                {
+                    if (AblationStage < MaxAblationStages - 1)
+                    {
+                        AblateAsteroid(asteroid, hitInfo);
+                    }
+                    else
+                    {
+                        SplitAsteroid(asteroid);
+                    }
                 }
             }
             else if (damageSource.String == "Bullet")
             {
                 Log.Info($"Bullet damage detected. Original Damage: {damage}");
-
-                // Apply damage
                 asteroid._integrity -= finalDamage;
+
+                // Calculate size reduction based on damage percentage
+                float damagePercentage = finalDamage / initialIntegrity;
+                if (damagePercentage > 0.1f) // Only reduce size if significant damage is done
+                {
+                    float sizeReduction = asteroid.Size * (damagePercentage * 0.1f); // 10% of the damage percentage
+                    float newSize = Math.Max(AsteroidSettings.MinSubChunkSize, asteroid.Size - sizeReduction);
+
+                    if (newSize != asteroid.Size)
+                    {
+                        asteroid.UpdateSizeAndPhysics(newSize);
+
+                        // Spawn debris proportional to size reduction
+                        if (hitInfo.HasValue)
+                        {
+                            SpawnDebrisAtImpact(asteroid, hitInfo.Value.Position, damagePercentage);
+                        }
+                    }
+                }
 
                 if (asteroid._integrity <= 0)
                 {
-                    // If it's not the final ablation stage, ablate and spawn debris at impact location
-                    if (AblationStage < MaxAblationStages - 1)
+                    if (asteroid.Size <= AsteroidSettings.MinSubChunkSize)
                     {
-                        AblateAsteroid(asteroid, hitInfo);  // Perform ablation at impact site
+                        asteroid.OnDestroy();
                     }
                     else
                     {
-                        Log.Info("Asteroid fully ablated and destroyed.");
-                        asteroid.OnDestroy();  // Final destruction after all stages
-                    }
-                }
-                else
-                {
-                    if (hitInfo.HasValue)
-                    {
-                        // Calculate the percentage of health lost and spawn debris accordingly
-                        float healthLostRatio = finalDamage / initialIntegrity;
-                        SpawnDebrisAtImpact(asteroid, hitInfo.Value.Position, healthLostRatio);
+                        AblateAsteroid(asteroid, hitInfo);
                     }
                 }
             }
