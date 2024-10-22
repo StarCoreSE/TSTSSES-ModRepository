@@ -34,7 +34,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             _writer.Flush();
 
             _cachedMessages = new ConcurrentDictionary<string, LogEntry>();
-            _flushIntervalSeconds = 10;
+            _flushIntervalSeconds = 1;
             _lockObject = new object();
             _lastFlushTime = DateTime.UtcNow;
         }

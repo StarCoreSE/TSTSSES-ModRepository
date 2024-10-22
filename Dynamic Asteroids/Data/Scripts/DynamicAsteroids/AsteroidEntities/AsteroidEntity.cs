@@ -435,10 +435,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     return;
                 }
 
-                // Preserve the current velocities and rotation before destroying the old physics
+                // Preserve the current velocities and world orientation before destroying the old physics
                 Vector3D linearVelocity = Physics?.LinearVelocity ?? Vector3D.Zero;
                 Vector3D angularVelocity = Physics?.AngularVelocity ?? Vector3D.Zero;
-                Quaternion currentRotation = Quaternion.CreateFromRotationMatrix(WorldMatrix); // Save the current rotation
+                MatrixD currentWorldMatrix = WorldMatrix;  // Preserve current position and orientation
 
                 // Dispose of old physics
                 if (Physics != null)
@@ -455,17 +455,16 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 Log.Info($"Creating new physics for asteroid {EntityId} with new size {Size}");
                 CreatePhysics();
 
-                // Restore the velocities to the newly created physics body
+                // Restore the velocities and world matrix to the newly created physics body
                 if (Physics != null)
                 {
                     Physics.LinearVelocity = linearVelocity;
                     Physics.AngularVelocity = angularVelocity;
 
-                    // Restore the asteroid's original rotation
-                    MatrixD newWorldMatrix = MatrixD.CreateFromQuaternion(currentRotation) * MatrixD.CreateWorld(PositionComp.GetPosition(), Vector3D.Forward, Vector3D.Up);
-                    WorldMatrix = newWorldMatrix;
+                    // Restore the exact world orientation (position and rotation)
+                    PositionComp.SetWorldMatrix(ref currentWorldMatrix);
 
-                    Log.Info($"Restored linear velocity: {Physics.LinearVelocity}, angular velocity: {Physics.AngularVelocity}, and rotation.");
+                    Log.Info($"Restored linear velocity: {Physics.LinearVelocity}, angular velocity: {Physics.AngularVelocity}, and orientation.");
                 }
 
                 Log.Info($"Successfully updated size and recreated physics for asteroid {EntityId}");
