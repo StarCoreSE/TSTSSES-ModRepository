@@ -435,9 +435,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     return;
                 }
 
-                // Preserve the current velocities before destroying the old physics
+                // Preserve the current velocities and rotation before destroying the old physics
                 Vector3D linearVelocity = Physics?.LinearVelocity ?? Vector3D.Zero;
                 Vector3D angularVelocity = Physics?.AngularVelocity ?? Vector3D.Zero;
+                Quaternion currentRotation = Quaternion.CreateFromRotationMatrix(WorldMatrix); // Save the current rotation
 
                 // Dispose of old physics
                 if (Physics != null)
@@ -459,7 +460,12 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 {
                     Physics.LinearVelocity = linearVelocity;
                     Physics.AngularVelocity = angularVelocity;
-                    Log.Info($"Restored linear velocity: {Physics.LinearVelocity}, angular velocity: {Physics.AngularVelocity}");
+
+                    // Restore the asteroid's original rotation
+                    MatrixD newWorldMatrix = MatrixD.CreateFromQuaternion(currentRotation) * MatrixD.CreateWorld(PositionComp.GetPosition(), Vector3D.Forward, Vector3D.Up);
+                    WorldMatrix = newWorldMatrix;
+
+                    Log.Info($"Restored linear velocity: {Physics.LinearVelocity}, angular velocity: {Physics.AngularVelocity}, and rotation.");
                 }
 
                 Log.Info($"Successfully updated size and recreated physics for asteroid {EntityId}");
@@ -469,6 +475,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 Log.Exception(ex, typeof(AsteroidEntity), $"Error updating size and physics for asteroid {EntityId}");
             }
         }
-        
+
     }
 }
