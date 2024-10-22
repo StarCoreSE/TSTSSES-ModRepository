@@ -55,6 +55,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public static double SubChunkVelocityMax = 5.0;
         public static double SubChunkAngularVelocityMin = 0.01;
         public static double SubChunkAngularVelocityMax = 0.1;
+        public static float WeaponDamageJoulesPerKg = 10000.0f;  // Default value: 10,000 Joules to remove 1 kg
 
         public struct MassRange
         {
@@ -213,6 +214,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     writer.WriteLine($"SubChunkVelocityMax={SubChunkVelocityMax}");
                     writer.WriteLine($"SubChunkAngularVelocityMin={SubChunkAngularVelocityMin}");
                     writer.WriteLine($"SubChunkAngularVelocityMax={SubChunkAngularVelocityMax}");
+                    writer.WriteLine($"WeaponDamageJoulesPerKg={WeaponDamageJoulesPerKg}");
 
                     writer.WriteLine("[SpawnableAreas]");
                     foreach (var area in ValidSpawnLocations)
@@ -381,6 +383,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                                     break;
                                 case "SubChunkAngularVelocityMax":
                                     SubChunkAngularVelocityMax = double.Parse(value);
+                                    break;
+                                case "WeaponDamageJoulesPerKg":
+                                    WeaponDamageJoulesPerKg = float.Parse(value);
                                     break;
                                 case "Name":
                                     if (currentArea != null) ValidSpawnLocations.Add(currentArea);

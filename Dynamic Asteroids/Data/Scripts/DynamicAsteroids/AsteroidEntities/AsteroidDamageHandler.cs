@@ -171,12 +171,19 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         {
             Log.Info($"DoDamage called with damage: {damage}, damageSource: {damageSource}, integrity (mass) before damage: {asteroid._integrity}");
 
-            // Apply the BaseIntegrity multiplier to make the asteroid harder or easier to damage
-            float adjustedDamage = damage * (100.0f / AsteroidSettings.BaseIntegrity);
-            Log.Info($"Adjusted damage after applying BaseIntegrity: {adjustedDamage}");
+            // Treat damage as energy directly (in Joules)
+            float energyDelivered = damage;
 
-            // Directly reduce mass instead of health ratio
-            ReduceMass(asteroid, adjustedDamage, damageSource, hitInfo);
+            // Convert energy to mass removed using the WeaponDamageJoulesPerKg factor
+            float massRemoved = energyDelivered / AsteroidSettings.WeaponDamageJoulesPerKg;
+
+            // Ensure at least some mass is removed (for minor hits)
+            massRemoved = Math.Max(massRemoved, 1f);
+
+            Log.Info($"Mass removed: {massRemoved} kg");
+
+            // Reduce asteroid mass
+            ReduceMass(asteroid, massRemoved, damageSource, hitInfo);
 
             if (asteroid._integrity <= 0)
             {
@@ -185,7 +192,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             }
             else
             {
-                Log.Info($"Asteroid integrity after damage: {asteroid._integrity}");
+                Log.Info($"Asteroid mass after damage: {asteroid._integrity}");
             }
 
             return true;
@@ -197,12 +204,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             float finalDamage = damage;
 
             Log.Info($"ReduceMass called with damage: {damage}, damageSource: {damageSource}, initial mass: {initialMass}");
-
-            // Apply a multiplier if needed (explosions, etc.)
-            if (damageSource.String == "Explosion")
-            {
-                finalDamage *= 10.0f; // Explosions do 10x damage
-            }
 
             // Subtract the damage from the integrity
             asteroid._integrity -= finalDamage;
