@@ -171,11 +171,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         {
             Log.Info($"DoDamage called with damage: {damage}, damageSource: {damageSource}, integrity (mass) before damage: {asteroid._integrity}");
 
-            // Treat damage as energy directly (in Joules)
-            float energyDelivered = damage;
-
-            // Convert energy to mass removed using the WeaponDamageJoulesPerKg factor
-            float massRemoved = energyDelivered / AsteroidSettings.WeaponDamageJoulesPerKg;
+            // Convert damage to mass removed using the WeaponDamagePerKg factor
+            float massRemoved = damage / AsteroidSettings.WeaponDamagePerKg;
 
             // Ensure at least some mass is removed (for minor hits)
             massRemoved = Math.Max(massRemoved, 1f);
