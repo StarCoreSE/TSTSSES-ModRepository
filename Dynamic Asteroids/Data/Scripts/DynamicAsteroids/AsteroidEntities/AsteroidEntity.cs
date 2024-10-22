@@ -19,6 +19,7 @@ using VRage.ObjectBuilders.Private;
 using VRage.Utils;
 using VRageMath;
 using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
+using Color = VRageMath.Color;
 
 namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 {
@@ -357,7 +358,21 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             }
         }
 
+        public void DrawDebugSphere()
+        {
+            // Get the current position of the asteroid
+            Vector3D asteroidPosition = this.PositionComp.GetPosition();
 
+            // Set the color and radius of the debug sphere
+            float radius = this.Size / 2; // Assuming the Size represents the diameter of the asteroid
+            Color sphereColor = Color.Red;
+
+            // Draw a transparent debug sphere at the asteroid's position
+            MatrixD worldMatrix = MatrixD.CreateTranslation(asteroidPosition);
+            MySimpleObjectDraw.DrawTransparentSphere(ref worldMatrix, radius, ref sphereColor, MySimpleObjectRasterizer.Wireframe, 20);
+        }
+
+                
         public void OnDestroy()
         {
             var damageHandler = new AsteroidDamageHandler();
@@ -411,30 +426,49 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         public void UpdateSizeAndPhysics(float newSize)
         {
-            Size = newSize;
+            if (newSize < AsteroidSettings.MinSubChunkSize)
+            {
+                Log.Info("Size too small, asteroid will be removed.");
+                this.Close();  // Close the entity safely
+                return;
+            }
 
-            // Store current position and orientation
-            Vector3D position = PositionComp.GetPosition();
-            MatrixD worldMatrix = WorldMatrix;
-            Vector3D linearVelocity = Physics?.LinearVelocity ?? Vector3D.Zero;
-            Vector3D angularVelocity = Physics?.AngularVelocity ?? Vector3D.Zero;
-
-            // Close existing physics
             if (Physics != null)
             {
                 Physics.Close();
             }
 
-            // Reinitialize with new size
-            Init(position, Size - 10, linearVelocity, Type, Quaternion.CreateFromRotationMatrix(worldMatrix));
+            Size = newSize;
 
-            // Restore angular velocity
-            if (Physics != null)
+            // Store current position and orientation
+            Vector3D position = PositionComp.GetPosition();
+            MatrixD worldMatrix = WorldMatrix;
+            Vector3D linearVelocity = Physics.LinearVelocity;
+            Vector3D angularVelocity = Physics.AngularVelocity;
+
+            try
             {
-                Physics.AngularVelocity = angularVelocity;
-            }
+                // Close existing physics safely
+                if (Physics != null && !this.MarkedForClose)
+                {
+                    Physics.Close();
+                }
 
-            Log.Info($"Updated asteroid size from to {Size}, recreated physics and model");
+                // Reinitialize physics with the new size
+                Init(position, newSize, linearVelocity, Type, Quaternion.CreateFromRotationMatrix(worldMatrix));
+
+                // Restore angular velocity
+                if (Physics != null)
+                {
+                    Physics.AngularVelocity = angularVelocity;
+                }
+
+                Log.Info($"Updated asteroid size to {Size} and recreated physics.");
+            }
+            catch (Exception ex)
+            {
+                Log.Exception(ex, typeof(AsteroidEntity), "Error during physics update");
+            }
         }
     }
 }

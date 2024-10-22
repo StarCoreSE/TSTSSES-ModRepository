@@ -241,81 +241,67 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         private void ReduceIntegrity(AsteroidEntity asteroid, float damage, MyStringHash damageSource, MyHitInfo? hitInfo)
         {
-            float finalDamage = damage;
             float initialIntegrity = asteroid._integrity;
+            float finalDamage = damage;
 
+            // Handle explosions separately with large damage multipliers
             if (damageSource.String == "Explosion")
             {
-                // Large explosion (warheads, etc.) - splits the asteroid
                 finalDamage *= 10.0f;
-                Log.Info($"Large explosion detected! Applying 10x damage multiplier. Original Damage: {damage}, Final Damage: {finalDamage}");
-
                 asteroid._integrity -= finalDamage;
                 if (asteroid._integrity <= 0)
                 {
                     SplitAsteroid(asteroid);
+                    return;
                 }
             }
-            else if (damageSource.String == "SmallExplosion") // For rockets, missiles
+            else if (damageSource.String == "SmallExplosion")
             {
                 finalDamage *= 5.0f;
-                Log.Info($"Small explosion detected! Applying 5x damage multiplier. Original Damage: {damage}, Final Damage: {finalDamage}");
-
                 asteroid._integrity -= finalDamage;
                 if (asteroid._integrity <= 0)
                 {
-                    if (AblationStage < MaxAblationStages - 1)
-                    {
-                        AblateAsteroid(asteroid, hitInfo);
-                    }
-                    else
-                    {
-                        SplitAsteroid(asteroid);
-                    }
+                    AblateAsteroid(asteroid, hitInfo);
+                    return;
                 }
             }
             else if (damageSource.String == "Bullet")
             {
-                Log.Info($"Bullet damage detected. Original Damage: {damage}");
+                // Reduce size proportionally to the damage done by the bullet
                 asteroid._integrity -= finalDamage;
 
-                // Calculate size reduction based on damage percentage
+                // Calculate the percentage of damage
                 float damagePercentage = finalDamage / initialIntegrity;
-                if (damagePercentage > 0.1f) // Only reduce size if significant damage is done
+
+                if (damagePercentage > 0.1f)  // Only reduce size if significant damage occurs
                 {
-                    float sizeReduction = asteroid.Size * (damagePercentage * 0.1f); // 10% of the damage percentage
+                    float sizeReduction = asteroid.Size * (damagePercentage * 0.1f); // Reduce size proportionally
                     float newSize = Math.Max(AsteroidSettings.MinSubChunkSize, asteroid.Size - sizeReduction);
 
-                    if (newSize != asteroid.Size)
+                    if (newSize < asteroid.Size)
                     {
+                        // Update size and physics based on the new size
                         asteroid.UpdateSizeAndPhysics(newSize);
 
-                        // Spawn debris proportional to size reduction
+                        // Spawn debris based on the hit location and size reduction
                         if (hitInfo.HasValue)
                         {
                             SpawnDebrisAtImpact(asteroid, hitInfo.Value.Position, damagePercentage);
                         }
                     }
                 }
-
-                if (asteroid._integrity <= 0)
-                {
-                    if (asteroid.Size <= AsteroidSettings.MinSubChunkSize)
-                    {
-                        asteroid.OnDestroy();
-                    }
-                    else
-                    {
-                        AblateAsteroid(asteroid, hitInfo);
-                    }
-                }
             }
-            else
+
+            // Check if asteroid is destroyed
+            if (asteroid._integrity <= 0)
             {
-                asteroid._integrity -= finalDamage;
-                if (asteroid._integrity <= 0)
+                if (asteroid.Size <= AsteroidSettings.MinSubChunkSize)
                 {
                     asteroid.OnDestroy();
+                }
+                else
+                {
+                    AblateAsteroid(asteroid, hitInfo);
                 }
             }
         }

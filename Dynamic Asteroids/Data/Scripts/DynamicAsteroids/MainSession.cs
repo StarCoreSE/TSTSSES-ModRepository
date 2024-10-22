@@ -170,8 +170,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             MyAPIGateway.Utilities.ShowMessage("DynamicAsteroids", $"Created spawn area '{name}' at {position} with radius {radius}");
         }
 
-
-        private void RemoveSpawnArea(string name)
+    private void RemoveSpawnArea(string name)
         {
             AsteroidSettings.RemoveSpawnableArea(name);
             Log.Info($"Removed spawn area '{name}'");
@@ -242,6 +241,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 Log.Exception(ex, typeof(MainSession), "Error in UpdateAfterSimulation: ");
             }
         }
+
         private void TestNearestGasGiant()
         {
             if (RealGasGiantsApi == null || !RealGasGiantsApi.IsReady || MyAPIGateway.Session?.Player == null)
@@ -249,7 +249,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
             if (!AsteroidSettings.EnableLogging)
                 return;
-
 
             Vector3D playerPosition = MyAPIGateway.Session.Player.GetPosition();
             MyPlanet nearestGasGiant = FindNearestGasGiant(playerPosition);
@@ -262,7 +261,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             if (nearestGasGiant != null)
             {
                 var basicInfo = RealGasGiantsApi.GetGasGiantConfig_BasicInfo_Base(nearestGasGiant);
-                if (basicInfo.Item1)// If operation was successful
+                if (basicInfo.Item1) // If operation was successful
                 {
                     double distance = Vector3D.Distance(playerPosition, nearestGasGiant.PositionComp.GetPosition()) - basicInfo.Item2;
                     message = $"Nearest Gas Giant:\n" +
@@ -285,9 +284,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
             if (AsteroidSettings.EnableLogging)
                 MyAPIGateway.Utilities.ShowNotification(message, 4000, "White");
-            //Log.Info(message); // Also log the message for easier debugging
         }
-
 
         private MyPlanet FindNearestGasGiant(Vector3D position)
         {
@@ -402,6 +399,27 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             return nearestAsteroid;
         }
 
+        public override void Draw()
+        {
+            try
+            {
+                if (MyAPIGateway.Session?.Player?.Character != null && _spawner != null)
+                {
+                    Vector3D characterPosition = MyAPIGateway.Session.Player.Character.PositionComp.GetPosition();
+                    AsteroidEntity nearestAsteroid = FindNearestAsteroid(characterPosition);
+
+                    if (nearestAsteroid != null)
+                    {
+                        nearestAsteroid.DrawDebugSphere();  // Draw the sphere every frame
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Exception(ex, typeof(MainSession), "Error in Draw: ");
+            }
+        }
+           
         private AsteroidType DetermineAsteroidType()
         {
             int randValue = Rand.Next(0, 2);
