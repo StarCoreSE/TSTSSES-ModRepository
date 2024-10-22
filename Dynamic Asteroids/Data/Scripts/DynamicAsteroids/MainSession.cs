@@ -1,23 +1,22 @@
-﻿using Sandbox.ModAPI;
-using System;
-using VRage.Game.Components;
-using VRage.Input;
-using VRageMath;
-using ProtoBuf;
-using Sandbox.Game.Entities;
-using VRage.Game.ModAPI;
-using VRage.Game;
-using System.Collections.Generic;
-using VRage.ModAPI;
-using DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities;
+﻿using DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities;
 using RealGasGiants;
+using Sandbox.Game.Entities;
+using Sandbox.ModAPI;
+using System;
 using System.Linq;
+using VRage.Game;
+using VRage.Game.Components;
+using VRage.Game.ModAPI;
+using VRage.Input;
 using VRage.Utils;
+using VRageMath;
 
 
-namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
+namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
+{
     [MySessionComponentDescriptor(MyUpdateOrder.AfterSimulation)]
-    public class MainSession : MySessionComponentBase {
+    public class MainSession : MySessionComponentBase
+    {
         public static MainSession I;
         public Random Rand;
         private int seed;
@@ -53,7 +52,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 }
             }
 
-            
+
             MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(32000, OnSecureMessageReceived);
             MyAPIGateway.Utilities.MessageEntered += OnMessageEntered;
         }
@@ -214,7 +213,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             MyAPIGateway.Utilities.ShowMessage("DynamicAsteroids", $"Created spawn area '{name}' at {position} with radius {radius}");
         }
 
-    private void RemoveSpawnArea(string name)
+        private void RemoveSpawnArea(string name)
         {
             AsteroidSettings.RemoveSpawnableArea(name);
             Log.Info($"Removed spawn area '{name}'");
@@ -463,7 +462,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 Log.Exception(ex, typeof(MainSession), "Error in Draw: ");
             }
         }
-           
+
         private AsteroidType DetermineAsteroidType()
         {
             int randValue = Rand.Next(0, 2);

@@ -1,21 +1,13 @@
-﻿using System;
-using System.Drawing;
-using System.IO;
-using System.Linq;
-using Sandbox.Definitions;
-using Sandbox.Engine.Physics;
-using Sandbox.Game;
-using Sandbox.Game.Entities;
+﻿using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
-using VRage;
+using System;
+using System.IO;
 using VRage.Game;
 using VRage.Game.Components;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
 using VRage.Game.ModAPI.Interfaces;
 using VRage.ModAPI;
-using VRage.ObjectBuilders;
-using VRage.ObjectBuilders.Private;
 using VRage.Utils;
 using VRageMath;
 using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
@@ -75,10 +67,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         private static readonly string[] GoldAsteroidModels = { @"Models\OreAsteroid_Gold.mwm" };
         private static readonly string[] PlatinumAsteroidModels = { @"Models\OreAsteroid_Platinum.mwm" };
         private static readonly string[] UraniniteAsteroidModels = { @"Models\OreAsteroid_Uraninite.mwm" };
-
-        public int AblationStage { get; private set; } = 0;  // Tracks the current ablation stage
-        public const int MaxAblationStages = 3;  // Maximum number of ablation stages
-        private float[] ablationMultipliers = new float[] { 1.0f, 0.75f, 0.5f };  // Multiplier for each ablation stage
         public AsteroidType Type { get; private set; }
 
         public float Size;
@@ -372,7 +360,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             MySimpleObjectDraw.DrawTransparentSphere(ref worldMatrix, radius, ref sphereColor, MySimpleObjectRasterizer.Wireframe, 20);
         }
 
-                
+
         public void OnDestroy()
         {
             var damageHandler = new AsteroidDamageHandler();

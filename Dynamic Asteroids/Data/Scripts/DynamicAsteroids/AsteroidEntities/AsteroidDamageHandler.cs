@@ -1,15 +1,14 @@
 ﻿using Sandbox.Definitions;
+using Sandbox.Game;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using System;
-using Sandbox.Game;
+using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
-using VRage.Game;
 using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRageMath;
-using Sandbox.Engine.Physics;
 
 namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 {

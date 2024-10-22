@@ -1,20 +1,21 @@
-﻿using Sandbox.ModAPI;
+﻿using DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities;
+using RealGasGiants;
+using Sandbox.Game.Entities;
+using Sandbox.ModAPI;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using VRage.Game.ModAPI;
-using VRage.ModAPI;
-using VRageMath;
-using System.Linq;
-using System;
-using Sandbox.Game.Entities;
-using VRage.Game.Entity;
-using DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities;
-using RealGasGiants;
 using System.IO;
+using System.Linq;
+using VRage.Game.Entity;
+using VRage.Game.ModAPI;
+using VRageMath;
 
 
-namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
-    public class AsteroidZone {
+namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
+{
+    public class AsteroidZone
+    {
         public Vector3D Center { get; set; }
         public double Radius { get; set; }
         public int AsteroidCount { get; set; }
@@ -32,7 +33,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         }
     }
 
-    public class AsteroidSpawner {
+    public class AsteroidSpawner
+    {
         private ConcurrentBag<AsteroidEntity> _asteroids;
         private bool _canSpawnAsteroids = false;
         private DateTime _worldLoadTime;
@@ -48,7 +50,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         private RealGasGiantsApi _realGasGiantsApi;
 
 
-        private class ZoneCache {
+        private class ZoneCache
+        {
             public AsteroidZone Zone { get; set; }
             public DateTime LastUpdateTime { get; set; }
             const int CacheExpirationSeconds = 5;
@@ -59,7 +62,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             }
         }
 
-        private class AsteroidStateCache {
+        private class AsteroidStateCache
+        {
             private ConcurrentDictionary<long, AsteroidState> _stateCache = new ConcurrentDictionary<long, AsteroidState>();
             private ConcurrentBag<long> _dirtyStates = new ConcurrentBag<long>();
             private const int SaveInterval = 300;
@@ -91,7 +95,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             }
         }
 
-        private class NetworkMessageCache {
+        private class NetworkMessageCache
+        {
             private ConcurrentDictionary<long, AsteroidNetworkMessage> _messageCache = new ConcurrentDictionary<long, AsteroidNetworkMessage>();
             private ConcurrentQueue<AsteroidNetworkMessage> _messageQueue = new ConcurrentQueue<AsteroidNetworkMessage>();
             private const int MessageBatchSize = 100;  //the metal pipes sent to the client (we can probably hit 10k without issue, all server load is physics!!)
@@ -109,7 +114,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             {
                 int processedCount = 0;
                 AsteroidNetworkMessage message;
-                while(processedCount < MessageBatchSize && _messageQueue.TryDequeue(out message))
+                while (processedCount < MessageBatchSize && _messageQueue.TryDequeue(out message))
                 {
                     try
                     {
@@ -136,7 +141,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             _realGasGiantsApi = realGasGiantsApi;
         }
 
-        private class PlayerMovementData {
+        private class PlayerMovementData
+        {
             public Vector3D LastPosition { get; set; }
             public DateTime LastUpdateTime { get; set; }
             public double Speed { get; set; }
@@ -164,7 +170,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             List<AsteroidState> dirtyStates = _stateCache.GetDirtyStates();
             if (dirtyStates.Count == 0) return;
 
-            List<AsteroidState> allStates = _asteroids.Select(asteroid => new AsteroidState {
+            List<AsteroidState> allStates = _asteroids.Select(asteroid => new AsteroidState
+            {
                 Position = asteroid.PositionComp.GetPosition(),
                 Size = asteroid.Size,
                 Type = asteroid.Type,
@@ -531,7 +538,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             int updatesProcessed = 0;
 
             AsteroidEntity asteroid;
-            while(updatesProcessed < UpdatesPerTick && _updateQueue.TryDequeue(out asteroid))
+            while (updatesProcessed < UpdatesPerTick && _updateQueue.TryDequeue(out asteroid))
             {
                 UpdateAsteroid(asteroid);
 
@@ -543,7 +550,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
         private void UpdateAsteroid(AsteroidEntity asteroid)
         {
-            _stateCache.UpdateState(asteroid.EntityId, new AsteroidState {
+            _stateCache.UpdateState(asteroid.EntityId, new AsteroidState
+            {
                 Position = asteroid.PositionComp.GetPosition(),
                 Size = asteroid.Size,
                 Type = asteroid.Type,
@@ -618,7 +626,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                     continue;
                 }
 
-                while(zone.AsteroidCount < AsteroidSettings.MaxAsteroidsPerZone &&
+                while (zone.AsteroidCount < AsteroidSettings.MaxAsteroidsPerZone &&
                       asteroidsSpawned < 10 &&
                       zoneSpawnAttempts < AsteroidSettings.MaxZoneAttempts &&
                       totalSpawnAttempts < AsteroidSettings.MaxTotalAttempts)
@@ -651,7 +659,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                             validPosition = IsValidSpawnPosition(newPosition, zones);
                         }
 
-                    } while(!validPosition &&
+                    } while (!validPosition &&
                             zoneSpawnAttempts < AsteroidSettings.MaxZoneAttempts &&
                             totalSpawnAttempts < AsteroidSettings.MaxTotalAttempts);
 
@@ -755,7 +763,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 }
                 else
                 {
-                    playerMovementData[player.IdentityId] = new PlayerMovementData {
+                    playerMovementData[player.IdentityId] = new PlayerMovementData
+                    {
                         LastPosition = currentPosition,
                         LastUpdateTime = currentTime,
                         Speed = 0
@@ -817,7 +826,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             if (!_asteroids.TryTake(out removedAsteroid)) return;
             if (removedAsteroid.EntityId == asteroid.EntityId)
             {
-                _despawnedAsteroids.Add(new AsteroidState {
+                _despawnedAsteroids.Add(new AsteroidState
+                {
                     Position = asteroid.PositionComp.GetPosition(),
                     Size = asteroid.Size,
                     Type = asteroid.Type,

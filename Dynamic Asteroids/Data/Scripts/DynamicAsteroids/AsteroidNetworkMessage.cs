@@ -1,6 +1,6 @@
-﻿using VRageMath;
+﻿using DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities;
 using ProtoBuf;
-using DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities;
+using VRageMath;
 
 namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 {
