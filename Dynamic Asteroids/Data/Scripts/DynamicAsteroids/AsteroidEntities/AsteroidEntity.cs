@@ -374,83 +374,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         public bool DoDamage(float damage, MyStringHash damageSource, bool sync, MyHitInfo? hitInfo = null, long attackerId = 0, long realHitEntityId = 0, bool shouldDetonateAmmo = true, MyStringHash? extraInfo = null)
         {
-            try
-            {
-                // Pass the damageSource and hitInfo to ReduceIntegrity
-                ReduceIntegrity(damage, damageSource, hitInfo);
-
-                if (_integrity <= 0)
-                {
-                    OnDestroy();  // Call destruction logic when integrity reaches zero
-                }
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Log.Exception(ex, typeof(AsteroidEntity), "Exception in DoDamage");
-                return false;
-            }
+            // Delegate to damage handler
+            var damageHandler = new AsteroidDamageHandler();
+            return damageHandler.DoDamage(this, damage, damageSource, sync, hitInfo, attackerId, realHitEntityId, shouldDetonateAmmo, extraInfo);
         }
-
-        public void ReduceIntegrity(float damage, MyStringHash damageSource, MyHitInfo? hitInfo)
-        {
-            float finalDamage = damage;
-            float initialIntegrity = _integrity;
-
-            if (damageSource.String == "Explosion")
-            {
-                finalDamage *= 10.0f;
-                Log.Info($"Explosion detected! Applying 10x damage multiplier. Original Damage: {damage}, Final Damage: {finalDamage}");
-
-                _integrity -= finalDamage;
-                if (_integrity <= 0)
-                {
-                    OnDestroy();  // Split the asteroid on explosive damage
-                }
-            }
-            else if (damageSource.String == "Bullet")
-            {
-                Log.Info($"Bullet damage detected. Original Damage: {damage}");
-
-                // Apply damage
-                _integrity -= finalDamage;
-
-                if (_integrity <= 0)
-                {
-                    // If it's not the final ablation stage, ablate and spawn debris at impact location
-                    if (AblationStage < MaxAblationStages - 1)
-                    {
-                        var damageHandler = new AsteroidDamageHandler();
-                        damageHandler.AblateAsteroid(this, hitInfo);
-                    }
-                    else
-                    {
-                        Log.Info("Asteroid fully ablated and destroyed.");
-                        OnDestroy();  // Final destruction after all stages
-                    }
-                }
-                else
-                {
-                    if (hitInfo.HasValue)
-                    {
-                        // Calculate the percentage of health lost and spawn debris accordingly
-                        var damageHandler = new AsteroidDamageHandler();
-                        float healthLostRatio = finalDamage / initialIntegrity;  // Example ratio based on damage
-                        damageHandler.SpawnDebrisAtImpact(this, hitInfo.Value.Position, healthLostRatio);
-                    }
-                }
-            }
-            else
-            {
-                _integrity -= finalDamage;
-                if (_integrity <= 0)
-                {
-                    OnDestroy();
-                }
-            }
-        }
-
 
         private void CreatePhysics()
         {
