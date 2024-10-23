@@ -1,12 +1,9 @@
-﻿using Sandbox.ModAPI;
-using VRage.Game.Entity;
-using VRageMath;
+﻿using Sandbox.Definitions;
+using Sandbox.ModAPI;
 using System;
-using DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities;
-using VRage.ModAPI;
-using VRage.Utils;
-using Sandbox.Definitions;
 using VRage.Game.ModAPI;
+using VRage.Utils;
+using VRageMath;
 
 namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 {
@@ -40,6 +37,27 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             }
         }
 
+        private float CalculateMissileDamage(IMyMissile missile)
+        {
+            var missileDefinition = missile.AmmoDefinition as MyMissileAmmoDefinition;
+            if (missileDefinition == null) return 0;
+
+            // Always use the health pool if it exists - this represents the full damage potential
+            if (missile.HealthPool > 0)
+            {
+                float damage = missile.HealthPool;
+                Log.Info($"Using missile health pool as damage: {damage}");
+                return damage;
+            }
+            // Fallback to explosion damage if no health pool
+            else if (missileDefinition.MissileExplosionDamage > 0)
+            {
+                return missileDefinition.MissileExplosionDamage;
+            }
+
+            return 0;
+        }
+
         private void OnMissileCollided(IMyMissile missile)
         {
             try
@@ -52,7 +70,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 float damage = CalculateMissileDamage(missile);
                 if (damage <= 0) return;
 
-                // Ensure we have a valid collision point
                 Vector3D impactPosition = missile.CollisionPoint ?? missile.PositionComp.GetPosition();
 
                 var hitInfo = new MyHitInfo
@@ -62,15 +79,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     Velocity = missile.LinearVelocity
                 };
 
-                // Set explosion properties before removal
-                missile.ShouldExplode = true;
-                missile.ExplosionType = MyExplosionTypeEnum.MISSILE_EXPLOSION;
-
                 _damageHandler.DoDamage(asteroid, damage, MyStringHash.GetOrCompute("Missile"), true, hitInfo, missile.Owner);
 
-                // apparently it says not to use missile.destroy in OnMissileCollided?
-                // missile.Destroy();
-
+                // Always remove the missile on impact
                 _missileAPI.Remove(missile.EntityId);
             }
             catch (Exception ex)
@@ -78,48 +89,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 Log.Exception(ex, typeof(KeenRicochetMissileBSWorkaroundHandler),
                     "Error in Keen missile ricochet workaround");
             }
-        }
-
-        private float CalculateMissileDamage(IMyMissile missile)
-        {
-            var missileDefinition = missile.AmmoDefinition as MyMissileAmmoDefinition;
-            if (missileDefinition == null) return 0;
-
-            // Calculate ricochet angle
-            bool isRicochetAngle = false;
-            float impactAngle = 0;
-
-            if (missile.CollisionNormal != Vector3.Zero)
-            {
-                impactAngle = (float)Math.Acos(Vector3.Dot(missile.CollisionNormal,
-                    -Vector3.Normalize(missile.LinearVelocity)));
-                impactAngle = MathHelper.ToDegrees(impactAngle);
-
-                // Check for ricochet based on the missile's ricochet angle properties
-                if (missileDefinition.MissileMinRicochetAngle <= impactAngle &&
-                    impactAngle <= missileDefinition.MissileMaxRicochetAngle)
-                {
-                    isRicochetAngle = true;
-                }
-            }
-
-            // Use ricochet damage if applicable
-            if (isRicochetAngle && missileDefinition.MissileRicochetDamage > 0)
-            {
-                Log.Info($"Ricochet hit detected - Angle: {impactAngle:F2}°, Damage: {missileDefinition.MissileRicochetDamage}");
-                return missileDefinition.MissileRicochetDamage;
-            }
-            // Otherwise use regular explosion damage or health pool
-            else if (missile.HealthPool > 0)
-            {
-                return missile.HealthPool;
-            }
-            else if (missileDefinition.MissileExplosionDamage > 0)
-            {
-                return missileDefinition.MissileExplosionDamage;
-            }
-
-            return 0;
         }
 
         public void Unload()
