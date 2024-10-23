@@ -103,7 +103,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 MyAPIGateway.Utilities.ShowNotification(
                     $"Spawning debris:\n" +
                     $"Mass={massLost:F2}kg\n" +
-                    $"Type={asteroid.Type}", 3000);
+                    $"Type={asteroid.Type}", 1000);
             }
 
             Log.Info($"Spawning debris with mass lost: {massLost} at impact position.");
@@ -174,6 +174,25 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         {
             Log.Info($"DoDamage called with damage: {damage}, asteroid integrity before damage: {asteroid._integrity}, damage source: {damageSource}");
 
+            // Handle player drilling and grinding
+            if (damageSource == MyDamageType.Drill || damageSource == MyDamageType.Grind)
+            {
+                Vector3D playerPosition = hitInfo.HasValue ? hitInfo.Value.Position : asteroid.PositionComp.GetPosition();
+                Log.Info($"Player is using a tool ({damageSource}) at position: {playerPosition}");
+
+                // Apply mass removal and spawn debris at the player's tool position
+                float massRemoved = damage / AsteroidSettings.WeaponDamagePerKg;
+                massRemoved = Math.Max(massRemoved, 1f); // Ensure at least 1kg is removed
+                Log.Info($"Calculated mass to be removed by {damageSource}: {massRemoved}kg");
+
+                ReduceMass(asteroid, massRemoved, damageSource, hitInfo);
+
+                // Spawn ore/debris at player interaction position (e.g., drill or grinder)
+                SpawnDebrisAtImpact(asteroid, playerPosition, massRemoved);
+                return true;
+            }
+
+            // For other damage types (missiles, bullets, etc.)
             if (hitInfo.HasValue)
             {
                 Vector3D impactVelocity = hitInfo.Value.Velocity;
@@ -187,22 +206,21 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                         $"Impact detected:\n" +
                         $"Velocity: {impactVelocity.Length():F2}\n" +
                         $"Angle: {MathHelper.ToDegrees(impactAngle):F2}°\n" +
-                        $"DamageSource: {damageSource}", 3000);
+                        $"DamageSource: {damageSource}", 1000);
                 }
 
                 Log.Info($"Hit details - Velocity: {impactVelocity}, Normal: {normal}, Position: {hitInfo.Value.Position}, Material: {hitInfo.Value}");
 
-                // Ensure debris is spawned for valid hitInfo (applies to non-missile damage)
+                // Spawn debris for valid hitInfo (non-missile damage)
                 SpawnDebrisAtImpact(asteroid, hitInfo.Value.Position, damage / AsteroidSettings.WeaponDamagePerKg);
             }
 
-            // Adjust WeaponDamagePerKg or scale damage higher
-            float massRemoved = damage / AsteroidSettings.WeaponDamagePerKg;
-            massRemoved = Math.Max(massRemoved, 1f); // Ensure minimum 1kg removed
-            Log.Info($"Calculated mass to be removed: {massRemoved}kg");
+            // Handle mass removal for other damage types
+            float massRemovedWeapon = damage / AsteroidSettings.WeaponDamagePerKg;
+            massRemovedWeapon = Math.Max(massRemovedWeapon, 1f); // Ensure at least 1kg is removed
+            Log.Info($"Calculated mass to be removed from weapons/missiles: {massRemovedWeapon}kg");
 
-            // Apply mass removal
-            ReduceMass(asteroid, massRemoved, damageSource, hitInfo);
+            ReduceMass(asteroid, massRemovedWeapon, damageSource, hitInfo);
 
             return true;
         }

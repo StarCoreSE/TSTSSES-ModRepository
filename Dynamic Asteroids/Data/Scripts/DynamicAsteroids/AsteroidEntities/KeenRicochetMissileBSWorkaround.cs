@@ -81,7 +81,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
                 _damageHandler.DoDamage(asteroid, damage, MyStringHash.GetOrCompute("Missile"), true, hitInfo, missile.Owner);
 
-                // Always remove the missile on impact
+                // TODO: patch over this with a mvsp.createexplosion or something if we really want it
                 _missileAPI.Remove(missile.EntityId);
             }
             catch (Exception ex)
