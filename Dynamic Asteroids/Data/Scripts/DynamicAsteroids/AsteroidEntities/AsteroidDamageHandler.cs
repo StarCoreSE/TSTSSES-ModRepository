@@ -172,13 +172,13 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         public bool DoDamage(AsteroidEntity asteroid, float damage, MyStringHash damageSource, bool sync, MyHitInfo? hitInfo = null, long attackerId = 0, long realHitEntityId = 0, bool shouldDetonateAmmo = true, MyStringHash? extraInfo = null)
         {
+            Log.Info($"DoDamage called with damage: {damage}, asteroid integrity before damage: {asteroid._integrity}, damage source: {damageSource}");
 
             if (hitInfo.HasValue)
             {
                 Vector3D impactVelocity = hitInfo.Value.Velocity;
                 Vector3 normal = hitInfo.Value.Normal;
 
-                // Calculate impact angle
                 float impactAngle = (float)Math.Acos(Vector3.Dot(normal, -impactVelocity.Normalized()));
 
                 if (AsteroidSettings.EnableLogging)
@@ -190,65 +190,55 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                         $"DamageSource: {damageSource}", 3000);
                 }
 
-                // Log all available hitInfo properties to see what we can use
                 Log.Info($"Hit details - Velocity: {impactVelocity}, Normal: {normal}, Position: {hitInfo.Value.Position}, Material: {hitInfo.Value}");
+
+                // Ensure debris is spawned for valid hitInfo (applies to non-missile damage)
+                SpawnDebrisAtImpact(asteroid, hitInfo.Value.Position, damage / AsteroidSettings.WeaponDamagePerKg);
             }
 
-
+            // Adjust WeaponDamagePerKg or scale damage higher
             float massRemoved = damage / AsteroidSettings.WeaponDamagePerKg;
-            massRemoved = Math.Max(massRemoved, 1f);
-            Log.Info($"Mass removed: {massRemoved} kg");
+            massRemoved = Math.Max(massRemoved, 1f); // Ensure minimum 1kg removed
+            Log.Info($"Calculated mass to be removed: {massRemoved}kg");
 
+            // Apply mass removal
             ReduceMass(asteroid, massRemoved, damageSource, hitInfo);
 
             return true;
         }
 
-        private void ReduceMass(AsteroidEntity asteroid, float damage, MyStringHash damageSource, MyHitInfo? hitInfo)
+        private void ReduceMass(AsteroidEntity asteroid, float massRemoved, MyStringHash damageSource, MyHitInfo? hitInfo)
         {
             float initialMass = asteroid._integrity;
-            float finalDamage = damage;
+            Log.Info($"Initial asteroid mass (integrity): {initialMass}");
 
-            if (AsteroidSettings.EnableLogging)
-            {
-                MyAPIGateway.Utilities.ShowNotification(
-                    $"Mass removal:\n" +
-                    $"Initial Mass={initialMass:F2}kg\n" +
-                    $"Mass to remove={finalDamage:F2}kg", 3000);
-            }
-
-            asteroid._integrity -= finalDamage;
+            asteroid._integrity -= massRemoved;
 
             if (asteroid._integrity <= 0)
             {
-                if (AsteroidSettings.EnableLogging)
-                {
-                    MyAPIGateway.Utilities.ShowNotification("Asteroid destroyed!", 3000);
-                }
+                Log.Info("Asteroid destroyed, mass after damage: 0kg");
                 asteroid.OnDestroy();
             }
             else
             {
                 float massLost = initialMass - asteroid._integrity;
                 float sizeReductionFactor = massLost / initialMass;
-                float newSize = Math.Max(AsteroidSettings.MinSubChunkSize, asteroid.Size * (1 - sizeReductionFactor));
+                Log.Info($"Mass lost: {massLost}kg, Size reduction factor: {sizeReductionFactor}");
 
-                if (AsteroidSettings.EnableLogging)
+                if (massLost > 0)
                 {
-                    MyAPIGateway.Utilities.ShowNotification(
-                        $"After damage:\n" +
-                        $"Mass Lost={massLost:F2}kg\n" +
-                        $"New Mass={asteroid._integrity:F2}kg\n" +
-                        $"New Size={newSize:F2}m", 3000);
-                }
+                    float newSize = Math.Max(AsteroidSettings.MinSubChunkSize, asteroid.Size * (1 - sizeReductionFactor));
+                    Log.Info($"Asteroid size after damage: {newSize}");
 
-                asteroid.UpdateSizeAndPhysics(newSize);
+                    asteroid.UpdateSizeAndPhysics(newSize);
 
-                if (hitInfo.HasValue)
-                {
-                    SpawnDebrisAtImpact(asteroid, hitInfo.Value.Position, massLost);
+                    if (hitInfo.HasValue)
+                    {
+                        SpawnDebrisAtImpact(asteroid, hitInfo.Value.Position, massLost);
+                    }
                 }
             }
         }
+
     }
 }
