@@ -192,9 +192,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 }
 
                 Log.Info($"Hit details - Velocity: {impactVelocity}, Normal: {normal}, Position: {hitInfo.Value.Position}, Material: {hitInfo.Value}");
-
-                // Handle debris spawning based on weapon type
-                SpawnDebrisAtImpact(asteroid, hitInfo.Value.Position, damage / AsteroidSettings.WeaponDamagePerKg);
             }
 
             // Handle mass removal for all types of damage
@@ -207,7 +204,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
             return true;
         }
-
 
         private void ReduceMass(AsteroidEntity asteroid, float massRemoved, MyStringHash damageSource, MyHitInfo? hitInfo)
         {
@@ -236,11 +232,11 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
                     if (hitInfo.HasValue)
                     {
+                        // Spawn debris once based on the actual mass lost
                         SpawnDebrisAtImpact(asteroid, hitInfo.Value.Position, massLost);
                     }
                 }
             }
         }
-
-    }
+         }
 }
