@@ -174,23 +174,23 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         {
             Log.Info($"DoDamage called with damage: {damage}, asteroid integrity before damage: {asteroid._integrity}, damage source: {damageSource}");
 
-            // Handle player drilling and grinding
-            if (damageSource == MyDamageType.Drill || damageSource == MyDamageType.Grind)
-            {
-                Vector3D playerPosition = hitInfo.HasValue ? hitInfo.Value.Position : asteroid.PositionComp.GetPosition();
-                Log.Info($"Player is using a tool ({damageSource}) at position: {playerPosition}");
-
-                // Apply mass removal and spawn debris at the player's tool position
-                float massRemoved = damage / AsteroidSettings.WeaponDamagePerKg;
-                massRemoved = Math.Max(massRemoved, 1f); // Ensure at least 1kg is removed
-                Log.Info($"Calculated mass to be removed by {damageSource}: {massRemoved}kg");
-
-                ReduceMass(asteroid, massRemoved, damageSource, hitInfo);
-
-                // Spawn ore/debris at player interaction position (e.g., drill or grinder)
-                SpawnDebrisAtImpact(asteroid, playerPosition, massRemoved);
-                return true;
-            }
+            // Handle player drilling and grinding TODO: this barely works and i'm not screwing with damagehandler
+            //if (damageSource == MyDamageType.Drill || damageSource == MyDamageType.Grind)
+            //{
+            //    Vector3D playerPosition = hitInfo.HasValue ? hitInfo.Value.Position : asteroid.PositionComp.GetPosition();
+            //    Log.Info($"Player is using a tool ({damageSource}) at position: {playerPosition}");
+            //
+            //    // Apply mass removal and spawn debris at the player's tool position
+            //    float massRemoved = damage / AsteroidSettings.WeaponDamagePerKg;
+            //    massRemoved = Math.Max(massRemoved, 1f); // Ensure at least 1kg is removed
+            //    Log.Info($"Calculated mass to be removed by {damageSource}: {massRemoved}kg");
+            //
+            //    ReduceMass(asteroid, massRemoved, damageSource, hitInfo);
+            //
+            //    // Spawn ore/debris at player interaction position (e.g., drill or grinder)
+            //    SpawnDebrisAtImpact(asteroid, playerPosition, massRemoved);
+            //    return true;
+            //}
 
             // For other damage types (missiles, bullets, etc.)
             if (hitInfo.HasValue)
