@@ -52,14 +52,26 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 float damage = CalculateMissileDamage(missile);
                 if (damage <= 0) return;
 
+                // Ensure we have a valid collision point
+                Vector3D impactPosition = missile.CollisionPoint ?? missile.PositionComp.GetPosition();
+
                 var hitInfo = new MyHitInfo
                 {
-                    Position = missile.CollisionPoint ?? missile.PositionComp.GetPosition(),
+                    Position = impactPosition,
                     Normal = missile.CollisionNormal,
                     Velocity = missile.LinearVelocity
                 };
 
+                // Set explosion properties before removal
+                missile.ShouldExplode = true;
+                missile.ExplosionType = MyExplosionTypeEnum.MISSILE_EXPLOSION;
+
                 _damageHandler.DoDamage(asteroid, damage, MyStringHash.GetOrCompute("Missile"), true, hitInfo, missile.Owner);
+
+                // apparently it says not to use missile.destroy in OnMissileCollided?
+                // missile.Destroy();
+
+                _missileAPI.Remove(missile.EntityId);
             }
             catch (Exception ex)
             {
