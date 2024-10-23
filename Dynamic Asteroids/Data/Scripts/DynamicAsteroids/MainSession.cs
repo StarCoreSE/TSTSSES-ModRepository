@@ -28,6 +28,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
         private int _networkMessageTimer;
         public RealGasGiantsApi RealGasGiantsApi { get; private set; }
         private int _testTimer = 0;
+        private KeenRicochetMissileBSWorkaroundHandler _missileHandler;
 
         public override void LoadData()
         {
@@ -45,6 +46,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             RealGasGiantsApi.Load();
             Log.Info("RealGasGiants API loaded in LoadData");
 
+            // Create an instance of AsteroidDamageHandler and pass it to KeenRicochetMissileBSWorkaroundHandler
+            AsteroidDamageHandler damageHandler = new AsteroidDamageHandler();
+            _missileHandler = new KeenRicochetMissileBSWorkaroundHandler(damageHandler);
+
             if (MyAPIGateway.Session.IsServer)
             {
                 _spawner = new AsteroidSpawner(RealGasGiantsApi);
@@ -54,7 +59,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     _spawner.LoadAsteroidState();
                 }
             }
-
 
             MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(32000, OnSecureMessageReceived);
             MyAPIGateway.Utilities.MessageEntered += OnMessageEntered;
@@ -135,6 +139,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     RealGasGiantsApi.Unload();
                     RealGasGiantsApi = null;
                 }
+
+                _missileHandler.Unload();
 
                 // Save settings
                 AsteroidSettings.SaveSettings();
