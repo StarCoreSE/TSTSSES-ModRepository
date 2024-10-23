@@ -3,11 +3,13 @@ using RealGasGiants;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using VRage.Game;
 using VRage.Game.Components;
 using VRage.Game.ModAPI;
 using VRage.Input;
+using VRage.ModAPI;
 using VRage.Utils;
 using VRageMath;
 
@@ -428,18 +430,41 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
         }
         private AsteroidEntity FindNearestAsteroid(Vector3D characterPosition)
         {
-            if (_spawner == null || !_spawner.GetAsteroids().Any()) return null;
+            var entities = new HashSet<IMyEntity>();
+            MyAPIGateway.Entities.GetEntities(entities);
 
             AsteroidEntity nearestAsteroid = null;
             double minDistance = double.MaxValue;
-            foreach (AsteroidEntity asteroid in _spawner.GetAsteroids())
+
+            foreach (var entity in entities)
             {
-                double distance = Vector3D.DistanceSquared(characterPosition, asteroid.PositionComp.GetPosition());
-                if (!(distance < minDistance)) continue;
-                minDistance = distance;
-                nearestAsteroid = asteroid;
+                AsteroidEntity asteroid = entity as AsteroidEntity;
+                if (asteroid != null)
+                {
+                    double distance = Vector3D.DistanceSquared(characterPosition, asteroid.PositionComp.GetPosition());
+                    if (distance < minDistance)
+                    {
+                        minDistance = distance;
+                        nearestAsteroid = asteroid;
+                    }
+                }
             }
             return nearestAsteroid;
+        }
+
+        public void RegisterExistingAsteroids()
+        {
+            var entities = new HashSet<IMyEntity>();
+            MyAPIGateway.Entities.GetEntities(entities);
+
+            foreach (var entity in entities)
+            {
+                AsteroidEntity asteroid = entity as AsteroidEntity;
+                if (asteroid != null)
+                {
+                    _spawner.AddAsteroid(asteroid);
+                }
+            }
         }
 
         public override void Draw()
