@@ -258,7 +258,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 }
 
                 // Debug missile detection
-                DebugMissiles();
+                // DebugMissiles();
 
                 // Modified this section to use GetAsteroids()
                 if (MyAPIGateway.Session?.Player?.Character != null && _spawner != null && _spawner.GetAsteroids().Any())
