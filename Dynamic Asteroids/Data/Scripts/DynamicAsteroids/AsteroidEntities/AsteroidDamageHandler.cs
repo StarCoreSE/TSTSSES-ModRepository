@@ -98,6 +98,14 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         public void SpawnDebrisAtImpact(AsteroidEntity asteroid, Vector3D impactPosition, float massLost)
         {
+            if (AsteroidSettings.EnableLogging)
+            {
+                MyAPIGateway.Utilities.ShowNotification(
+                    $"Spawning debris:\n" +
+                    $"Mass={massLost:F2}kg\n" +
+                    $"Type={asteroid.Type}", 3000);
+            }
+
             Log.Info($"Spawning debris with mass lost: {massLost} at impact position.");
             MyPhysicalItemDefinition itemDefinition = MyDefinitionManager.Static.GetPhysicalItemDefinition(
                 new MyDefinitionId(typeof(MyObjectBuilder_Ore), asteroid.Type.ToString()));
@@ -164,72 +172,64 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         public bool DoDamage(AsteroidEntity asteroid, float damage, MyStringHash damageSource, bool sync, MyHitInfo? hitInfo = null, long attackerId = 0, long realHitEntityId = 0, bool shouldDetonateAmmo = true, MyStringHash? extraInfo = null)
         {
+            if (AsteroidSettings.EnableLogging)
+            {
+                MyAPIGateway.Utilities.ShowNotification(
+                    $"Asteroid hit: Type={asteroid.Type}\n" +
+                    $"Damage={damage:F2}\n" +
+                    $"Current Mass={asteroid._integrity:F2}kg\n" +
+                    $"Source={damageSource}", 3000);
+            }
+
             Log.Info($"DoDamage called with damage: {damage}, damageSource: {damageSource}, integrity (mass) before damage: {asteroid._integrity}");
 
-            // If hit info is available, check if it's a ricochet based on velocity
-            if (hitInfo.HasValue)
-            {
-                Vector3D postImpactVelocity = hitInfo.Value.Velocity;
-
-                // If the projectile is still moving fast, we assume it ricocheted
-                const double ricochetVelocityThreshold = 50.0;  // Adjust based on game mechanics
-                bool isRicochet = postImpactVelocity.Length() > ricochetVelocityThreshold;
-
-                if (isRicochet)
-                {
-                    Log.Info("Ricochet detected. Applying damage as normal.");
-                }
-            }
-
-            // Convert damage to mass removed using the WeaponDamagePerKg factor
             float massRemoved = damage / AsteroidSettings.WeaponDamagePerKg;
-
-            // Ensure at least some mass is removed (for minor hits)
             massRemoved = Math.Max(massRemoved, 1f);
-
             Log.Info($"Mass removed: {massRemoved} kg");
 
-            // Reduce asteroid mass
             ReduceMass(asteroid, massRemoved, damageSource, hitInfo);
-
-            if (asteroid._integrity <= 0)
-            {
-                Log.Info("Asteroid integrity reached 0, calling OnDestroy.");
-                asteroid.OnDestroy();
-            }
-            else
-            {
-                Log.Info($"Asteroid mass after damage: {asteroid._integrity}");
-            }
 
             return true;
         }
-
-
+         
         private void ReduceMass(AsteroidEntity asteroid, float damage, MyStringHash damageSource, MyHitInfo? hitInfo)
         {
-            float initialMass = asteroid._integrity;  // Integrity represents the scaled mass.
+            float initialMass = asteroid._integrity;
             float finalDamage = damage;
 
-            Log.Info($"ReduceMass called with damage: {damage}, damageSource: {damageSource}, initial mass: {initialMass}");
+            if (AsteroidSettings.EnableLogging)
+            {
+                MyAPIGateway.Utilities.ShowNotification(
+                    $"Mass removal:\n" +
+                    $"Initial Mass={initialMass:F2}kg\n" +
+                    $"Mass to remove={finalDamage:F2}kg", 3000);
+            }
 
-            // Subtract the damage from the integrity
             asteroid._integrity -= finalDamage;
-
-            // Ensure mass and integrity are linked, reducing size based on lost mass
-            Log.Info($"Damage applied, new integrity (mass): {asteroid._integrity}");
 
             if (asteroid._integrity <= 0)
             {
+                if (AsteroidSettings.EnableLogging)
+                {
+                    MyAPIGateway.Utilities.ShowNotification("Asteroid destroyed!", 3000);
+                }
                 asteroid.OnDestroy();
             }
             else
             {
                 float massLost = initialMass - asteroid._integrity;
                 float sizeReductionFactor = massLost / initialMass;
-
-                // Update the size and spawn debris based on mass lost
                 float newSize = Math.Max(AsteroidSettings.MinSubChunkSize, asteroid.Size * (1 - sizeReductionFactor));
+
+                if (AsteroidSettings.EnableLogging)
+                {
+                    MyAPIGateway.Utilities.ShowNotification(
+                        $"After damage:\n" +
+                        $"Mass Lost={massLost:F2}kg\n" +
+                        $"New Mass={asteroid._integrity:F2}kg\n" +
+                        $"New Size={newSize:F2}m", 3000);
+                }
+
                 asteroid.UpdateSizeAndPhysics(newSize);
 
                 if (hitInfo.HasValue)
@@ -238,6 +238,5 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 }
             }
         }
-
     }
 }
