@@ -56,6 +56,11 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public static double SubChunkAngularVelocityMin = 0.01;
         public static double SubChunkAngularVelocityMax = 0.1;
         public static float WeaponDamagePerKg = 50.0f;  // Default value: 50 damage removes 1 kg of asteroid material
+        public static float InstabilityPerMass = 0.1f;
+        public static float InstabilityThresholdPercent = 0.8f;
+        public static float InstabilityDecayRate = 0.1f;
+        public static float InstabilityFromDamage = 1.0f;
+
 
         public struct MassRange
         {
@@ -189,6 +194,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     writer.WriteLine($"MinDistanceFromPlayer={MinDistanceFromPlayer}");
                     writer.WriteLine($"Seed={Seed}");
                     writer.WriteLine($"IgnorePlanets={IgnorePlanets}");
+                    writer.WriteLine($"WeaponDamagePerKg={WeaponDamagePerKg}");
 
                     writer.WriteLine("[Weights]");
                     writer.WriteLine($"IceWeight={IceWeight}");
@@ -214,7 +220,12 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     writer.WriteLine($"SubChunkVelocityMax={SubChunkVelocityMax}");
                     writer.WriteLine($"SubChunkAngularVelocityMin={SubChunkAngularVelocityMin}");
                     writer.WriteLine($"SubChunkAngularVelocityMax={SubChunkAngularVelocityMax}");
-                    writer.WriteLine($"WeaponDamagePerKg={WeaponDamagePerKg}");
+
+                    writer.WriteLine("[Instability]");
+                    writer.WriteLine($"InstabilityPerMass={InstabilityPerMass}");
+                    writer.WriteLine($"InstabilityThresholdPercent={InstabilityThresholdPercent}");
+                    writer.WriteLine($"InstabilityDecayRate={InstabilityDecayRate}");
+                    writer.WriteLine($"InstabilityFromDamage={InstabilityFromDamage}");
 
                     writer.WriteLine("[SpawnableAreas]");
                     foreach (var area in ValidSpawnLocations)
@@ -397,6 +408,18 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                                     break;
                                 case "Radius":
                                     currentArea.Radius = double.Parse(value);
+                                    break;
+                                case "InstabilityPerMass":
+                                    InstabilityPerMass = float.Parse(value);
+                                    break;
+                                case "InstabilityThresholdPercent":
+                                    InstabilityThresholdPercent = float.Parse(value);
+                                    break;
+                                case "InstabilityDecayRate":
+                                    InstabilityDecayRate = float.Parse(value);
+                                    break;
+                                case "InstabilityFromDamage":
+                                    InstabilityFromDamage = float.Parse(value);
                                     break;
                             }
                         }

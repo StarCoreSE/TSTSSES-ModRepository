@@ -32,31 +32,33 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
     public class AsteroidEntity : MyEntity, IMyDestroyableObject
     {
-        private static readonly string[] IceAsteroidModels = {
-        @"Models\IceAsteroid_1.mwm",
-        @"Models\IceAsteroid_2.mwm",
-        @"Models\IceAsteroid_3.mwm",
-        @"Models\IceAsteroid_4.mwm"
-    };
+        private static readonly string[] IceAsteroidModels =
+        {
+            @"Models\IceAsteroid_1.mwm",
+            @"Models\IceAsteroid_2.mwm",
+            @"Models\IceAsteroid_3.mwm",
+            @"Models\IceAsteroid_4.mwm"
+        };
 
-        private static readonly string[] StoneAsteroidModels = {
-        @"Models\StoneAsteroid_1.mwm",
-        @"Models\StoneAsteroid_2.mwm",
-        @"Models\StoneAsteroid_3.mwm",
-        @"Models\StoneAsteroid_4.mwm",
-        @"Models\StoneAsteroid_5.mwm",
-        @"Models\StoneAsteroid_6.mwm",
-        @"Models\StoneAsteroid_7.mwm",
-        @"Models\StoneAsteroid_8.mwm",
-        @"Models\StoneAsteroid_9.mwm",
-        @"Models\StoneAsteroid_10.mwm",
-        @"Models\StoneAsteroid_11.mwm",
-        @"Models\StoneAsteroid_12.mwm",
-        @"Models\StoneAsteroid_13.mwm",
-        @"Models\StoneAsteroid_14.mwm",
-        @"Models\StoneAsteroid_15.mwm",
-        @"Models\StoneAsteroid_16.mwm"
-    };
+        private static readonly string[] StoneAsteroidModels =
+        {
+            @"Models\StoneAsteroid_1.mwm",
+            @"Models\StoneAsteroid_2.mwm",
+            @"Models\StoneAsteroid_3.mwm",
+            @"Models\StoneAsteroid_4.mwm",
+            @"Models\StoneAsteroid_5.mwm",
+            @"Models\StoneAsteroid_6.mwm",
+            @"Models\StoneAsteroid_7.mwm",
+            @"Models\StoneAsteroid_8.mwm",
+            @"Models\StoneAsteroid_9.mwm",
+            @"Models\StoneAsteroid_10.mwm",
+            @"Models\StoneAsteroid_11.mwm",
+            @"Models\StoneAsteroid_12.mwm",
+            @"Models\StoneAsteroid_13.mwm",
+            @"Models\StoneAsteroid_14.mwm",
+            @"Models\StoneAsteroid_15.mwm",
+            @"Models\StoneAsteroid_16.mwm"
+        };
 
         private static readonly string[] IronAsteroidModels = { @"Models\OreAsteroid_Iron.mwm" };
         private static readonly string[] NickelAsteroidModels = { @"Models\OreAsteroid_Nickel.mwm" };
@@ -72,10 +74,16 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public float Size;
         public string ModelString = "";
 
-        public static AsteroidEntity CreateAsteroid(Vector3D position, float size, Vector3D initialVelocity, AsteroidType type, Quaternion? rotation = null, long? entityId = null)
+        public float MaxInstability { get; private set; }
+        public float CurrentInstability { get; private set; }
+        public float InstabilityThreshold { get; private set; }
+
+        public static AsteroidEntity CreateAsteroid(Vector3D position, float size, Vector3D initialVelocity,
+            AsteroidType type, Quaternion? rotation = null, long? entityId = null)
         {
             var ent = new AsteroidEntity();
-            Log.Info($"Creating AsteroidEntity at Position: {position}, Size: {size}, InitialVelocity: {initialVelocity}, Type: {type}");
+            Log.Info(
+                $"Creating AsteroidEntity at Position: {position}, Size: {size}, InitialVelocity: {initialVelocity}, Type: {type}");
 
             if (entityId.HasValue)
             {
@@ -101,15 +109,19 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             return ent;
         }
 
-        private void Init(Vector3D position, float size, Vector3D initialVelocity, AsteroidType type, Quaternion? rotation)
+        private void Init(Vector3D position, float size, Vector3D initialVelocity, AsteroidType type,
+            Quaternion? rotation)
         {
-            Log.Info($"AsteroidEntity.Init called with position: {position}, size: {size}, initialVelocity: {initialVelocity}, type: {type}");
+            Log.Info(
+                $"AsteroidEntity.Init called with position: {position}, size: {size}, initialVelocity: {initialVelocity}, type: {type}");
 
             try
             {
-                if (MainSession.I == null || MainSession.I.ModContext == null || string.IsNullOrEmpty(MainSession.I.ModContext.ModPath))
+                if (MainSession.I == null || MainSession.I.ModContext == null ||
+                    string.IsNullOrEmpty(MainSession.I.ModContext.ModPath))
                 {
-                    Log.Exception(new Exception("MainSession or ModContext not initialized correctly"), typeof(AsteroidEntity), "Initialization failed.");
+                    Log.Exception(new Exception("MainSession or ModContext not initialized correctly"),
+                        typeof(AsteroidEntity), "Initialization failed.");
                     return;
                 }
 
@@ -118,13 +130,14 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 ModelString = SelectModelForAsteroidType(type);
                 if (string.IsNullOrEmpty(ModelString))
                 {
-                    Log.Exception(new Exception("ModelString is null or empty"), typeof(AsteroidEntity), "Failed to initialize asteroid model");
+                    Log.Exception(new Exception("ModelString is null or empty"), typeof(AsteroidEntity),
+                        "Failed to initialize asteroid model");
                     return;
                 }
 
                 // Calculate volume and mass based on size (assuming size is diameter)
                 float radius = size / 2.0f;
-                float volume = (4.0f / 3.0f) * MathHelper.Pi * (float)Math.Pow(radius, 3);  // Volume of a sphere
+                float volume = (4.0f / 3.0f) * MathHelper.Pi * (float)Math.Pow(radius, 3); // Volume of a sphere
                 const float density = 917.0f; // Ice density (adjust based on material)
                 float mass = density * volume;
 
@@ -138,12 +151,13 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     // Now adjust the size (radius) based on the clamped mass
                     float newVolume = mass / density;
                     float newRadius = (float)Math.Pow((3.0f * newVolume) / (4.0f * MathHelper.Pi), 1.0f / 3.0f);
-                    size = newRadius * 2.0f;  // Set the new size based on the recalculated radius
+                    size = newRadius * 2.0f; // Set the new size based on the recalculated radius
                 }
 
                 // Integrity is adjusted based on the clamped mass
                 _integrity = (AsteroidSettings.BaseIntegrity / 100.0f) * mass;
-                Log.Info($"Calculated Integrity: {_integrity}, based on BaseIntegrity: {AsteroidSettings.BaseIntegrity}, Mass: {mass}");
+                Log.Info(
+                    $"Calculated Integrity: {_integrity}, based on BaseIntegrity: {AsteroidSettings.BaseIntegrity}, Mass: {mass}");
 
                 // Initialize model, physics, and position using adjusted size
                 Size = size;
@@ -157,14 +171,28 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 Log.Info("Creating physics for asteroid");
                 CreatePhysics();
                 this.Physics.LinearVelocity = initialVelocity + RandVector() * AsteroidSettings.VelocityVariability;
-                this.Physics.AngularVelocity = RandVector() * AsteroidSettings.GetRandomAngularVelocity(MainSession.I.Rand);
-                Log.Info($"Initial LinearVelocity: {this.Physics.LinearVelocity}, Initial AngularVelocity: {this.Physics.AngularVelocity}");
+                this.Physics.AngularVelocity =
+                    RandVector() * AsteroidSettings.GetRandomAngularVelocity(MainSession.I.Rand);
+                Log.Info(
+                    $"Initial LinearVelocity: {this.Physics.LinearVelocity}, Initial AngularVelocity: {this.Physics.AngularVelocity}");
 
                 // Set sync flag for server
                 if (MyAPIGateway.Session.IsServer)
                 {
                     this.SyncFlag = true;
                 }
+
+
+                MaxInstability = mass * AsteroidSettings.InstabilityPerMass;
+                InstabilityThreshold = MaxInstability * AsteroidSettings.InstabilityThresholdPercent;
+                CurrentInstability = 0;
+
+                Log.Info($"Initialized asteroid {EntityId} instability parameters:\n" +
+                         $"Max Instability: {MaxInstability:F2}\n" +
+                         $"Threshold: {InstabilityThreshold:F2}\n" +
+                         $"Starting Instability: {CurrentInstability:F2}");
+            
+
             }
             catch (Exception ex)
             {
@@ -177,7 +205,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         {
             if (rotation.HasValue)
             {
-                this.WorldMatrix = MatrixD.CreateFromQuaternion(rotation.Value) * MatrixD.CreateWorld(position, Vector3D.Forward, Vector3D.Up);
+                this.WorldMatrix = MatrixD.CreateFromQuaternion(rotation.Value) *
+                                   MatrixD.CreateWorld(position, Vector3D.Forward, Vector3D.Up);
             }
             else
             {
@@ -233,6 +262,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 Log.Info("Model array is empty");
                 return string.Empty;
             }
+
             int modelIndex = MainSession.I.Rand.Next(models.Length);
             Log.Info($"Selected model index: {modelIndex}");
             return Path.Combine(modPath, models[modelIndex]);
@@ -249,7 +279,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
             // Draw a transparent debug sphere at the asteroid's position
             MatrixD worldMatrix = MatrixD.CreateTranslation(asteroidPosition);
-            MySimpleObjectDraw.DrawTransparentSphere(ref worldMatrix, radius, ref sphereColor, MySimpleObjectRasterizer.Wireframe, 20);
+            MySimpleObjectDraw.DrawTransparentSphere(ref worldMatrix, radius, ref sphereColor,
+                MySimpleObjectRasterizer.Wireframe, 20);
+
         }
 
 
@@ -267,15 +299,19 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         public float _integrity;
 
-        public bool DoDamage(float damage, MyStringHash damageSource, bool sync, MyHitInfo? hitInfo = null, long attackerId = 0, long realHitEntityId = 0, bool shouldDetonateAmmo = true, MyStringHash? extraInfo = null)
+        public bool DoDamage(float damage, MyStringHash damageSource, bool sync, MyHitInfo? hitInfo = null,
+            long attackerId = 0, long realHitEntityId = 0, bool shouldDetonateAmmo = true,
+            MyStringHash? extraInfo = null)
         {
-            Log.Info($"DoDamage called with damage: {damage}, damageSource: {damageSource}, integrity (mass) before damage: {_integrity}");
+            Log.Info(
+                $"DoDamage called with damage: {damage}, damageSource: {damageSource}, integrity (mass) before damage: {_integrity}");
 
             // Call the damage handler
             var damageHandler = new AsteroidDamageHandler();
 
             // Ensure we aren't calling this method twice unnecessarily
-            return damageHandler.DoDamage(this, damage, damageSource, sync, hitInfo, attackerId, realHitEntityId, shouldDetonateAmmo, extraInfo);
+            return damageHandler.DoDamage(this, damage, damageSource, sync, hitInfo, attackerId, realHitEntityId,
+                shouldDetonateAmmo, extraInfo);
         }
 
         private void CreatePhysics()
@@ -296,7 +332,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     rigidBodyFlags: RigidBodyFlag.RBF_DEFAULT,
                     collisionLayer: CollisionLayers.NoVoxelCollisionLayer,
                     isPhantom: false,
-                    mass: new ModAPIMass(volume, mass, Vector3.Zero, mass * this.PositionComp.LocalAABB.Height * this.PositionComp.LocalAABB.Height / 6 * Matrix.Identity)
+                    mass: new ModAPIMass(volume, mass, Vector3.Zero,
+                        mass * this.PositionComp.LocalAABB.Height * this.PositionComp.LocalAABB.Height / 6 *
+                        Matrix.Identity)
                 );
 
                 MyAPIGateway.Physics.CreateSpherePhysics(settings, radius);
@@ -316,7 +354,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             var theta = MainSession.I.Rand.NextDouble() * 2.0 * Math.PI;
             var phi = Math.Acos(2.0 * MainSession.I.Rand.NextDouble() - 1.0);
             var sinPhi = Math.Sin(phi);
-            return Math.Pow(MainSession.I.Rand.NextDouble(), 1 / 3d) * new Vector3D(sinPhi * Math.Cos(theta), sinPhi * Math.Sin(theta), Math.Cos(phi));
+            return Math.Pow(MainSession.I.Rand.NextDouble(), 1 / 3d) *
+                   new Vector3D(sinPhi * Math.Cos(theta), sinPhi * Math.Sin(theta), Math.Cos(phi));
         }
 
         public void UpdateSizeAndPhysics(float newSize)
@@ -334,7 +373,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 // Preserve the current velocities and world orientation before destroying the old physics
                 Vector3D linearVelocity = Physics?.LinearVelocity ?? Vector3D.Zero;
                 Vector3D angularVelocity = Physics?.AngularVelocity ?? Vector3D.Zero;
-                MatrixD currentWorldMatrix = WorldMatrix;  // Preserve current position and orientation
+                MatrixD currentWorldMatrix = WorldMatrix; // Preserve current position and orientation
 
                 // Dispose of old physics
                 if (Physics != null)
@@ -360,7 +399,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     // Restore the exact world orientation (position and rotation)
                     PositionComp.SetWorldMatrix(ref currentWorldMatrix);
 
-                    Log.Info($"Restored linear velocity: {Physics.LinearVelocity}, angular velocity: {Physics.AngularVelocity}, and orientation.");
+                    Log.Info(
+                        $"Restored linear velocity: {Physics.LinearVelocity}, angular velocity: {Physics.AngularVelocity}, and orientation.");
                 }
 
                 Log.Info($"Successfully updated size and recreated physics for asteroid {EntityId}");
@@ -371,5 +411,45 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             }
         }
 
+        public bool IsUnstable()
+        {
+            bool unstable = CurrentInstability >= InstabilityThreshold;
+            if (unstable)
+            {
+                Log.Info($"Asteroid {EntityId} has become unstable! " +
+                         $"Current: {CurrentInstability:F2} >= Threshold: {InstabilityThreshold:F2}");
+            }
+            return unstable;
+        }
+
+        public void UpdateInstability()
+        {
+            float previousInstability = CurrentInstability;
+            CurrentInstability = Math.Max(0, CurrentInstability - (AsteroidSettings.InstabilityDecayRate * MyEngineConstants.UPDATE_STEP_SIZE_IN_SECONDS));
+
+            if (Math.Abs(previousInstability - CurrentInstability) > 0.01f)
+            {
+                Log.Info($"Asteroid {EntityId} instability decay: {previousInstability:F2} -> {CurrentInstability:F2} " +
+                         $"(-{previousInstability - CurrentInstability:F2})");
+            }
+        }
+
+        public void AddInstability(float amount)
+        {
+            float previousInstability = CurrentInstability;
+            CurrentInstability = Math.Min(MaxInstability, CurrentInstability + amount);
+
+            Log.Info($"Asteroid {EntityId} instability increased: {previousInstability:F2} -> {CurrentInstability:F2} " +
+                     $"(+{amount:F2}) [{(CurrentInstability / MaxInstability) * 100:F1}% of max]");
+
+            if (AsteroidSettings.EnableLogging)
+            {
+                MyAPIGateway.Utilities.ShowNotification(
+                    $"Asteroid {EntityId} Instability:\n" +
+                    $"Current: {(CurrentInstability / MaxInstability) * 100:F1}%\n" +
+                    $"Threshold: {(InstabilityThreshold / MaxInstability) * 100:F1}%",
+                    1000 / 60);
+            }
+        }
     }
 }

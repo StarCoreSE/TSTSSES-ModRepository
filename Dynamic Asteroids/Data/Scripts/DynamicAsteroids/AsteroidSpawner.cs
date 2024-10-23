@@ -558,6 +558,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 EntityId = asteroid.EntityId
             });
 
+            asteroid.UpdateInstability();
+
             Vector3D currentPosition = asteroid.PositionComp.GetPosition();
             bool inAnyZone = false;
             AsteroidZone currentZone = null;

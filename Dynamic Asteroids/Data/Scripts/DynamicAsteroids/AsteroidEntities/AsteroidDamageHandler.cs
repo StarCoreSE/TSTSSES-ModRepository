@@ -174,6 +174,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         {
             Log.Info($"DoDamage called with damage: {damage}, asteroid integrity before damage: {asteroid._integrity}, damage source: {damageSource}");
 
+
+
+
             // For damage types like missiles, bullets, and explosions
             if (hitInfo.HasValue)
             {
@@ -192,6 +195,22 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 }
 
                 Log.Info($"Hit details - Velocity: {impactVelocity}, Normal: {normal}, Position: {hitInfo.Value.Position}, Material: {hitInfo.Value}");
+            }
+
+            Log.Info($"Processing damage for asteroid {asteroid.EntityId}:");
+            Log.Info($"- Damage amount: {damage}");
+            Log.Info($"- Damage source: {damageSource}");
+
+            float instabilityIncrease = damage * AsteroidSettings.InstabilityFromDamage;
+            Log.Info($"- Calculated instability increase: {instabilityIncrease:F2}");
+
+            asteroid.AddInstability(instabilityIncrease);
+
+            if (asteroid.IsUnstable())
+            {
+                Log.Info($"Asteroid {asteroid.EntityId} has reached critical instability - initiating destruction");
+                asteroid.OnDestroy();
+                return true;
             }
 
             // Handle mass removal for all types of damage
