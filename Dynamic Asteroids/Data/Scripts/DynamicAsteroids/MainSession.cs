@@ -1,5 +1,6 @@
 ﻿using DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities;
 using RealGasGiants;
+using Sandbox.Definitions;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using System;
@@ -250,6 +251,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     }
                 }
 
+                // Debug missile detection
+                DebugMissiles();
+
                 // Modified this section to use GetAsteroids()
                 if (MyAPIGateway.Session?.Player?.Character != null && _spawner != null && _spawner.GetAsteroids().Any())
                 {
@@ -286,6 +290,37 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 Log.Exception(ex, typeof(MainSession), "Error in UpdateAfterSimulation: ");
             }
         }
+
+        public void DebugMissiles()
+        {
+            if (!AsteroidSettings.EnableLogging)
+                return;
+
+            var entities = new HashSet<IMyEntity>();
+            MyAPIGateway.Entities.GetEntities(entities);
+
+            int missileCount = 0;
+            foreach (var entity in entities)
+            {
+                IMyMissile missile = entity as IMyMissile;
+                if (missile != null)
+                {
+                    var ammoDef = missile.AmmoDefinition as MyMissileAmmoDefinition;
+                    if (ammoDef != null)
+                    {
+                        MyAPIGateway.Utilities.ShowNotification(
+                            $"Missile detected:\n" +
+                            $"Type: {ammoDef.Id.SubtypeName}\n", 1000 / 60);
+                    }
+                }
+            }
+
+            if (missileCount == 0)
+            {
+                MyAPIGateway.Utilities.ShowNotification("No missiles found in world", 1000 / 60);
+            }
+        }
+
 
         private void TestNearestGasGiant()
         {

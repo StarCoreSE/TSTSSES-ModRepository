@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
+using VRage.ModAPI;
 using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRageMath;
@@ -172,16 +173,28 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         public bool DoDamage(AsteroidEntity asteroid, float damage, MyStringHash damageSource, bool sync, MyHitInfo? hitInfo = null, long attackerId = 0, long realHitEntityId = 0, bool shouldDetonateAmmo = true, MyStringHash? extraInfo = null)
         {
-            if (AsteroidSettings.EnableLogging)
+
+            if (hitInfo.HasValue)
             {
-                MyAPIGateway.Utilities.ShowNotification(
-                    $"Asteroid hit: Type={asteroid.Type}\n" +
-                    $"Damage={damage:F2}\n" +
-                    $"Current Mass={asteroid._integrity:F2}kg\n" +
-                    $"Source={damageSource}", 3000);
+                Vector3D impactVelocity = hitInfo.Value.Velocity;
+                Vector3 normal = hitInfo.Value.Normal;
+
+                // Calculate impact angle
+                float impactAngle = (float)Math.Acos(Vector3.Dot(normal, -impactVelocity.Normalized()));
+
+                if (AsteroidSettings.EnableLogging)
+                {
+                    MyAPIGateway.Utilities.ShowNotification(
+                        $"Impact detected:\n" +
+                        $"Velocity: {impactVelocity.Length():F2}\n" +
+                        $"Angle: {MathHelper.ToDegrees(impactAngle):F2}°\n" +
+                        $"DamageSource: {damageSource}", 3000);
+                }
+
+                // Log all available hitInfo properties to see what we can use
+                Log.Info($"Hit details - Velocity: {impactVelocity}, Normal: {normal}, Position: {hitInfo.Value.Position}, Material: {hitInfo.Value}");
             }
 
-            Log.Info($"DoDamage called with damage: {damage}, damageSource: {damageSource}, integrity (mass) before damage: {asteroid._integrity}");
 
             float massRemoved = damage / AsteroidSettings.WeaponDamagePerKg;
             massRemoved = Math.Max(massRemoved, 1f);
