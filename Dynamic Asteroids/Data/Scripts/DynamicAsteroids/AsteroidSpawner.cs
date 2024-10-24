@@ -161,31 +161,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
         {
             return _asteroids;
         }
-        public void SaveAsteroidState()
-        {
-            if (!MyAPIGateway.Session.IsServer || !AsteroidSettings.EnablePersistence) return;
-
-            if (!_stateCache.ShouldSave()) return;
-
-            List<AsteroidState> dirtyStates = _stateCache.GetDirtyStates();
-            if (dirtyStates.Count == 0) return;
-
-            List<AsteroidState> allStates = _asteroids.Select(asteroid => new AsteroidState
-            {
-                Position = asteroid.PositionComp.GetPosition(),
-                Size = asteroid.Properties.Diameter,
-                Type = asteroid.Type,
-                EntityId = asteroid.EntityId
-            }).Concat(dirtyStates).ToList();
-
-            allStates.AddRange(_despawnedAsteroids);
-            byte[] stateBytes = MyAPIGateway.Utilities.SerializeToBinary(allStates);
-
-            using (BinaryWriter writer = MyAPIGateway.Utilities.WriteBinaryFileInLocalStorage("asteroid_states.dat", typeof(AsteroidSpawner)))
-            {
-                writer.Write(stateBytes, 0, stateBytes.Length);
-            }
-        }
         public void AddAsteroid(AsteroidEntity asteroid)
         {
             _asteroids.Add(asteroid);
@@ -197,32 +172,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
         public bool ContainsAsteroid(long asteroidId)
         {
             return _asteroids.Any(a => a.EntityId == asteroidId);
-        }
-        public void LoadAsteroidState()
-        {
-            if (!MyAPIGateway.Session.IsServer || !AsteroidSettings.EnablePersistence) return;
-            _asteroids = new ConcurrentBag<AsteroidEntity>();
-            if (!MyAPIGateway.Utilities.FileExistsInLocalStorage("asteroid_states.dat", typeof(AsteroidSpawner))) return;
-            byte[] stateBytes;
-            using (BinaryReader reader = MyAPIGateway.Utilities.ReadBinaryFileInLocalStorage("asteroid_states.dat", typeof(AsteroidSpawner)))
-            {
-                stateBytes = reader.ReadBytes((int)reader.BaseStream.Length);
-            }
-            List<AsteroidState> asteroidStates = MyAPIGateway.Utilities.SerializeFromBinary<List<AsteroidState>>(stateBytes);
-            foreach (AsteroidState state in asteroidStates)
-            {
-                if (ContainsAsteroid(state.EntityId))// Use the ContainsAsteroid method
-                {
-                    Log.Info($"Skipping duplicate asteroid with ID {state.EntityId}");
-                    continue;
-                }
-                AsteroidEntity asteroid = AsteroidEntity.CreateAsteroid(state.Position, state.Size, Vector3D.Zero, state.Type);
-                asteroid.EntityId = state.EntityId;
-                _asteroids.Add(asteroid);
-                MyEntities.Add(asteroid);
-
-                _updateQueue.Enqueue(asteroid);
-            }
         }
         private void LoadAsteroidsInRange(Vector3D playerPosition, AsteroidZone zone)
         {
@@ -264,21 +213,16 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 
         public void Close()
         {
-            if (!MyAPIGateway.Session.IsServer) return;
+            if (!MyAPIGateway.Session.IsServer)
+                return;
 
             try
             {
                 Log.Info("Closing AsteroidSpawner");
-
-                // Save state if persistence is enabled
-                SaveAsteroidState();
-
-                // Clear caches
                 _zoneCache.Clear();
                 playerZones.Clear();
                 playerMovementData.Clear();
 
-                // Safely clear asteroids
                 if (_asteroids != null)
                 {
                     foreach (var asteroid in _asteroids)
@@ -296,7 +240,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     _asteroids = null;
                 }
 
-                // Clear update and network queues
                 _updateQueue = new ConcurrentQueue<AsteroidEntity>();
                 _networkMessages = new ConcurrentQueue<AsteroidNetworkMessage>();
             }

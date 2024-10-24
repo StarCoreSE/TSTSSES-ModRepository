@@ -35,18 +35,13 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             I = this;
             Log.Init();
             Log.Info("Log initialized in LoadData method.");
-
             AsteroidSettings.LoadSettings();
-
             seed = AsteroidSettings.Seed;
             Rand = new Random(seed);
-
-            // Initialize RealGasGiantsApi
             RealGasGiantsApi = new RealGasGiantsApi();
             RealGasGiantsApi.Load();
             Log.Info("RealGasGiants API loaded in LoadData");
 
-            // Create an instance of AsteroidDamageHandler and pass it to KeenRicochetMissileBSWorkaroundHandler
             AsteroidDamageHandler damageHandler = new AsteroidDamageHandler();
             _missileHandler = new KeenRicochetMissileBSWorkaroundHandler(damageHandler);
 
@@ -54,10 +49,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             {
                 _spawner = new AsteroidSpawner(RealGasGiantsApi);
                 _spawner.Init(seed);
-                if (AsteroidSettings.EnablePersistence)
-                {
-                    _spawner.LoadAsteroidState();
-                }
+                // Remove persistence loading
             }
 
             MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(32000, OnSecureMessageReceived);
@@ -94,26 +86,16 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             try
             {
                 Log.Info("Unloading data in MainSession");
-
-                // Cleanup asteroids
                 if (_spawner != null)
                 {
-                    // Remove all asteroid entities
                     if (MyAPIGateway.Session.IsServer)
                     {
-                        // Save state before closing
-                        if (AsteroidSettings.EnablePersistence)
-                        {
-                            _spawner.SaveAsteroidState();
-                        }
-
-                        // Remove all asteroids from the world
+                        // Remove SaveAsteroidState call
                         var asteroidsToRemove = _spawner.GetAsteroids().ToList();
                         foreach (var asteroid in asteroidsToRemove)
                         {
                             try
                             {
-                                // Ensure entity is removed from the world
                                 MyEntities.Remove(asteroid);
                                 asteroid.Close();
                             }
@@ -122,18 +104,14 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                                 Log.Exception(removeEx, typeof(MainSession), "Error removing asteroid during unload");
                             }
                         }
-
-                        // Close the spawner
                         _spawner.Close();
                         _spawner = null;
                     }
                 }
 
-                // Unregister message handlers
                 MyAPIGateway.Multiplayer.UnregisterSecureMessageHandler(32000, OnSecureMessageReceived);
                 MyAPIGateway.Utilities.MessageEntered -= OnMessageEntered;
 
-                // Cleanup Real Gas Giants API
                 if (RealGasGiantsApi != null)
                 {
                     RealGasGiantsApi.Unload();
@@ -141,22 +119,13 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 }
 
                 _missileHandler.Unload();
-
-                // Save settings
                 AsteroidSettings.SaveSettings();
-
-                // Close logging
                 Log.Close();
-
-                // Clear static references
                 I = null;
             }
             catch (Exception ex)
             {
-                // Log any unloading errors
                 MyLog.Default.WriteLine($"Error in UnloadData: {ex}");
-
-                // Ensure logging happens even if other cleanup fails
                 try
                 {
                     Log.Exception(ex, typeof(MainSession), "Error in UnloadData");
@@ -164,7 +133,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 catch { }
             }
         }
-
         private void OnMessageEntered(string messageText, ref bool sendToOthers)
         {
             IMyPlayer player = MyAPIGateway.Session.Player;
@@ -242,7 +210,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     }
                     else
                     {
-                        _spawner.SaveAsteroidState();
                         _saveStateTimer = AsteroidSettings.SaveStateInterval;
                     }
 

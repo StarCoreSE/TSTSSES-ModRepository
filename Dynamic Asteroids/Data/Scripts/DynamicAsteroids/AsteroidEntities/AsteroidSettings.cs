@@ -10,7 +10,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
     public static class AsteroidSettings
     {
         public static bool EnableLogging = false;
-        public static bool EnablePersistence = false;
         public static bool EnableMiddleMouseAsteroidSpawn = false;
         public static bool EnableVanillaAsteroidSpawnLatching = false;
         public static bool EnableGasGiantRingSpawning = false;
@@ -158,7 +157,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 {
                     writer.WriteLine("[General]");
                     writer.WriteLine($"EnableLogging={EnableLogging}");
-                    writer.WriteLine($"EnablePersistence={EnablePersistence}");
                     writer.WriteLine($"EnableMiddleMouseAsteroidSpawn={EnableMiddleMouseAsteroidSpawn}");
                     writer.WriteLine($"EnableVanillaAsteroidSpawnLatching={EnableVanillaAsteroidSpawnLatching}");
                     writer.WriteLine($"VanillaAsteroidSpawnLatchingRadius={VanillaAsteroidSpawnLatchingRadius}");
@@ -247,9 +245,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                             {
                                 case "EnableLogging":
                                     EnableLogging = bool.Parse(value);
-                                    break;
-                                case "EnablePersistence":
-                                    EnablePersistence = bool.Parse(value);
                                     break;
                                 case "EnableMiddleMouseAsteroidSpawn":
                                     EnableMiddleMouseAsteroidSpawn = bool.Parse(value);
