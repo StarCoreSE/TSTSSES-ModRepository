@@ -692,28 +692,33 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             {
                 Vector3D newPosition = message.GetPosition();
                 Vector3D newVelocity = message.GetVelocity();
-                Quaternion newRotation = message.GetRotation();
                 Vector3D newAngularVelocity = message.GetAngularVelocity();
+                Quaternion newRotation = message.GetRotation();
 
-                // Store server state for visualization
+                // Store server position for debug visualization
                 _serverPositions[asteroid.EntityId] = newPosition;
                 _serverRotations[asteroid.EntityId] = newRotation;
 
-                // Calculate differences before update
-                MatrixD currentMatrix = asteroid.WorldMatrix;
-                Quaternion currentRotation = Quaternion.CreateFromRotationMatrix(currentMatrix);
-                float angleDifference = GetQuaternionAngleDifference(currentRotation, newRotation);
+                // Create new world matrix
+                MatrixD newWorldMatrix = MatrixD.CreateFromQuaternion(newRotation);
+                newWorldMatrix.Translation = newPosition;
 
-                // Hard sync everything
-                asteroid.PositionComp.SetPosition(newPosition);
-                asteroid.Physics.LinearVelocity = newVelocity;
-                asteroid.WorldMatrix = MatrixD.CreateFromQuaternion(newRotation);
-                asteroid.Physics.AngularVelocity = newAngularVelocity;
+                // Apply the changes
+                asteroid.WorldMatrix = newWorldMatrix;
 
-                Log.Info($"Client asteroid {asteroid.EntityId} update:" +
-                         $"\nPosition Delta: {Vector3D.Distance(asteroid.PositionComp.GetPosition(), newPosition):F3}m" +
-                         $"\nRotation Delta: {MathHelper.ToDegrees(angleDifference):F1}°" +
-                         $"\nAngular Velocity: {newAngularVelocity.Length():F3} rad/s");
+                if (asteroid.Physics != null)
+                {
+                    asteroid.Physics.LinearVelocity = newVelocity;
+                    asteroid.Physics.AngularVelocity = newAngularVelocity;
+                }
+
+                // Verify position after update
+                Vector3D verifyPos = asteroid.PositionComp.GetPosition();
+                Log.Info($"Client asteroid {asteroid.EntityId} updated:" +
+                         $"\nRequested Position: {newPosition}" +
+                         $"\nActual Position: {verifyPos}" +
+                         $"\nVelocity: {newVelocity}" +
+                         $"\nAngular Velocity: {newAngularVelocity}");
             }
             catch (Exception ex)
             {
