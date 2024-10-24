@@ -205,14 +205,12 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             MyHitInfo? hitInfo = null, long attackerId = 0, long realHitEntityId = 0,
             bool shouldDetonateAmmo = true, MyStringHash? extraInfo = null)
         {
-            if (!MyAPIGateway.Session.IsServer)
-                return false;
-
             if (hitInfo.HasValue)
             {
                 Vector3D impactVelocity = hitInfo.Value.Velocity;
                 Vector3 normal = hitInfo.Value.Normal;
                 float impactAngle = (float)Math.Acos(Vector3.Dot(normal, -impactVelocity.Normalized()));
+
                 Log.Info($"Hit details - Velocity: {impactVelocity}, Normal: {normal}, " +
                          $"Position: {hitInfo.Value.Position}, Angle: {MathHelper.ToDegrees(impactAngle):F2}°");
             }
@@ -221,8 +219,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             Log.Info($"- Damage amount: {damage}");
             Log.Info($"- Current mass: {asteroid.Properties.Mass:F2}kg");
 
-            float instabilityIncrease = (damage * AsteroidSettings.KgLossPerDamage / asteroid.Properties.Mass)
-                                        * asteroid.Properties.MaxInstability;
+            // Add instability based on damage relative to total mass
+            float instabilityIncrease = (damage * AsteroidSettings.KgLossPerDamage / asteroid.Properties.Mass) *
+                                        asteroid.Properties.MaxInstability;
             asteroid.AddInstability(instabilityIncrease);
 
             if (asteroid.IsUnstable())
@@ -232,6 +231,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 return true;
             }
 
+            // Remove mass based on damage
             float previousMass = asteroid.Properties.Mass;
             asteroid.Properties.ReduceMass(damage);
 
@@ -242,6 +242,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 return true;
             }
 
+            // Spawn debris for the removed mass
             if (hitInfo.HasValue)
             {
                 float massLost = previousMass - asteroid.Properties.Mass;

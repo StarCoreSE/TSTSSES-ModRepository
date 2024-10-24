@@ -672,7 +672,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     Vector3D newVelocity;
                     if (!AsteroidSettings.CanSpawnAsteroidAtPoint(newPosition, out newVelocity, isInRing))
                     {
-                       // Log.Info($"Cannot spawn asteroid at {newPosition}, skipping.");
+                        Log.Info($"Cannot spawn asteroid at {newPosition}, skipping.");
                         continue;
                     }
 
