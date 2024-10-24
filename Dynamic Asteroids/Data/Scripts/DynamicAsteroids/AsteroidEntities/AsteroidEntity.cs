@@ -121,40 +121,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             }
         }
 
-        private void SetupInitialPositionAndRotation(Vector3D position, Quaternion? rotation)
-        {
-            // Create rotation matrix
-            MatrixD rotationMatrix;
-            if (rotation.HasValue)
-            {
-                rotationMatrix = MatrixD.CreateFromQuaternion(rotation.Value);
-            }
-            else
-            {
-                rotationMatrix = MatrixD.CreateFromQuaternion(Quaternion.CreateFromYawPitchRoll(
-                    (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi,
-                    (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi,
-                    (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi));
-            }
-
-            // Create the world matrix properly
-            this.WorldMatrix = MatrixD.Identity;
-
-            // Set rotation first
-            MatrixD worldMatrix = this.WorldMatrix;
-            worldMatrix.Forward = rotationMatrix.Forward;
-            worldMatrix.Up = rotationMatrix.Up;
-            worldMatrix.Right = rotationMatrix.Right;
-
-            // Set position directly
-            worldMatrix.Translation = position;
-
-            Log.Info($"Setting up asteroid at position {position}:");
-            Log.Info($"Final matrix translation: {worldMatrix.Translation}");
-            Log.Info($"Final matrix forward: {worldMatrix.Forward}");
-            Log.Info($"Final matrix up: {worldMatrix.Up}");
-        }
-
         private void Init(Vector3D position, float size, Vector3D initialVelocity, AsteroidType type, Quaternion? rotation)
         {
             try

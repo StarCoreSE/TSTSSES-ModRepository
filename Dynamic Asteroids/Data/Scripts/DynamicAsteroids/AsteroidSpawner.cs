@@ -543,45 +543,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             return minDistance;
         }
 
-        private void UpdateAsteroidOnClient(AsteroidEntity asteroid, AsteroidNetworkMessage message)
-        {
-            Vector3D newPosition = message.GetPosition();
-            Vector3D newVelocity = message.GetVelocity();
-            Quaternion newRotation = message.GetRotation();
-
-            // Interpolate between current and new positions/rotations
-            asteroid.PositionComp.SetPosition(Vector3D.Lerp(asteroid.PositionComp.GetPosition(), newPosition, 0.1));
-            asteroid.Physics.LinearVelocity = Vector3D.Lerp(asteroid.Physics.LinearVelocity, newVelocity, 0.1);
-            asteroid.WorldMatrix = MatrixD.Slerp(asteroid.WorldMatrix, MatrixD.CreateFromQuaternion(newRotation), 0.1);
-        }
-
-
-        private void UpdateAsteroid(AsteroidEntity asteroid)
-        {
-            _stateCache.UpdateState(asteroid);
-
-            asteroid.UpdateInstability();
-
-            Vector3D currentPosition = asteroid.PositionComp.GetPosition();
-            bool inAnyZone = false;
-            AsteroidZone currentZone = null;
-            foreach (AsteroidZone zone in playerZones.Values)
-            {
-                if (!zone.IsPointInZone(currentPosition)) continue;
-                inAnyZone = true;
-                currentZone = zone;
-                break;
-            }
-            if (!inAnyZone)
-            {
-                RemoveAsteroid(asteroid);
-            }
-            else
-            {
-                currentZone.AsteroidCount++;
-            }
-        }
-
         public void SpawnAsteroids(List<AsteroidZone> zones)
         {
             int totalSpawnAttempts = 0;
