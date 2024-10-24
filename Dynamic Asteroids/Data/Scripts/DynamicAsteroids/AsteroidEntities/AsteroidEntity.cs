@@ -99,24 +99,18 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     ent.EntityId = entityId.Value;
                 }
 
-                // Create initial matrix with position
-                MatrixD worldMatrix = MatrixD.Identity;
-                worldMatrix.Translation = position;
+                // Just set position directly, no matrix transforms
+                ent.PositionComp.SetPosition(position);
 
-                // Set the world matrix before any other initialization
-                ent.WorldMatrix = worldMatrix;
+                // Initialize other properties without any rotation
+                ent.Init(position, size, initialVelocity, type, null);
 
-                // Initialize the entity
-                ent.Init(position, size, initialVelocity, type, rotation);
-
-                Log.Info($"Creating asteroid at position {position}");
-
-                // Add to entities after initialization
+                Log.Info($"Creating asteroid at exact position: {position}");
                 MyEntities.Add(ent);
 
-                // Verify final position
-                Vector3D finalPos = ent.PositionComp.GetPosition();
-                Log.Info($"Asteroid {ent.EntityId} final position after creation: {finalPos}");
+                // Verify position after creation
+                Vector3D finalPosition = ent.PositionComp.GetPosition();
+                Log.Info($"Final position after creation: {finalPosition}");
 
                 return ent;
             }
@@ -169,32 +163,29 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 ModelString = SelectModelForAsteroidType(type);
                 Properties = new AsteroidPhysicalProperties(size, AsteroidPhysicalProperties.DEFAULT_DENSITY, this);
 
-                // Initialize the base entity
+                // Initialize base entity without rotation
                 Init(null, ModelString, null, Properties.Diameter);
 
-                // Set position explicitly
+                // Set position directly again to ensure it sticks
                 this.PositionComp.SetPosition(position);
 
-                // Create physics at the correct position
                 CreatePhysics();
 
-                // Set initial velocities
-                if (this.Physics != null)
+                // Set velocity without any randomization
+                this.Physics.LinearVelocity = initialVelocity;
+                this.Physics.AngularVelocity = Vector3D.Zero; // No rotation
+
+                if (MyAPIGateway.Session.IsServer)
                 {
-                    this.Physics.LinearVelocity = initialVelocity;
-                    if (MyAPIGateway.Session.IsServer)
-                    {
-                        // Only set initial angular velocity on server
-                        const float initialSpin = 0.1f;
-                        this.Physics.AngularVelocity = RandVector() * initialSpin;
-                    }
+                    this.SyncFlag = true;
                 }
 
-                Log.Info($"Initialized asteroid {EntityId} at {this.PositionComp.GetPosition()}");
+                Log.Info($"Initialized asteroid {EntityId} at position {this.PositionComp.GetPosition()}");
             }
             catch (Exception ex)
             {
                 Log.Exception(ex, typeof(AsteroidEntity), "Failed to initialize AsteroidEntity");
+                this.Flags &= ~EntityFlags.Visible;
             }
         }
 
@@ -326,17 +317,13 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     Physics = null;
                 }
 
-                // Get current position and create matrix
-                Vector3D currentPos = this.PositionComp.GetPosition();
-                MatrixD physicsMatrix = MatrixD.Identity;
-                physicsMatrix.Translation = currentPos;
-
+                // Reduced angular dampening to allow more natural rotation
                 PhysicsSettings settings = MyAPIGateway.Physics.CreateSettingsForPhysics(
                     this,
-                    physicsMatrix,
+                    MatrixD.CreateTranslation(this.PositionComp.GetPosition()),
                     Vector3.Zero,
                     linearDamping: 0f,
-                    angularDamping: 0.01f,
+                    angularDamping: 0.01f, // Very light dampening just to prevent extreme cases
                     rigidBodyFlags: RigidBodyFlag.RBF_DEFAULT,
                     collisionLayer: CollisionLayers.NoVoxelCollisionLayer,
                     isPhantom: false,
@@ -345,7 +332,16 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
                 MyAPIGateway.Physics.CreateSpherePhysics(settings, Properties.Radius);
 
-                Log.Info($"Created physics for asteroid {EntityId} at {currentPos}");
+                // Give it an initial spin if we're on the server
+                if (MyAPIGateway.Session.IsServer)
+                {
+                    const float initialMaxSpin = 0.2f; // radians per second
+                    Vector3D randomSpin = RandVector() * initialMaxSpin;
+                    this.Physics.AngularVelocity = randomSpin;
+                    Log.Info($"Server: Set initial spin for asteroid {EntityId}: {randomSpin}");
+                }
+
+                Log.Info($"Created physics for asteroid {EntityId} at position {this.PositionComp.GetPosition()}");
             }
             catch (Exception ex)
             {
