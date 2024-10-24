@@ -317,13 +317,13 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     Physics = null;
                 }
 
-                // Add angular dampening to prevent infinite rotation acceleration
+                // Reduced angular dampening to allow more natural rotation
                 PhysicsSettings settings = MyAPIGateway.Physics.CreateSettingsForPhysics(
                     this,
                     MatrixD.CreateTranslation(this.PositionComp.GetPosition()),
                     Vector3.Zero,
                     linearDamping: 0f,
-                    angularDamping: 0.1f, // Add dampening to rotation
+                    angularDamping: 0.01f, // Very light dampening just to prevent extreme cases
                     rigidBodyFlags: RigidBodyFlag.RBF_DEFAULT,
                     collisionLayer: CollisionLayers.NoVoxelCollisionLayer,
                     isPhantom: false,
@@ -332,14 +332,16 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
                 MyAPIGateway.Physics.CreateSpherePhysics(settings, Properties.Radius);
 
-                // Set initial angular velocity with a maximum limit
-                const float maxAngularSpeed = 0.5f; // radians per second
-                Vector3D randomAngular = RandVector() * maxAngularSpeed;
-                this.Physics.AngularVelocity = randomAngular;
+                // Give it an initial spin if we're on the server
+                if (MyAPIGateway.Session.IsServer)
+                {
+                    const float initialMaxSpin = 0.2f; // radians per second
+                    Vector3D randomSpin = RandVector() * initialMaxSpin;
+                    this.Physics.AngularVelocity = randomSpin;
+                    Log.Info($"Server: Set initial spin for asteroid {EntityId}: {randomSpin}");
+                }
 
-                Log.Info($"Created physics for asteroid {EntityId}:" +
-                         $"\nPosition: {this.PositionComp.GetPosition()}" +
-                         $"\nAngular Velocity: {randomAngular}");
+                Log.Info($"Created physics for asteroid {EntityId} at position {this.PositionComp.GetPosition()}");
             }
             catch (Exception ex)
             {

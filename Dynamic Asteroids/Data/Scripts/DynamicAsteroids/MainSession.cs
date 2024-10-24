@@ -678,8 +678,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             {
                 Vector3D newPosition = message.GetPosition();
                 Vector3D newVelocity = message.GetVelocity();
-                Vector3D newAngularVelocity = message.GetAngularVelocity();
-                Quaternion newRotation = message.GetRotation();
 
                 // Store server position for visualization
                 _serverPositions[asteroid.EntityId] = newPosition;
@@ -688,33 +686,33 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 asteroid.PositionComp.SetPosition(newPosition);
                 asteroid.Physics.LinearVelocity = newVelocity;
 
-                // Smoothly update rotation
-                const float rotationInterpolationFactor = 0.15f;
-                MatrixD currentMatrix = asteroid.WorldMatrix;
-                MatrixD targetMatrix = MatrixD.CreateFromQuaternion(newRotation);
-                targetMatrix.Translation = newPosition;
+                // Only update rotation occasionally and very gently
+                if (MainSession.I.Rand.NextDouble() < 0.1) // 10% chance per update
+                {
+                    Vector3D serverAngularVel = message.GetAngularVelocity();
 
-                // Maintain position while interpolating rotation
-                MatrixD interpolatedMatrix = MatrixD.Slerp(currentMatrix, targetMatrix, rotationInterpolationFactor);
-                interpolatedMatrix.Translation = newPosition; // Ensure position stays exact
-                asteroid.WorldMatrix = interpolatedMatrix;
+                    // Very gentle interpolation of angular velocity
+                    const float angularLerpFactor = 0.05f;
+                    Vector3D newAngularVel = Vector3D.Lerp(
+                        asteroid.Physics.AngularVelocity,
+                        serverAngularVel,
+                        angularLerpFactor
+                    );
 
-                // Update angular velocity with dampening
-                const float maxAngularSpeed = 0.5f;
-                Vector3D clampedAngularVel = Vector3D.ClampToSphere(newAngularVelocity, maxAngularSpeed);
-                asteroid.Physics.AngularVelocity = clampedAngularVel;
+                    asteroid.Physics.AngularVelocity = newAngularVel;
 
-                Log.Info($"Updated client asteroid {asteroid.EntityId}:" +
-                         $"\nPosition: {newPosition}" +
-                         $"\nVelocity: {newVelocity}" +
-                         $"\nAngular Velocity: {clampedAngularVel}");
+                    Log.Info($"Client: Gentle rotation update for asteroid {asteroid.EntityId}:" +
+                             $"\nOld Angular Velocity: {asteroid.Physics.AngularVelocity}" +
+                             $"\nNew Angular Velocity: {newAngularVel}");
+                }
+
+                Log.Info($"Updated client asteroid {asteroid.EntityId} position: {newPosition}");
             }
             catch (Exception ex)
             {
                 Log.Exception(ex, typeof(MainSession), $"Error updating client asteroid {asteroid.EntityId}");
             }
         }
-
         private AsteroidEntity FindNearestAsteroid(Vector3D characterPosition)
         {
             if (characterPosition == null)

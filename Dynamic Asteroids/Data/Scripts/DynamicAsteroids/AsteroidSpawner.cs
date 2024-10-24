@@ -931,31 +931,29 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     Vector3D currentVelocity = asteroid.Physics.LinearVelocity;
                     Vector3D currentAngularVel = asteroid.Physics.AngularVelocity;
 
-                    // Clamp angular velocity
-                    const float maxAngularSpeed = 0.5f;
-                    currentAngularVel = Vector3D.ClampToSphere(currentAngularVel, maxAngularSpeed);
-
-                    Quaternion currentRotation = Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix);
+                    // Send rotation data less frequently
+                    bool includeRotation = MainSession.I.Rand.NextDouble() < 0.2; // 20% chance
 
                     var positionUpdate = new AsteroidNetworkMessage(
                         currentPosition,
                         asteroid.Properties.Diameter,
                         currentVelocity,
-                        currentAngularVel,
+                        includeRotation ? currentAngularVel : Vector3D.Zero,
                         asteroid.Type,
                         false,
                         asteroid.EntityId,
                         false,
                         false,
-                        currentRotation
+                        Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix)
                     );
 
                     byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(positionUpdate);
                     MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
 
-                    Log.Info($"Server: Sent update for asteroid {asteroid.EntityId}:" +
-                             $"\nPosition: {currentPosition}" +
-                             $"\nAngular Velocity: {currentAngularVel}");
+                    if (includeRotation)
+                    {
+                        Log.Info($"Server: Sent full update with rotation for asteroid {asteroid.EntityId}");
+                    }
                 }
             }
             catch (Exception ex)
