@@ -10,7 +10,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 {
     public class AsteroidPhysicalProperties
     {
-        public float Mass { get; private set; }
+        public float Mass { get; set; } // Changed to allow setting
         public float Volume { get; private set; }
         public float Radius { get; private set; }
         public float Diameter { get; private set; }
@@ -18,7 +18,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public float MaximumIntegrity { get; private set; }
         public float CurrentIntegrity { get; private set; }
         public float MaxInstability { get; private set; }
-        public float CurrentInstability { get; private set; }
+        public float CurrentInstability { get; set; } // Changed to allow setting
         public float InstabilityThreshold { get; private set; }
 
         public const float DEFAULT_DENSITY = 917.0f; // kg/m³
@@ -32,10 +32,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             Diameter = diameter;
             Radius = diameter / 2.0f;
             Density = density;
-
             Volume = (4.0f / 3.0f) * MathHelper.Pi * (float)Math.Pow(Radius, 3);
             Mass = Volume * Density;
-
             MaxInstability = Mass * AsteroidSettings.InstabilityPerMass;
             InstabilityThreshold = MaxInstability * AsteroidSettings.InstabilityThresholdPercent;
             CurrentInstability = 0;

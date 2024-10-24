@@ -353,33 +353,52 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     return;
                 }
 
-                // Remove from spawner FIRST to prevent feedback loop
-                MainSession.I._spawner.TryRemoveAsteroid(this);
-
+                // Store ALL current properties
                 string currentModel = ModelString;
                 Vector3D position = PositionComp.GetPosition();
                 Vector3D linearVelocity = Physics?.LinearVelocity ?? Vector3D.Zero;
                 Vector3D angularVelocity = Physics?.AngularVelocity ?? Vector3D.Zero;
                 Quaternion rotation = Quaternion.CreateFromRotationMatrix(WorldMatrix);
+                float currentMass = Properties.Mass;
+                float currentInstability = Properties.CurrentInstability;
 
-                // Create new asteroid
+                // Remove old asteroid from tracking
+                MainSession.I._spawner.TryRemoveAsteroid(this);
+
+                // Create new asteroid with exact same properties
                 var newAsteroid = new AsteroidEntity();
                 newAsteroid.ModelString = currentModel;
 
                 try
                 {
                     newAsteroid.Init(position, newDiameter, linearVelocity, Type, rotation);
+
+                    // Ensure exact mass transfer
+                    newAsteroid.Properties = new AsteroidPhysicalProperties(newDiameter, Properties.Density, newAsteroid)
+                    {
+                        Mass = currentMass,
+                        CurrentInstability = currentInstability
+                    };
+
                     MyEntities.Add(newAsteroid);
+
+                    Log.Info($"Mass transfer check:\n" +
+                            $"Old Mass: {currentMass:F2}\n" +
+                            $"New Mass: {newAsteroid.Properties.Mass:F2}\n" +
+                            $"Old Instability: {currentInstability:F2}\n" +
+                            $"New Instability: {newAsteroid.Properties.CurrentInstability:F2}");
                 }
                 catch (Exception ex)
                 {
                     Log.Exception(ex, typeof(AsteroidEntity), "Failed to initialize replacement asteroid");
+                    MainSession.I._spawner.AddAsteroid(this); // Add back the old asteroid if failed
                     return;
                 }
 
                 if (newAsteroid != null && newAsteroid.EntityId != 0)
                 {
                     newAsteroid.Physics.AngularVelocity = angularVelocity;
+                    newAsteroid.Physics.LinearVelocity = linearVelocity;
                     MainSession.I._spawner.AddAsteroid(newAsteroid);
 
                     var message = new AsteroidNetworkMessage(
@@ -398,27 +417,28 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(message);
                     MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
 
-                    // Remove the old entity AFTER successfully creating the new one
+                    // Remove old entity
                     MyEntities.Remove(this);
                     Close();
 
-                    Log.Info($"Replaced asteroid:\n" +
+                    Log.Info($"Replaced asteroid with exact properties:\n" +
                             $"Old EntityId: {EntityId}\n" +
                             $"New EntityId: {newAsteroid.EntityId}\n" +
                             $"Model Path: {currentModel}\n" +
-                            $"New Diameter: {newDiameter:F2}m\n" +
-                            $"New Mass: {newAsteroid.Properties.Mass:F2}kg");
+                            $"Position: {position}\n" +
+                            $"Mass: {newAsteroid.Properties.Mass:F2}kg\n" +
+                            $"Diameter: {newDiameter:F2}m\n" +
+                            $"Linear Velocity: {linearVelocity}\n" +
+                            $"Angular Velocity: {angularVelocity}");
                 }
                 else
                 {
-                    // If creation failed, add the old asteroid back to tracking
                     MainSession.I._spawner.AddAsteroid(this);
                     Log.Warning($"Failed to create replacement asteroid for EntityId: {EntityId}");
                 }
             }
             catch (Exception ex)
             {
-                // If anything fails, make sure the old asteroid is still tracked
                 MainSession.I._spawner.AddAsteroid(this);
                 Log.Exception(ex, typeof(AsteroidEntity), $"Error replacing asteroid {EntityId} with new size");
             }
