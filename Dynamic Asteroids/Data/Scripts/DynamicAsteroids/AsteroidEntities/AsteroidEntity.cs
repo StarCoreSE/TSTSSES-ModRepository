@@ -1,6 +1,7 @@
 ﻿using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using VRage.Game;
 using VRage.Game.Components;
@@ -84,6 +85,11 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         // Required property implementation for `IMyDestroyableObject`
         public bool UseDamageSystem => true;
+
+        private DateTime _lastPhysicsUpdate = DateTime.MinValue;
+        private const double MIN_PHYSICS_UPDATE_INTERVAL = 0.1; // Seconds
+        private Queue<float> _pendingSizeUpdates = new Queue<float>();
+        private bool _isProcessingPhysics = false;
 
 
         public static AsteroidEntity CreateAsteroid(Vector3D position, float size, Vector3D initialVelocity,
@@ -345,103 +351,174 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         {
             try
             {
-                Log.Info($"UpdateSizeAndPhysics called - Current: {Properties.Diameter:F2}, New: {newDiameter:F2}");
-
-                if (Math.Abs(newDiameter - Properties.Diameter) < 0.1f)
+                // Check if we're already processing physics
+                if (_isProcessingPhysics)
                 {
-                    Log.Info("Size change too small, skipping update.");
+                    _pendingSizeUpdates.Enqueue(newDiameter);
                     return;
                 }
 
-                // Store ALL current properties
-                string currentModel = ModelString;
-                Vector3D position = PositionComp.GetPosition();
-                Vector3D linearVelocity = Physics?.LinearVelocity ?? Vector3D.Zero;
-                Vector3D angularVelocity = Physics?.AngularVelocity ?? Vector3D.Zero;
-                Quaternion rotation = Quaternion.CreateFromRotationMatrix(WorldMatrix);
-                float currentMass = Properties.Mass;
-                float currentInstability = Properties.CurrentInstability;
-
-                // Remove old asteroid from tracking
-                MainSession.I._spawner.TryRemoveAsteroid(this);
-
-                // Create new asteroid with exact same properties
-                var newAsteroid = new AsteroidEntity();
-                newAsteroid.ModelString = currentModel;
-
-                try
+                // Rate limit physics updates
+                if ((DateTime.UtcNow - _lastPhysicsUpdate).TotalSeconds < MIN_PHYSICS_UPDATE_INTERVAL)
                 {
-                    newAsteroid.Init(position, newDiameter, linearVelocity, Type, rotation);
+                    _pendingSizeUpdates.Enqueue(newDiameter);
+                    return;
+                }
 
-                    // Ensure exact mass transfer
-                    newAsteroid.Properties = new AsteroidPhysicalProperties(newDiameter, Properties.Density, newAsteroid)
+                _isProcessingPhysics = true;
+
+                // Process the update
+                ProcessSizeUpdate(newDiameter);
+
+                _lastPhysicsUpdate = DateTime.UtcNow;
+                _isProcessingPhysics = false;
+
+                // Process any pending updates
+                if (_pendingSizeUpdates.Count > 0)
+                {
+                    // Combine pending updates by taking the smallest size
+                    float smallestSize = float.MaxValue;
+                    while (_pendingSizeUpdates.Count > 0)
                     {
-                        Mass = currentMass,
-                        CurrentInstability = currentInstability
-                    };
+                        smallestSize = Math.Min(smallestSize, _pendingSizeUpdates.Dequeue());
+                    }
 
-                    MyEntities.Add(newAsteroid);
-
-                    Log.Info($"Mass transfer check:\n" +
-                            $"Old Mass: {currentMass:F2}\n" +
-                            $"New Mass: {newAsteroid.Properties.Mass:F2}\n" +
-                            $"Old Instability: {currentInstability:F2}\n" +
-                            $"New Instability: {newAsteroid.Properties.CurrentInstability:F2}");
-                }
-                catch (Exception ex)
-                {
-                    Log.Exception(ex, typeof(AsteroidEntity), "Failed to initialize replacement asteroid");
-                    MainSession.I._spawner.AddAsteroid(this); // Add back the old asteroid if failed
-                    return;
-                }
-
-                if (newAsteroid != null && newAsteroid.EntityId != 0)
-                {
-                    newAsteroid.Physics.AngularVelocity = angularVelocity;
-                    newAsteroid.Physics.LinearVelocity = linearVelocity;
-                    MainSession.I._spawner.AddAsteroid(newAsteroid);
-
-                    var message = new AsteroidNetworkMessage(
-                        position,
-                        newDiameter,
-                        linearVelocity,
-                        angularVelocity,
-                        Type,
-                        false,
-                        newAsteroid.EntityId,
-                        false,
-                        true,
-                        rotation
-                    );
-
-                    byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(message);
-                    MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
-
-                    // Remove old entity
-                    MyEntities.Remove(this);
-                    Close();
-
-                    Log.Info($"Replaced asteroid with exact properties:\n" +
-                            $"Old EntityId: {EntityId}\n" +
-                            $"New EntityId: {newAsteroid.EntityId}\n" +
-                            $"Model Path: {currentModel}\n" +
-                            $"Position: {position}\n" +
-                            $"Mass: {newAsteroid.Properties.Mass:F2}kg\n" +
-                            $"Diameter: {newDiameter:F2}m\n" +
-                            $"Linear Velocity: {linearVelocity}\n" +
-                            $"Angular Velocity: {angularVelocity}");
-                }
-                else
-                {
-                    MainSession.I._spawner.AddAsteroid(this);
-                    Log.Warning($"Failed to create replacement asteroid for EntityId: {EntityId}");
+                    // Schedule the combined update for the next frame
+                    MyAPIGateway.Utilities.InvokeOnGameThread(() => UpdateSizeAndPhysics(smallestSize));
                 }
             }
             catch (Exception ex)
             {
-                MainSession.I._spawner.AddAsteroid(this);
-                Log.Exception(ex, typeof(AsteroidEntity), $"Error replacing asteroid {EntityId} with new size");
+                _isProcessingPhysics = false;
+                Log.Exception(ex, typeof(AsteroidEntity), $"Error in UpdateSizeAndPhysics for asteroid {EntityId}");
             }
         }
+
+        private void ProcessSizeUpdate(float newDiameter)
+        {
+            if (Math.Abs(newDiameter - Properties.Diameter) < 0.1f)
+            {
+                Log.Info("Size change too small, skipping update.");
+                return;
+            }
+
+            // Store current properties
+            var currentProperties = new AsteroidProperties
+            {
+                Model = ModelString,
+                Position = PositionComp.GetPosition(),
+                WorldMatrix = WorldMatrix,
+                LinearVelocity = Physics?.LinearVelocity ?? Vector3D.Zero,
+                AngularVelocity = Physics?.AngularVelocity ?? Vector3D.Zero,
+                Rotation = Quaternion.CreateFromRotationMatrix(WorldMatrix),
+                Mass = Properties.Mass,
+                Density = Properties.Density,
+                CurrentIntegrity = Properties.CurrentIntegrity,
+                MaximumIntegrity = Properties.MaximumIntegrity,
+                CurrentInstability = Properties.CurrentInstability,
+                MaxInstability = Properties.MaxInstability,
+                InstabilityThreshold = Properties.InstabilityThreshold
+            };
+
+            // Safety check for entity removal
+            if (!MainSession.I._spawner.TryRemoveAsteroid(this))
+            {
+                Log.Warning($"Failed to remove old asteroid {EntityId} from spawner");
+                return;
+            }
+
+            try
+            {
+                var newAsteroid = new AsteroidEntity();
+                newAsteroid.ModelString = currentProperties.Model;
+                newAsteroid.Init(currentProperties.Position, newDiameter, currentProperties.LinearVelocity, Type, currentProperties.Rotation);
+
+                if (newAsteroid == null || newAsteroid.EntityId == 0)
+                {
+                    MainSession.I._spawner.AddAsteroid(this);
+                    return;
+                }
+
+                // Transfer properties
+                TransferProperties(newAsteroid, currentProperties, newDiameter);
+
+                // Add to entities and spawner
+                MyEntities.Add(newAsteroid);
+                MainSession.I._spawner.AddAsteroid(newAsteroid);
+
+                // Remove old entity
+                MyEntities.Remove(this);
+                Close();
+            }
+            catch (Exception ex)
+            {
+                MainSession.I._spawner.AddAsteroid(this);
+                Log.Exception(ex, typeof(AsteroidEntity), "Failed to process size update");
+            }
+        }
+
+        private struct AsteroidProperties
+        {
+            public string Model;
+            public Vector3D Position;
+            public MatrixD WorldMatrix;
+            public Vector3D LinearVelocity;
+            public Vector3D AngularVelocity;
+            public Quaternion Rotation;
+            public float Mass;
+            public float Density;
+            public float CurrentIntegrity;
+            public float MaximumIntegrity;
+            public float CurrentInstability;
+            public float MaxInstability;
+            public float InstabilityThreshold;
+        }
+
+        private void TransferProperties(AsteroidEntity newAsteroid, AsteroidProperties props, float newDiameter)
+        {
+            try
+            {
+                newAsteroid.Properties = new AsteroidPhysicalProperties(newDiameter, props.Density, newAsteroid)
+                {
+                    Mass = props.Mass,
+                    CurrentInstability = props.CurrentInstability,
+                    MaxInstability = props.MaxInstability,
+                    InstabilityThreshold = props.InstabilityThreshold,
+                    CurrentIntegrity = props.CurrentIntegrity,
+                    MaximumIntegrity = props.MaximumIntegrity
+                };
+
+                // Safe physics transfer
+                if (newAsteroid.Physics != null)
+                {
+                    newAsteroid.Physics.LinearVelocity = props.LinearVelocity;
+                    newAsteroid.Physics.AngularVelocity = Vector3D.Lerp(
+                        props.AngularVelocity,
+                        props.AngularVelocity * (newDiameter / Properties.Diameter),
+                        0.85
+                    );
+                }
+
+                // Smooth matrix transition
+                MatrixD interpolatedMatrix = MatrixD.Lerp(
+                    props.WorldMatrix,
+                    MatrixD.CreateWorld(
+                        props.Position,
+                        props.WorldMatrix.Forward,
+                        props.WorldMatrix.Up
+                    ),
+                    0.85
+                );
+                newAsteroid.PositionComp.SetWorldMatrix(ref interpolatedMatrix);
+            }
+            catch (Exception ex)
+            {
+                Log.Exception(ex, typeof(AsteroidEntity), "Failed to transfer properties");
+                throw;
+            }
+        }
+
+
+
     }
 }

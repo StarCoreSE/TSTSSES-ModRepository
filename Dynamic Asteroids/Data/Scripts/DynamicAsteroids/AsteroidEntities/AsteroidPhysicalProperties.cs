@@ -15,11 +15,11 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public float Radius { get; private set; }
         public float Diameter { get; private set; }
         public float Density { get; private set; }
-        public float MaximumIntegrity { get; private set; }
-        public float CurrentIntegrity { get; private set; }
-        public float MaxInstability { get; private set; }
+        public float MaximumIntegrity { get; set; }
+        public float CurrentIntegrity { get; set; }
+        public float MaxInstability { get; set; }
         public float CurrentInstability { get; set; } // Changed to allow setting
-        public float InstabilityThreshold { get; private set; }
+        public float InstabilityThreshold { get; set; }
 
         public const float DEFAULT_DENSITY = 917.0f; // kg/m³
 
