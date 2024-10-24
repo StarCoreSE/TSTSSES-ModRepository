@@ -164,7 +164,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     writer.WriteLine($"EnableGasGiantRingSpawning={EnableGasGiantRingSpawning}");
                     writer.WriteLine($"DisableZoneWhileMovingFast={DisableZoneWhileMovingFast}");
                     writer.WriteLine($"ZoneSpeedThreshold={ZoneSpeedThreshold}");
-                    writer.WriteLine($"SaveStateInterval={SaveStateInterval}");
                     writer.WriteLine($"NetworkMessageInterval={NetworkMessageInterval}");
                     writer.WriteLine($"SpawnInterval={SpawnInterval}");
                     writer.WriteLine($"UpdateInterval={UpdateInterval}");
@@ -263,9 +262,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                                     break;
                                 case "ZoneSpeedThreshold":
                                     ZoneSpeedThreshold = double.Parse(value);
-                                    break;
-                                case "SaveStateInterval":
-                                    SaveStateInterval = int.Parse(value);
                                     break;
                                 case "NetworkMessageInterval":
                                     NetworkMessageInterval = int.Parse(value);

@@ -13,6 +13,7 @@ using VRage.Utils;
 using VRageMath;
 using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 using Color = VRageMath.Color;
+using VRage;
 
 namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 {
@@ -91,30 +92,28 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             AsteroidType type, Quaternion? rotation = null, long? entityId = null)
         {
             var ent = new AsteroidEntity();
-
-            Log.Info($"Creating AsteroidEntity at Position: {position}, Size: {size}, " +
-                     $"InitialVelocity: {initialVelocity}, Type: {type}");
+            Log.Info($"Creating AsteroidEntity at Position: {position}, Size: {size}, InitialVelocity: {initialVelocity}, Type: {type}");
 
             if (entityId.HasValue)
             {
-                ent.EntityId = entityId.Value;
+                ent.EntityId = entityId.Value;  // Use provided entity ID
             }
 
             try
             {
                 ent.Init(position, size, initialVelocity, type, rotation);
 
-                // Add to entities immediately after initialization
-                if (ent.EntityId != 0)
+                // Ensure the entity has a valid ID before adding to MyEntities
+                if (ent.EntityId == 0)
                 {
-                    MyEntities.Add(ent);
-                    return ent;
+                    // Log a warning but continue, as the game should assign a valid ID after the entity is added
+                    Log.Warning("EntityId is 0, expecting the game to assign a valid ID.");
                 }
-                else
-                {
-                    Log.Warning("EntityId is 0, which is invalid!");
-                    return null;
-                }
+
+                // Add the asteroid entity to the game world
+                MyEntities.Add(ent);
+                Log.Info($"{(MyAPIGateway.Session.IsServer ? "Server" : "Client")}: Added asteroid entity with ID {ent.EntityId} to MyEntities");
+                return ent;
             }
             catch (Exception ex)
             {
