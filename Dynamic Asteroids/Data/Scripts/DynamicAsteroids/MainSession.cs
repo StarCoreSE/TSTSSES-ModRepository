@@ -210,6 +210,20 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 {
                     _spawner?.UpdateTick();
 
+                    List<IMyPlayer> players = new List<IMyPlayer>();
+                    MyAPIGateway.Players.GetPlayers(players);
+
+                    foreach (IMyPlayer player in players)
+                    {
+                        Vector3D playerPosition = player.GetPosition();
+                        AsteroidEntity nearestAsteroid = FindNearestAsteroid(playerPosition);
+
+                        if (nearestAsteroid != null)
+                        {
+                            Log.Info($"Server: Nearest asteroid to player at {playerPosition}: Asteroid ID: {nearestAsteroid.EntityId}, Position: {nearestAsteroid.PositionComp.GetPosition()}");
+                        }
+                    }
+
                     if (_saveStateTimer > 0)
                         _saveStateTimer--;
 
@@ -219,6 +233,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     {
                         _spawner?.SendNetworkMessages();
                         _networkMessageTimer = AsteroidSettings.NetworkMessageInterval;
+                        Log.Info("Server: Sending network messages to clients.");
                     }
                 }
 
@@ -292,6 +307,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                         string rotationString = $"({angularVelocity.X:F2}, {angularVelocity.Y:F2}, {angularVelocity.Z:F2})";
                         string message = $"Nearest Asteroid: {nearestAsteroid.EntityId} ({nearestAsteroid.Type})\nRotation: {rotationString}";
                         MyAPIGateway.Utilities.ShowNotification(message, 1000 / 60);
+                        nearestAsteroid.DrawDebugSphere(); // Debug visualization
                     }
                 }
 
@@ -432,7 +448,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     return;
                 }
 
-                AsteroidNetworkMessage asteroidMessage = MyAPIGateway.Utilities.SerializeFromBinary<AsteroidNetworkMessage>(message);
+                AsteroidNetworkMessage asteroidMessage =
+                    MyAPIGateway.Utilities.SerializeFromBinary<AsteroidNetworkMessage>(message);
 
                 if (MyAPIGateway.Session.IsServer)
                 {
@@ -469,6 +486,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 }
                 else
                 {
+                    Log.Info(
+                        $"Client received asteroid update: ID {asteroidMessage.EntityId}, Position: {asteroidMessage.GetPosition()}, Velocity: {asteroidMessage.GetVelocity()}");
+
                     // Client receives the asteroid information from the server
                     if (asteroidMessage.IsRemoval)
                     {
@@ -517,12 +537,15 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
         // This method interpolates the asteroid's state smoothly on the client side
         private void UpdateAsteroidOnClient(AsteroidEntity asteroid, AsteroidNetworkMessage message)
         {
+            Vector3D currentPosition = asteroid.PositionComp.GetPosition();
             Vector3D newPosition = message.GetPosition();
             Vector3D newVelocity = message.GetVelocity();
             Quaternion newRotation = message.GetRotation();
 
+            Log.Info($"Updating asteroid: ID {asteroid.EntityId}, Current Position: {currentPosition}, Target Position: {newPosition}");
+
             // Interpolate between current and new positions/rotations for smooth movement
-            asteroid.PositionComp.SetPosition(Vector3D.Lerp(asteroid.PositionComp.GetPosition(), newPosition, 0.1));
+            asteroid.PositionComp.SetPosition(Vector3D.Lerp(currentPosition, newPosition, 0.1));
             asteroid.Physics.LinearVelocity = Vector3D.Lerp(asteroid.Physics.LinearVelocity, newVelocity, 0.1);
             asteroid.WorldMatrix = MatrixD.Slerp(asteroid.WorldMatrix, MatrixD.CreateFromQuaternion(newRotation), 0.1);
         }
