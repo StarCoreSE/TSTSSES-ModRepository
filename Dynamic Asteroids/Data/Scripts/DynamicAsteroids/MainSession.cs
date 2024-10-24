@@ -562,6 +562,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             Log.Info($"Client: Creating new asteroid at position {message.GetPosition()}");
             try
             {
+                // Create a proper world matrix for the initial spawn
                 Vector3D position = message.GetPosition();
                 Quaternion rotation = message.GetRotation();
 
@@ -569,7 +570,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 MatrixD worldMatrix = MatrixD.CreateFromQuaternion(rotation);
                 worldMatrix.Translation = position;
 
-                // Create the asteroid with proper initial position
+                // Create the asteroid with the proper world matrix
                 var asteroid = AsteroidEntity.CreateAsteroid(
                     position,
                     message.Size,
@@ -581,21 +582,17 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 
                 if (asteroid != null)
                 {
-                    // Ensure everything is set correctly after creation
+                    // Ensure the world matrix is set correctly after creation
                     asteroid.WorldMatrix = worldMatrix;
-                    asteroid.PositionComp.SetPosition(position);
-                    asteroid.Physics.LinearVelocity = message.GetVelocity();
+
+                    // Set physics properties
                     asteroid.Physics.AngularVelocity = message.GetAngularVelocity();
+                    asteroid.Physics.LinearVelocity = message.GetVelocity();
 
-                    // Verify position
-                    Vector3D finalPosition = asteroid.PositionComp.GetPosition();
-                    Log.Info($"Client: Created asteroid {message.EntityId}:" +
-                             $"\nRequested Position: {position}" +
-                             $"\nFinal Position: {finalPosition}" +
-                             $"\nMatrix Translation: {asteroid.WorldMatrix.Translation}");
+                    Log.Info($"Client: Successfully created asteroid {message.EntityId} at position {asteroid.PositionComp.GetPosition()}");
 
+                    // Store initial server position
                     _serverPositions[message.EntityId] = position;
-                    _serverRotations[message.EntityId] = rotation;
                 }
                 else
                 {
@@ -702,22 +699,20 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 _serverPositions[asteroid.EntityId] = newPosition;
                 _serverRotations[asteroid.EntityId] = newRotation;
 
-                // Create a proper world matrix that combines both position and rotation
-                MatrixD newWorldMatrix = MatrixD.CreateFromQuaternion(newRotation);
-                newWorldMatrix.Translation = newPosition; // Set the position after creating rotation matrix
+                // Calculate differences before update
+                MatrixD currentMatrix = asteroid.WorldMatrix;
+                Quaternion currentRotation = Quaternion.CreateFromRotationMatrix(currentMatrix);
+                float angleDifference = GetQuaternionAngleDifference(currentRotation, newRotation);
 
-                // Set everything in the correct order
-                asteroid.WorldMatrix = newWorldMatrix;
-                asteroid.PositionComp.SetPosition(newPosition); // Ensure position is set after WorldMatrix
+                // Hard sync everything
+                asteroid.PositionComp.SetPosition(newPosition);
                 asteroid.Physics.LinearVelocity = newVelocity;
+                asteroid.WorldMatrix = MatrixD.CreateFromQuaternion(newRotation);
                 asteroid.Physics.AngularVelocity = newAngularVelocity;
 
-                // Log the actual position after update
-                Vector3D finalPosition = asteroid.PositionComp.GetPosition();
                 Log.Info($"Client asteroid {asteroid.EntityId} update:" +
-                         $"\nRequested Position: {newPosition}" +
-                         $"\nFinal Position: {finalPosition}" +
-                         $"\nMatrix Translation: {asteroid.WorldMatrix.Translation}" +
+                         $"\nPosition Delta: {Vector3D.Distance(asteroid.PositionComp.GetPosition(), newPosition):F3}m" +
+                         $"\nRotation Delta: {MathHelper.ToDegrees(angleDifference):F1}°" +
                          $"\nAngular Velocity: {newAngularVelocity.Length():F3} rad/s");
             }
             catch (Exception ex)
