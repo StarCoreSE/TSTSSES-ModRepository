@@ -115,67 +115,44 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         public void SpawnDebrisAtImpact(AsteroidEntity asteroid, Vector3D impactPosition, float massLost)
         {
-            if (AsteroidSettings.EnableLogging)
-            {
-                MyAPIGateway.Utilities.ShowNotification(
-                    $"Spawning debris:\n" +
-                    $"Mass={massLost:F2}kg\n" +
-                    $"Type={asteroid.Type}", 1000);
-            }
-
-            Log.Info($"Spawning debris with mass lost: {massLost} at impact position.");
             MyPhysicalItemDefinition itemDefinition = MyDefinitionManager.Static.GetPhysicalItemDefinition(
                 new MyDefinitionId(typeof(MyObjectBuilder_Ore), asteroid.Type.ToString()));
-            var newObject =
-                MyObjectBuilderSerializer.CreateNewObject(itemDefinition.Id.TypeId,
-                        itemDefinition.Id.SubtypeId.ToString())
-                    as MyObjectBuilder_PhysicalObject;
+
+            var newObject = MyObjectBuilderSerializer.CreateNewObject(itemDefinition.Id.TypeId,
+                itemDefinition.Id.SubtypeId.ToString()) as MyObjectBuilder_PhysicalObject;
 
             float groupingRadius = 10.0f;
+
+            // Only get nearby debris of the same type
             List<MyFloatingObject> nearbyDebris = GetNearbyDebris(impactPosition, groupingRadius, newObject);
 
             if (nearbyDebris.Count > 0)
             {
+                // Add to existing debris of same type
                 MyFloatingObject closestDebris = nearbyDebris[0];
                 MyFloatingObjects.AddFloatingObjectAmount(closestDebris, (VRage.MyFixedPoint)massLost);
-                Log.Info($"Added {massLost} mass to existing debris at {closestDebris.PositionComp.GetPosition()}");
             }
             else
             {
+                // Create new floating object
                 MyFloatingObjects.Spawn(
                     new MyPhysicalInventoryItem((VRage.MyFixedPoint)massLost, newObject),
                     impactPosition,
                     Vector3D.Forward,
                     Vector3D.Up,
-                    asteroid?.Physics, // Add null check
+                    asteroid?.Physics,
                     entity => {
                         MyFloatingObject debris = entity as MyFloatingObject;
-                        if (debris?.Physics == null) // Add null checks
-                        {
-                            Log.Info($"Failed to spawn debris - Null physics or debris object");
-                            return;
-                        }
-
-                        try
+                        if (debris?.Physics != null)
                         {
                             debris.Physics.LinearVelocity = asteroid?.Physics?.LinearVelocity ?? Vector3D.Zero;
-                            Vector3D randomVelocity = MyUtils.GetRandomVector3Normalized() * 10;
-                            debris.Physics.LinearVelocity += randomVelocity;
-                            Vector3D randomAngularVelocity = MyUtils.GetRandomVector3Normalized() * 5;
-                            debris.Physics.AngularVelocity = randomAngularVelocity;
-
-                            Log.Info($"Spawned new debris with mass {massLost} at impact position {impactPosition}, initial velocity: {debris.Physics.LinearVelocity}");
                         }
-                        catch (Exception ex)
-                        {
-                            Log.Exception(ex, typeof(AsteroidDamageHandler), "Error setting debris physics");
-                        }
-                    });
+                    }
+                );
             }
         }
 
-        private List<MyFloatingObject> GetNearbyDebris(Vector3D position, float radius,
-            MyObjectBuilder_PhysicalObject itemType)
+        private List<MyFloatingObject> GetNearbyDebris(Vector3D position, float radius, MyObjectBuilder_PhysicalObject itemType)
         {
             List<MyFloatingObject> nearbyDebris = new List<MyFloatingObject>();
             BoundingSphereD boundingSphereD = new BoundingSphereD(position, radius);
@@ -183,7 +160,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             foreach (var entity in MyAPIGateway.Entities.GetEntitiesInSphere(ref boundingSphereD))
             {
                 MyFloatingObject floatingObj = entity as MyFloatingObject;
-                if (floatingObj != null && floatingObj.Item.Content.GetType() == itemType.GetType())
+                // Only group with same type of floating objects
+                if (floatingObj != null && floatingObj.Item.Content.GetType() == itemType.GetType()
+                    && floatingObj.Item.Content.SubtypeName == itemType.SubtypeName)
                 {
                     nearbyDebris.Add(floatingObj);
                 }
@@ -201,55 +180,24 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                    new Vector3D(sinPhi * Math.Cos(theta), sinPhi * Math.Sin(theta), Math.Cos(phi));
         }
 
-        public bool DoDamage(AsteroidEntity asteroid, float damage, MyStringHash damageSource, bool sync,
-            MyHitInfo? hitInfo = null, long attackerId = 0, long realHitEntityId = 0,
-            bool shouldDetonateAmmo = true, MyStringHash? extraInfo = null)
+        public bool DoDamage(AsteroidEntity asteroid, float damage, MyStringHash damageSource, bool sync, MyHitInfo? hitInfo = null, long attackerId = 0, long realHitEntityId = 0, bool shouldDetonateAmmo = true, MyStringHash? extraInfo = null)
         {
+            // Remove instability mechanics
+            float previousMass = asteroid.Properties.Mass;
+            float massToRemove = damage * AsteroidSettings.KgLossPerDamage;
+
+            asteroid.Properties.ReduceMass(massToRemove);
+
             if (hitInfo.HasValue)
             {
-                Vector3D impactVelocity = hitInfo.Value.Velocity;
-                Vector3 normal = hitInfo.Value.Normal;
-                float impactAngle = (float)Math.Acos(Vector3.Dot(normal, -impactVelocity.Normalized()));
-
-                Log.Info($"Hit details - Velocity: {impactVelocity}, Normal: {normal}, " +
-                         $"Position: {hitInfo.Value.Position}, Angle: {MathHelper.ToDegrees(impactAngle):F2}°");
+                // Spawn floating objects for removed mass
+                SpawnDebrisAtImpact(asteroid, hitInfo.Value.Position, massToRemove);
             }
-
-            Log.Info($"Processing damage for asteroid {asteroid.EntityId}:");
-            Log.Info($"- Damage amount: {damage}");
-            Log.Info($"- Current mass: {asteroid.Properties.Mass:F2}kg");
-
-            // Add instability based on damage relative to total mass
-            float instabilityIncrease = (damage * AsteroidSettings.KgLossPerDamage / asteroid.Properties.Mass) *
-                                        asteroid.Properties.MaxInstability;
-            asteroid.AddInstability(instabilityIncrease);
-
-            if (asteroid.IsUnstable())
-            {
-                Log.Info($"Asteroid {asteroid.EntityId} has reached critical instability - initiating destruction");
-                asteroid.OnDestroy();
-                return true;
-            }
-
-            // Remove mass based on damage
-            float previousMass = asteroid.Properties.Mass;
-            asteroid.Properties.ReduceMass(damage);
 
             if (asteroid.Properties.IsDestroyed())
             {
-                Log.Info("Asteroid destroyed due to mass depletion");
                 asteroid.OnDestroy();
                 return true;
-            }
-
-            // Spawn debris for the removed mass
-            if (hitInfo.HasValue)
-            {
-                float massLost = previousMass - asteroid.Properties.Mass;
-                if (massLost > 0)
-                {
-                    SpawnDebrisAtImpact(asteroid, hitInfo.Value.Position, massLost);
-                }
             }
 
             return true;
