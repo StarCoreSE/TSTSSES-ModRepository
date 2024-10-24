@@ -75,7 +75,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         public static readonly Dictionary<AsteroidType, MassRange> MinMaxMassByType = new Dictionary<AsteroidType, MassRange>
         {
-            { AsteroidType.Ice, new MassRange(1000f, 50000f) },
+            { AsteroidType.Ice, new MassRange(100000f, 500000f) },
             { AsteroidType.Stone, new MassRange(80000f, 400000f) },
             { AsteroidType.Iron, new MassRange(50000f, 300000f) },
             { AsteroidType.Nickel, new MassRange(40000f, 250000f) },
