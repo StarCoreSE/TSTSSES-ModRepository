@@ -627,26 +627,67 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 
         private void UpdateExistingAsteroidOnClient(AsteroidEntity asteroid, AsteroidNetworkMessage message)
         {
-            Vector3D newPosition = message.GetPosition();
-            Vector3D newVelocity = message.GetVelocity();
-            Quaternion newRotation = message.GetRotation();
+            try
+            {
+                Vector3D newPosition = message.GetPosition();
+                Vector3D newVelocity = message.GetVelocity();
+                Quaternion newRotation = message.GetRotation();
 
-            // Store the server position immediately
-            _serverPositions[asteroid.EntityId] = newPosition;
+                // Store server position for visualization
+                _serverPositions[asteroid.EntityId] = newPosition;
 
-            // Adjust interpolation factor based on distance
-            double distance = Vector3D.Distance(asteroid.PositionComp.GetPosition(), newPosition);
-            float interpolationFactor = distance > 10 ? 0.5f : 0.15f; // Faster catch-up for larger distances
+                // Get current client position
+                Vector3D currentPosition = asteroid.PositionComp.GetPosition();
 
-            Log.Info($"Updating client asteroid {asteroid.EntityId}:" +
-                     $"\nCurrent Position: {asteroid.PositionComp.GetPosition()}" +
-                     $"\nServer Position: {newPosition}" +
-                     $"\nDistance: {distance}" +
-                     $"\nInterpolation Factor: {interpolationFactor}");
+                // Check if asteroid is at origin (0,0,0) or invalid position
+                bool needsReset = currentPosition.LengthSquared() < 0.1 ||
+                                 double.IsNaN(currentPosition.X) ||
+                                 double.IsNaN(currentPosition.Y) ||
+                                 double.IsNaN(currentPosition.Z);
 
-            asteroid.PositionComp.SetPosition(Vector3D.Lerp(asteroid.PositionComp.GetPosition(), newPosition, interpolationFactor));
-            asteroid.Physics.LinearVelocity = Vector3D.Lerp(asteroid.Physics.LinearVelocity, newVelocity, interpolationFactor);
-            asteroid.WorldMatrix = MatrixD.Slerp(asteroid.WorldMatrix, MatrixD.CreateFromQuaternion(newRotation), interpolationFactor);
+                if (needsReset)
+                {
+                    // Direct position set if we're at origin or invalid position
+                    Log.Info($"Asteroid {asteroid.EntityId} detected at invalid position. Forcing position update.");
+                    asteroid.PositionComp.SetPosition(newPosition);
+                    asteroid.Physics.LinearVelocity = newVelocity;
+                    asteroid.WorldMatrix = MatrixD.CreateFromQuaternion(newRotation);
+
+                    // Ensure physics is valid
+                    if (asteroid.Physics == null || !asteroid.Physics.IsActive)
+                    {
+                        Log.Info($"Recreating physics for asteroid {asteroid.EntityId}");
+                        asteroid.CreatePhysics();
+                    }
+                }
+                else
+                {
+                    // Normal interpolation for valid positions
+                    double distance = Vector3D.Distance(currentPosition, newPosition);
+                    float interpolationFactor = distance > 10 ? 0.5f : 0.15f;
+
+                    Log.Info($"Updating client asteroid {asteroid.EntityId}:" +
+                             $"\nCurrent Position: {currentPosition}" +
+                             $"\nServer Position: {newPosition}" +
+                             $"\nDistance: {distance}" +
+                             $"\nInterpolation Factor: {interpolationFactor}");
+
+                    asteroid.PositionComp.SetPosition(Vector3D.Lerp(currentPosition, newPosition, interpolationFactor));
+                    asteroid.Physics.LinearVelocity = Vector3D.Lerp(asteroid.Physics.LinearVelocity, newVelocity, interpolationFactor);
+                    asteroid.WorldMatrix = MatrixD.Slerp(asteroid.WorldMatrix, MatrixD.CreateFromQuaternion(newRotation), interpolationFactor);
+                }
+
+                // Verify position was set correctly
+                Vector3D verifyPosition = asteroid.PositionComp.GetPosition();
+                if (verifyPosition.LengthSquared() < 0.1)
+                {
+                    Log.Warning($"Position update failed for asteroid {asteroid.EntityId}. Still at origin after update.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Exception(ex, typeof(MainSession), $"Error updating client asteroid {asteroid.EntityId}");
+            }
         }
 
         private AsteroidEntity FindNearestAsteroid(Vector3D characterPosition)

@@ -96,23 +96,28 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
             if (entityId.HasValue)
             {
-                ent.EntityId = entityId.Value;  // Use provided entity ID
+                ent.EntityId = entityId.Value;
             }
 
             try
             {
                 ent.Init(position, size, initialVelocity, type, rotation);
 
-                // Ensure the entity has a valid ID before adding to MyEntities
                 if (ent.EntityId == 0)
                 {
-                    // Log a warning but continue, as the game should assign a valid ID after the entity is added
                     Log.Warning("EntityId is 0, expecting the game to assign a valid ID.");
                 }
 
-                // Add the asteroid entity to the game world
+                // Ensure position is set correctly before adding to entities
+                MatrixD worldMatrix = rotation.HasValue
+                    ? MatrixD.CreateFromQuaternion(rotation.Value)
+                    : MatrixD.CreateWorld(position, Vector3D.Forward, Vector3D.Up);
+                worldMatrix.Translation = position;
+                ent.WorldMatrix = worldMatrix;
+
                 MyEntities.Add(ent);
                 Log.Info($"{(MyAPIGateway.Session.IsServer ? "Server" : "Client")}: Added asteroid entity with ID {ent.EntityId} to MyEntities");
+
                 return ent;
             }
             catch (Exception ex)
@@ -327,7 +332,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 shouldDetonateAmmo, extraInfo);
         }
 
-        private void CreatePhysics()
+        public void CreatePhysics()
         {
             try
             {
