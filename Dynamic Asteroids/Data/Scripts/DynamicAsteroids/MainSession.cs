@@ -438,15 +438,30 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 {
                     if (asteroidMessage.IsInitialCreation && asteroidMessage.EntityId == 0)
                     {
-                        // Server assigns entity ID
-                        var asteroid = AsteroidEntity.CreateAsteroid(asteroidMessage.GetPosition(), asteroidMessage.Size, asteroidMessage.GetVelocity(), asteroidMessage.GetType());
+                        // Server assigns entity ID and creates asteroid
+                        var asteroid = AsteroidEntity.CreateAsteroid(
+                            asteroidMessage.GetPosition(),
+                            asteroidMessage.Size,
+                            asteroidMessage.GetVelocity(),
+                            asteroidMessage.GetType());
 
                         if (asteroid != null && _spawner != null)
                         {
                             _spawner.AddAsteroid(asteroid);
 
                             // Server generates entity ID and sends it to the client
-                            var response = new AsteroidNetworkMessage(asteroid.PositionComp.GetPosition(), asteroid.Properties.Diameter, asteroid.Physics.LinearVelocity, asteroid.Physics.AngularVelocity, asteroid.Type, false, asteroid.EntityId, false, true, Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix));
+                            var response = new AsteroidNetworkMessage(
+                                asteroid.PositionComp.GetPosition(),
+                                asteroid.Properties.Diameter,
+                                asteroid.Physics.LinearVelocity,
+                                asteroid.Physics.AngularVelocity,
+                                asteroid.Type,
+                                false, // IsRemoval
+                                asteroid.EntityId,
+                                false, // IsInitialCreation
+                                true, // IsUpdate
+                                Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix));
+
                             byte[] responseBytes = MyAPIGateway.Utilities.SerializeToBinary(response);
                             MyAPIGateway.Multiplayer.SendMessageToOthers(32000, responseBytes);
                         }
@@ -466,11 +481,29 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     }
                     else
                     {
-                        AsteroidEntity asteroid = AsteroidEntity.CreateAsteroid(asteroidMessage.GetPosition(), asteroidMessage.Size, asteroidMessage.GetVelocity(), asteroidMessage.GetType(), asteroidMessage.GetRotation(), asteroidMessage.EntityId);
-                        if (asteroid != null)
+                        AsteroidEntity asteroid = MyEntities.GetEntityById(asteroidMessage.EntityId) as AsteroidEntity;
+
+                        if (asteroid == null)
                         {
-                            asteroid.Physics.AngularVelocity = asteroidMessage.GetAngularVelocity();
-                            MyEntities.Add(asteroid);
+                            // Create asteroid on the client if it doesn't already exist
+                            asteroid = AsteroidEntity.CreateAsteroid(
+                                asteroidMessage.GetPosition(),
+                                asteroidMessage.Size,
+                                asteroidMessage.GetVelocity(),
+                                asteroidMessage.GetType(),
+                                asteroidMessage.GetRotation(),
+                                asteroidMessage.EntityId);
+
+                            if (asteroid != null)
+                            {
+                                asteroid.Physics.AngularVelocity = asteroidMessage.GetAngularVelocity();
+                                MyEntities.Add(asteroid);
+                            }
+                        }
+                        else
+                        {
+                            // Asteroid already exists, so update its position and velocity with interpolation
+                            UpdateAsteroidOnClient(asteroid, asteroidMessage);
                         }
                     }
                 }
@@ -479,6 +512,19 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             {
                 Log.Exception(ex, typeof(MainSession), "Error processing received message: ");
             }
+        }
+
+        // This method interpolates the asteroid's state smoothly on the client side
+        private void UpdateAsteroidOnClient(AsteroidEntity asteroid, AsteroidNetworkMessage message)
+        {
+            Vector3D newPosition = message.GetPosition();
+            Vector3D newVelocity = message.GetVelocity();
+            Quaternion newRotation = message.GetRotation();
+
+            // Interpolate between current and new positions/rotations for smooth movement
+            asteroid.PositionComp.SetPosition(Vector3D.Lerp(asteroid.PositionComp.GetPosition(), newPosition, 0.1));
+            asteroid.Physics.LinearVelocity = Vector3D.Lerp(asteroid.Physics.LinearVelocity, newVelocity, 0.1);
+            asteroid.WorldMatrix = MatrixD.Slerp(asteroid.WorldMatrix, MatrixD.CreateFromQuaternion(newRotation), 0.1);
         }
 
         private AsteroidEntity FindNearestAsteroid(Vector3D characterPosition)

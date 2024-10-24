@@ -68,11 +68,30 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             private ConcurrentBag<long> _dirtyStates = new ConcurrentBag<long>();
             private const int SaveInterval = 300;
             private DateTime _lastSaveTime = DateTime.UtcNow;
+            private ConcurrentBag<long> _dirtyAsteroids = new ConcurrentBag<long>();
 
-            public void UpdateState(long asteroidId, AsteroidState state)
+
+            public void UpdateState(AsteroidEntity asteroid)
             {
-                _stateCache.AddOrUpdate(asteroidId, state, (key, oldValue) => state);
-                _dirtyStates.Add(asteroidId);
+                AsteroidState cachedState;
+                if (_stateCache.TryGetValue(asteroid.EntityId, out cachedState))
+                {
+                    if (cachedState.HasChanged(asteroid))
+                    {
+                        _dirtyAsteroids.Add(asteroid.EntityId);
+                        _stateCache[asteroid.EntityId] = new AsteroidState(asteroid);
+                    }
+                }
+                else
+                {
+                    _stateCache[asteroid.EntityId] = new AsteroidState(asteroid);
+                    _dirtyAsteroids.Add(asteroid.EntityId);
+                }
+            }
+
+            public List<AsteroidState> GetDirtyAsteroids()
+            {
+                return _dirtyAsteroids.Select(id => _stateCache[id]).ToList();
             }
 
             public AsteroidState GetState(long asteroidId)
@@ -476,30 +495,56 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             }
         }
 
-        private void ProcessAsteroidUpdates()
+        public void ProcessAsteroidUpdates()
         {
+            var dirtyAsteroids = _stateCache.GetDirtyAsteroids()
+                .OrderBy(a => GetDistanceToClosestPlayer(a.Position));  // Prioritize by distance
+
             int updatesProcessed = 0;
 
-            AsteroidEntity asteroid;
-            while (updatesProcessed < UpdatesPerTick && _updateQueue.TryDequeue(out asteroid))
+            foreach (var asteroidState in dirtyAsteroids)
             {
-                UpdateAsteroid(asteroid);
+                if (updatesProcessed >= UpdatesPerTick) break;
 
-                _updateQueue.Enqueue(asteroid);
+                // Prepare and send an update message to clients
+                AsteroidNetworkMessage message = new AsteroidNetworkMessage(
+                    asteroidState.Position, asteroidState.Size, asteroidState.Velocity,
+                    Vector3D.Zero, asteroidState.Type, false, asteroidState.EntityId,
+                    false, true, asteroidState.Rotation);
 
+                _messageCache.AddMessage(message); // Add to message cache for processing
                 updatesProcessed++;
             }
         }
 
+        private double GetDistanceToClosestPlayer(Vector3D position)
+        {
+            double minDistance = double.MaxValue;
+            foreach (var zone in playerZones.Values)
+            {
+                double distance = Vector3D.DistanceSquared(zone.Center, position);
+                if (distance < minDistance)
+                    minDistance = distance;
+            }
+            return minDistance;
+        }
+
+        private void UpdateAsteroidOnClient(AsteroidEntity asteroid, AsteroidNetworkMessage message)
+        {
+            Vector3D newPosition = message.GetPosition();
+            Vector3D newVelocity = message.GetVelocity();
+            Quaternion newRotation = message.GetRotation();
+
+            // Interpolate between current and new positions/rotations
+            asteroid.PositionComp.SetPosition(Vector3D.Lerp(asteroid.PositionComp.GetPosition(), newPosition, 0.1));
+            asteroid.Physics.LinearVelocity = Vector3D.Lerp(asteroid.Physics.LinearVelocity, newVelocity, 0.1);
+            asteroid.WorldMatrix = MatrixD.Slerp(asteroid.WorldMatrix, MatrixD.CreateFromQuaternion(newRotation), 0.1);
+        }
+
+
         private void UpdateAsteroid(AsteroidEntity asteroid)
         {
-            _stateCache.UpdateState(asteroid.EntityId, new AsteroidState
-            {
-                Position = asteroid.PositionComp.GetPosition(),
-                Size = asteroid.Properties.Diameter,
-                Type = asteroid.Type,
-                EntityId = asteroid.EntityId
-            });
+            _stateCache.UpdateState(asteroid);
 
             asteroid.UpdateInstability();
 
@@ -769,23 +814,34 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
         {
             AsteroidEntity removedAsteroid;
             if (!_asteroids.TryTake(out removedAsteroid)) return;
+
             if (removedAsteroid.EntityId == asteroid.EntityId)
             {
-                _despawnedAsteroids.Add(new AsteroidState
-                {
-                    Position = asteroid.PositionComp.GetPosition(),
-                    Size = asteroid.Properties.Diameter,
-                    Type = asteroid.Type,
-                    EntityId = asteroid.EntityId
-                });
-                _messageCache.AddMessage(new AsteroidNetworkMessage(asteroid.PositionComp.GetPosition(), asteroid.Properties.Diameter, Vector3D.Zero, Vector3D.Zero, asteroid.Type, false, asteroid.EntityId, true, false, Quaternion.Identity));
+                // Create the AsteroidState using the constructor that accepts an AsteroidEntity
+                _despawnedAsteroids.Add(new AsteroidState(asteroid));
+
+                // Send a network message indicating that this asteroid has been removed
+                _messageCache.AddMessage(new AsteroidNetworkMessage(
+                    asteroid.PositionComp.GetPosition(),
+                    asteroid.Properties.Diameter,
+                    Vector3D.Zero,
+                    Vector3D.Zero,
+                    asteroid.Type,
+                    false, // IsRemoval
+                    asteroid.EntityId,
+                    true, // IsRemoval
+                    false, // IsInitialCreation
+                    Quaternion.Identity));
+
+                // Remove asteroid from the entity list and close it
                 MyEntities.Remove(asteroid);
                 asteroid.Close();
+
                 Log.Info($"Server: Removed asteroid with ID {asteroid.EntityId} from _asteroids list and MyEntities");
             }
             else
             {
-                _asteroids.Add(removedAsteroid);
+                _asteroids.Add(removedAsteroid); // Return it to the collection if not the same entity
             }
         }
 
