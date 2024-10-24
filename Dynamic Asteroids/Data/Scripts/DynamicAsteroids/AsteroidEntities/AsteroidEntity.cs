@@ -69,7 +69,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         private static readonly string[] GoldAsteroidModels = { @"Models\OreAsteroid_Gold.mwm" };
         private static readonly string[] PlatinumAsteroidModels = { @"Models\OreAsteroid_Platinum.mwm" };
         private static readonly string[] UraniniteAsteroidModels = { @"Models\OreAsteroid_Uraninite.mwm" };
-      
+
         public AsteroidType Type { get; private set; }
         public string ModelString = "";
         public AsteroidPhysicalProperties Properties { get; private set; }
@@ -117,7 +117,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             return ent;
         }
 
-        private void Init(Vector3D position, float size, Vector3D initialVelocity, AsteroidType type, Quaternion? rotation)
+        private void Init(Vector3D position, float size, Vector3D initialVelocity, AsteroidType type,
+            Quaternion? rotation)
         {
             try
             {
@@ -160,7 +161,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 CreatePhysics();
 
                 this.Physics.LinearVelocity = initialVelocity + RandVector() * AsteroidSettings.VelocityVariability;
-                this.Physics.AngularVelocity = RandVector() * AsteroidSettings.GetRandomAngularVelocity(MainSession.I.Rand);
+                this.Physics.AngularVelocity =
+                    RandVector() * AsteroidSettings.GetRandomAngularVelocity(MainSession.I.Rand);
 
                 Log.Info($"Initial LinearVelocity: {this.Physics.LinearVelocity}, " +
                          $"Initial AngularVelocity: {this.Physics.AngularVelocity}");
@@ -255,10 +257,18 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             Vector3D asteroidPosition = this.PositionComp.GetPosition();
             float radius = Properties.Radius;
             Color sphereColor = Color.Red;
+            Color otherColor = Color.Yellow;
 
+            // Draw the physics radius
             MatrixD worldMatrix = MatrixD.CreateTranslation(asteroidPosition);
             MySimpleObjectDraw.DrawTransparentSphere(ref worldMatrix, radius, ref sphereColor,
                 MySimpleObjectRasterizer.Wireframe, 20);
+
+            // Optionally draw the entity's bounding box for comparison
+            BoundingBoxD localBox = PositionComp.LocalAABB;
+            MatrixD boxWorldMatrix = WorldMatrix;
+            MySimpleObjectDraw.DrawTransparentBox(ref boxWorldMatrix, ref localBox,
+                ref otherColor, MySimpleObjectRasterizer.Wireframe, 1);
         }
 
 
@@ -294,21 +304,28 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     rigidBodyFlags: RigidBodyFlag.RBF_DEFAULT,
                     collisionLayer: CollisionLayers.NoVoxelCollisionLayer,
                     isPhantom: false,
-                    mass: new ModAPIMass(Properties.Volume, Properties.Mass, Vector3.Zero,
+                    mass: new ModAPIMass(
+                        Properties.Volume,
+                        Properties.Mass,
+                        Vector3.Zero,
                         Properties.Mass * this.PositionComp.LocalAABB.Height *
-                        this.PositionComp.LocalAABB.Height / 6 * Matrix.Identity)
+                        this.PositionComp.LocalAABB.Height / 6 * Matrix.Identity
+                    )
                 );
 
                 MyAPIGateway.Physics.CreateSpherePhysics(settings, Properties.Radius);
                 this.Physics.Enabled = true;
                 this.Physics.Activate();
 
-                Log.Info($"Created physics for asteroid {EntityId} with radius {Properties.Radius} " +
-                         $"and mass {Properties.Mass}");
+                Log.Info($"Created physics for asteroid {EntityId}:\n" +
+                         $"Radius: {Properties.Radius:F2}m\n" +
+                         $"Mass: {Properties.Mass:F2}kg\n" +
+                         $"Volume: {Properties.Volume:F2}m³");
             }
             catch (Exception ex)
             {
-                Log.Exception(ex, typeof(AsteroidEntity), $"Error creating physics for asteroid {EntityId}");
+                Log.Exception(ex, typeof(AsteroidEntity),
+                    $"Error creating physics for asteroid {EntityId}");
             }
         }
 
@@ -325,7 +342,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         {
             try
             {
-                Log.Info($"Updating asteroid size from {Properties.Diameter} to {newDiameter}");
+                Log.Info($"UpdateSizeAndPhysics called - Current: {Properties.Diameter:F2}, New: {newDiameter:F2}");
 
                 if (Math.Abs(newDiameter - Properties.Diameter) < 0.1f)
                 {
@@ -341,11 +358,16 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 // Dispose of old physics
                 if (Physics != null)
                 {
+                    Log.Info($"Disposing old physics for asteroid {EntityId}");
                     Physics.Close();
                     Physics = null;
                 }
 
-                // Create new physical properties with new size
+                // Update model scale
+                float scale = newDiameter / Properties.Diameter; // Calculate relative scale
+                this.PositionComp.Scale = scale;
+
+                // Create new properties with new size
                 Properties = new AsteroidPhysicalProperties(newDiameter, Properties.Density);
 
                 // Recreate physics
@@ -358,8 +380,11 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     Physics.AngularVelocity = angularVelocity;
                     PositionComp.SetWorldMatrix(ref currentWorldMatrix);
 
-                    Log.Info($"Updated physics - Mass: {Properties.Mass:F2}, " +
-                             $"Diameter: {Properties.Diameter:F2}, Volume: {Properties.Volume:F2}");
+                    Log.Info($"Physics updated - New values:\n" +
+                             $"Diameter: {Properties.Diameter:F2}m\n" +
+                             $"Mass: {Properties.Mass:F2}kg\n" +
+                             $"Scale: {scale:F2}\n" +
+                             $"Collision radius: {Properties.Radius:F2}m");
                 }
             }
             catch (Exception ex)
