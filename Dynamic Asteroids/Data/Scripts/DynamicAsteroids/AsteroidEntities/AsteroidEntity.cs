@@ -344,16 +344,16 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
                 if (Math.Abs(newDiameter - Properties.Diameter) < 0.1f)
                 {
-                    Log.Info("Size change too small, skipping physics update.");
+                    Log.Info("Size change too small, skipping update.");
                     return;
                 }
 
-                // Store current physics state
+                // Store current state
                 Vector3D linearVelocity = Physics?.LinearVelocity ?? Vector3D.Zero;
                 Vector3D angularVelocity = Physics?.AngularVelocity ?? Vector3D.Zero;
                 MatrixD currentWorldMatrix = WorldMatrix;
 
-                // Dispose of old physics
+                // Close physics
                 if (Physics != null)
                 {
                     Log.Info($"Disposing old physics for asteroid {EntityId}");
@@ -361,34 +361,43 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     Physics = null;
                 }
 
-                // Update model scale
-                float scale = newDiameter / Properties.Diameter; // Calculate relative scale
-                this.PositionComp.Scale = scale;
-
-                // Create new properties with new size
+                // Update properties first
                 Properties = new AsteroidPhysicalProperties(newDiameter, Properties.Density, this);
+
+                // Store the model string before clearing
+                string modelPath = ModelString;
+
+                // Clear existing model
+                if (Render != null)
+                {
+                    Render.RemoveRenderObjects();
+                    Render = null;
+                }
+
+                // Reinitialize with new size
+                Init(null, modelPath, null, newDiameter);
+
+                // Restore position and orientation
+                PositionComp.SetWorldMatrix(ref currentWorldMatrix);
 
                 // Recreate physics
                 CreatePhysics();
 
-                // Restore physics state
                 if (Physics != null)
                 {
                     Physics.LinearVelocity = linearVelocity;
                     Physics.AngularVelocity = angularVelocity;
-                    PositionComp.SetWorldMatrix(ref currentWorldMatrix);
 
-                    Log.Info($"Physics updated - New values:\n" +
-                             $"Diameter: {Properties.Diameter:F2}m\n" +
-                             $"Mass: {Properties.Mass:F2}kg\n" +
-                             $"Scale: {scale:F2}\n" +
-                             $"Collision radius: {Properties.Radius:F2}m");
+                    Log.Info($"Model and physics rebuilt - New values:\n" +
+                            $"Diameter: {Properties.Diameter:F2}m\n" +
+                            $"Mass: {Properties.Mass:F2}kg\n" +
+                            $"Collision radius: {Properties.Radius:F2}m\n" +
+                            $"Model path: {modelPath}");
                 }
             }
             catch (Exception ex)
             {
-                Log.Exception(ex, typeof(AsteroidEntity),
-                    $"Error updating size and physics for asteroid {EntityId}");
+                Log.Exception(ex, typeof(AsteroidEntity), $"Error updating size and physics for asteroid {EntityId}");
             }
         }
     }

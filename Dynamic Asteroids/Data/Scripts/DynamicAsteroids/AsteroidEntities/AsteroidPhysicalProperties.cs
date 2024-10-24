@@ -78,24 +78,22 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         private void UpdateSizeFromMassLoss()
         {
-            // Calculate new size based on new mass
             float newVolume = Mass / Density;
             float newRadius = (float)Math.Pow((3.0f * newVolume) / (4.0f * MathHelper.Pi), 1.0f / 3.0f);
             float newDiameter = Math.Max(AsteroidSettings.MinSubChunkSize, newRadius * 2.0f);
 
             if (Math.Abs(newDiameter - Diameter) > 0.1f)
             {
-                // Update local properties
+                Log.Info($"Size update triggered - Old diameter: {Diameter:F2}, New diameter: {newDiameter:F2}");
                 Radius = newDiameter / 2.0f;
                 Diameter = newDiameter;
                 Volume = (4.0f / 3.0f) * MathHelper.Pi * (float)Math.Pow(Radius, 3);
 
                 Log.Info($"Updated asteroid properties after mass loss:\n" +
-                         $"New Mass: {Mass:F2}kg\n" +
-                         $"New Diameter: {Diameter:F2}m\n" +
-                         $"New Volume: {Volume:F2}m³");
+                        $"New Mass: {Mass:F2}kg\n" +
+                        $"New Diameter: {Diameter:F2}m\n" +
+                        $"New Volume: {Volume:F2}m³");
 
-                // Update the entity's physics
                 if (ParentEntity != null)
                 {
                     ParentEntity.UpdateSizeAndPhysics(Diameter);
