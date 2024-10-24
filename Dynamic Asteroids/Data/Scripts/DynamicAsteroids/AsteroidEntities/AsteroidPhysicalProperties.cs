@@ -70,37 +70,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public void ReduceMass(float damageAmount)
         {
             float massToRemove = damageAmount * AsteroidSettings.KgLossPerDamage;
-            float previousMass = Mass;
             Mass = Math.Max(0, Mass - massToRemove);
-
-            if (Math.Abs(previousMass - Mass) > 0.01f)
-            {
-                UpdateSizeFromMassLoss();
-            }
-        }
-
-        private void UpdateSizeFromMassLoss()
-        {
-            float newVolume = Mass / Density;
-            float newRadius = (float)Math.Pow((3.0f * newVolume) / (4.0f * MathHelper.Pi), 1.0f / 3.0f);
-            float newDiameter = newRadius * 2.0f;
-
-            if (Math.Abs(newDiameter - Diameter) > 0.1f)
-            {
-                Radius = newRadius;
-                Diameter = newDiameter;
-                Volume = (4.0f / 3.0f) * MathHelper.Pi * (float)Math.Pow(Radius, 3);
-
-                Log.Info($"Updated asteroid properties after mass loss:\n" +
-                         $"New Mass: {Mass:F2}kg\n" +
-                         $"New Diameter: {Diameter:F2}m\n" +
-                         $"New Volume: {Volume:F2}m³");
-
-                if (ParentEntity != null)
-                {
-                    ParentEntity.UpdateSizeAndPhysics(Diameter);
-                }
-            }
         }
 
         public static AsteroidPhysicalProperties CreateFromMass(float targetMass, float density = DEFAULT_DENSITY, AsteroidEntity parentEntity = null)
