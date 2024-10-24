@@ -1,6 +1,7 @@
 ﻿using Sandbox.Definitions;
 using Sandbox.ModAPI;
 using System;
+using System.Collections.Generic;
 using VRage.Game.ModAPI;
 using VRage.Utils;
 using VRageMath;
@@ -12,6 +13,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         private static IMyMissiles _missileAPI;
         private static bool _isInitialized = false;
         private static AsteroidDamageHandler _damageHandler;
+
+        private Dictionary<long, DateTime> _lastDamageTime = new Dictionary<long, DateTime>();
+        private const double MIN_DAMAGE_INTERVAL = 0.05; // 50ms minimum between damage events
 
         public KeenRicochetMissileBSWorkaroundHandler(AsteroidDamageHandler damageHandler)
         {
