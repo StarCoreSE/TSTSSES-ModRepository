@@ -20,9 +20,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public static bool DisableZoneWhileMovingFast = true;
         public static double ZoneSpeedThreshold = 2000.0;
         public static int SaveStateInterval = 600;
-        public static int NetworkMessageInterval = 120;
+        public static int NetworkMessageInterval = 60;
         public static int SpawnInterval = 6;
-        public static int UpdateInterval = 120;
+        public static int UpdateInterval = 60;
         public static int MaxAsteroidCount = 20000;
         public static int MaxAsteroidsPerZone = 100;
         public static int MaxTotalAttempts = 100;
@@ -52,7 +52,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public static float InstabilityThresholdPercent = 0.8f;
         public static float InstabilityDecayRate = 0.1f;
         public static float InstabilityFromDamage = 1.0f;
-        public static float KgLossPerDamage = 1.0f; // 1 damage = 1 kg lost
+        public static float KgLossPerDamage = 0.01f; // 1 damage = 1 kg lost
 
         public static float ChunkMassPercent = 0.1f;         // 10% of mass per chunk
         public static float ChunkEjectionVelocity = 5.0f;    // Base velocity for ejected chunks
@@ -73,7 +73,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
 
         public static readonly Dictionary<AsteroidType, MassRange> MinMaxMassByType = new Dictionary<AsteroidType, MassRange>
-        {
+        {    //TODO: put thse into confings, gradient toward gasgiant in ring for bigger roids
             { AsteroidType.Ice, new MassRange(100000f, 500000f) },
             { AsteroidType.Stone, new MassRange(80000f, 400000f) },
             { AsteroidType.Iron, new MassRange(50000f, 300000f) },
@@ -202,6 +202,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     writer.WriteLine($"InstabilityThresholdPercent={InstabilityThresholdPercent}");
                     writer.WriteLine($"InstabilityDecayRate={InstabilityDecayRate}");
                     writer.WriteLine($"InstabilityFromDamage={InstabilityFromDamage}");
+                    writer.WriteLine($"KgLossPerDamage={KgLossPerDamage}");
 
                     writer.WriteLine("[SpawnableAreas]");
                     foreach (var area in ValidSpawnLocations)
@@ -369,6 +370,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                                     break;
                                 case "InstabilityFromDamage":
                                     InstabilityFromDamage = float.Parse(value);
+                                    break;
+                                case "KgLossPerDamage":
+                                    KgLossPerDamage = float.Parse(value);
                                     break;
                             }
                         }
