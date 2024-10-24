@@ -254,8 +254,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             MySimpleObjectDraw.DrawTransparentBox(ref boxWorldMatrix, ref localBox,
                 ref otherColor, MySimpleObjectRasterizer.Wireframe, 1, 0.1f);
         }
-
-
+   
         public void OnDestroy()
         {
             if (!MyAPIGateway.Session.IsServer)
@@ -318,13 +317,13 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     Physics = null;
                 }
 
-                // Create physics settings with identity orientation
+                // Add angular dampening to prevent infinite rotation acceleration
                 PhysicsSettings settings = MyAPIGateway.Physics.CreateSettingsForPhysics(
                     this,
-                    MatrixD.CreateTranslation(this.PositionComp.GetPosition()), // Only translation, no rotation
+                    MatrixD.CreateTranslation(this.PositionComp.GetPosition()),
                     Vector3.Zero,
                     linearDamping: 0f,
-                    angularDamping: 0f,
+                    angularDamping: 0.1f, // Add dampening to rotation
                     rigidBodyFlags: RigidBodyFlag.RBF_DEFAULT,
                     collisionLayer: CollisionLayers.NoVoxelCollisionLayer,
                     isPhantom: false,
@@ -332,7 +331,15 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 );
 
                 MyAPIGateway.Physics.CreateSpherePhysics(settings, Properties.Radius);
-                Log.Info($"Created physics for asteroid {EntityId} at position {this.PositionComp.GetPosition()}");
+
+                // Set initial angular velocity with a maximum limit
+                const float maxAngularSpeed = 0.5f; // radians per second
+                Vector3D randomAngular = RandVector() * maxAngularSpeed;
+                this.Physics.AngularVelocity = randomAngular;
+
+                Log.Info($"Created physics for asteroid {EntityId}:" +
+                         $"\nPosition: {this.PositionComp.GetPosition()}" +
+                         $"\nAngular Velocity: {randomAngular}");
             }
             catch (Exception ex)
             {

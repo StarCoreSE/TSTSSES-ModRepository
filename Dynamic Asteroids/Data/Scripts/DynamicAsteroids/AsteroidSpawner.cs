@@ -929,13 +929,19 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 
                     Vector3D currentPosition = asteroid.PositionComp.GetPosition();
                     Vector3D currentVelocity = asteroid.Physics.LinearVelocity;
+                    Vector3D currentAngularVel = asteroid.Physics.AngularVelocity;
+
+                    // Clamp angular velocity
+                    const float maxAngularSpeed = 0.5f;
+                    currentAngularVel = Vector3D.ClampToSphere(currentAngularVel, maxAngularSpeed);
+
                     Quaternion currentRotation = Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix);
 
                     var positionUpdate = new AsteroidNetworkMessage(
                         currentPosition,
                         asteroid.Properties.Diameter,
                         currentVelocity,
-                        asteroid.Physics.AngularVelocity,
+                        currentAngularVel,
                         asteroid.Type,
                         false,
                         asteroid.EntityId,
@@ -947,7 +953,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(positionUpdate);
                     MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
 
-                    Log.Info($"Server: Sent position update for asteroid {asteroid.EntityId} at {currentPosition}");
+                    Log.Info($"Server: Sent update for asteroid {asteroid.EntityId}:" +
+                             $"\nPosition: {currentPosition}" +
+                             $"\nAngular Velocity: {currentAngularVel}");
                 }
             }
             catch (Exception ex)

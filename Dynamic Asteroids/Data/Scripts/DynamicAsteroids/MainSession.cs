@@ -678,17 +678,36 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             {
                 Vector3D newPosition = message.GetPosition();
                 Vector3D newVelocity = message.GetVelocity();
+                Vector3D newAngularVelocity = message.GetAngularVelocity();
+                Quaternion newRotation = message.GetRotation();
 
                 // Store server position for visualization
                 _serverPositions[asteroid.EntityId] = newPosition;
 
-                // Set position directly without any interpolation
+                // Set position directly
                 asteroid.PositionComp.SetPosition(newPosition);
                 asteroid.Physics.LinearVelocity = newVelocity;
 
+                // Smoothly update rotation
+                const float rotationInterpolationFactor = 0.15f;
+                MatrixD currentMatrix = asteroid.WorldMatrix;
+                MatrixD targetMatrix = MatrixD.CreateFromQuaternion(newRotation);
+                targetMatrix.Translation = newPosition;
+
+                // Maintain position while interpolating rotation
+                MatrixD interpolatedMatrix = MatrixD.Slerp(currentMatrix, targetMatrix, rotationInterpolationFactor);
+                interpolatedMatrix.Translation = newPosition; // Ensure position stays exact
+                asteroid.WorldMatrix = interpolatedMatrix;
+
+                // Update angular velocity with dampening
+                const float maxAngularSpeed = 0.5f;
+                Vector3D clampedAngularVel = Vector3D.ClampToSphere(newAngularVelocity, maxAngularSpeed);
+                asteroid.Physics.AngularVelocity = clampedAngularVel;
+
                 Log.Info($"Updated client asteroid {asteroid.EntityId}:" +
-                         $"\nNew Position: {newPosition}" +
-                         $"\nNew Velocity: {newVelocity}");
+                         $"\nPosition: {newPosition}" +
+                         $"\nVelocity: {newVelocity}" +
+                         $"\nAngular Velocity: {clampedAngularVel}");
             }
             catch (Exception ex)
             {
