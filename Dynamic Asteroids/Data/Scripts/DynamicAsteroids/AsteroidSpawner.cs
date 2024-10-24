@@ -405,15 +405,19 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 
         public void UpdateTick()
         {
-            if (!MyAPIGateway.Session.IsServer) return;
+            if (!MyAPIGateway.Session.IsServer) return;  // Ensure this only runs on the server
+
             AssignZonesToPlayers();
             MergeZones();
             UpdateZones();
+
             try
             {
+                // Get a list of all players
                 List<IMyPlayer> players = new List<IMyPlayer>();
                 MyAPIGateway.Players.GetPlayers(players);
 
+                // For each player, load asteroids that are within their zone
                 foreach (IMyPlayer player in players)
                 {
                     AsteroidZone zone = GetCachedZone(player.IdentityId, player.GetPosition());
@@ -423,17 +427,22 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     }
                 }
 
+                // Periodically send asteroid updates to clients
                 if (_updateIntervalTimer <= 0)
                 {
+                    // Update asteroids' positions and other properties
                     UpdateAsteroids(playerZones.Values.ToList());
+
+                    // Process the updates and send to clients
                     ProcessAsteroidUpdates();
-                    _updateIntervalTimer = AsteroidSettings.UpdateInterval;
+                    _updateIntervalTimer = AsteroidSettings.UpdateInterval;  // Reset the update timer
                 }
                 else
                 {
                     _updateIntervalTimer--;
                 }
 
+                // Spawn new asteroids periodically
                 if (_spawnIntervalTimer > 0)
                 {
                     _spawnIntervalTimer--;
@@ -441,15 +450,16 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 else
                 {
                     SpawnAsteroids(playerZones.Values.ToList());
-                    _spawnIntervalTimer = AsteroidSettings.SpawnInterval;
+                    _spawnIntervalTimer = AsteroidSettings.SpawnInterval;  // Reset the spawn timer
                 }
 
+                // Log the number of active asteroids (for debugging purposes)
                 if (AsteroidSettings.EnableLogging)
                     MyAPIGateway.Utilities.ShowNotification($"Active Asteroids: {_asteroids.Count}", 1000 / 60);
             }
             catch (Exception ex)
             {
-                Log.Exception(ex, typeof(AsteroidSpawner));
+                Log.Exception(ex, typeof(AsteroidSpawner), "Error in UpdateTick");
             }
         }
 
@@ -802,13 +812,37 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 
         public void SendNetworkMessages()
         {
-            _messageCache.ProcessMessages(message =>
+            if (!MyAPIGateway.Session.IsServer)
+                return;
+
+            try
             {
-                byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(message);
-                MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
-                Log.Info($"Server: Sent message for asteroid ID {message.EntityId}");
-            });
+                _messageCache.ProcessMessages(message =>
+                {
+                    if (message.EntityId == 0)
+                    {
+                        Log.Warning("Attempted to send message for asteroid with ID 0");
+                        return;
+                    }
+
+                    byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(message);
+
+                    if (messageBytes == null || messageBytes.Length == 0)
+                    {
+                        Log.Warning("Failed to serialize network message");
+                        return;
+                    }
+
+                    Log.Info($"Server: Sending message for asteroid ID {message.EntityId}, Position: {message.GetPosition()}, Size: {message.Size}");
+                    MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
+                });
+            }
+            catch (Exception ex)
+            {
+                Log.Exception(ex, typeof(AsteroidSpawner), "Error sending network messages");
+            }
         }
+
 
         private void RemoveAsteroid(AsteroidEntity asteroid)
         {

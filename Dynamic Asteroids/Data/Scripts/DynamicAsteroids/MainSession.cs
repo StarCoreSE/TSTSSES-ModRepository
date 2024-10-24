@@ -448,90 +448,177 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     return;
                 }
 
-                AsteroidNetworkMessage asteroidMessage =
-                    MyAPIGateway.Utilities.SerializeFromBinary<AsteroidNetworkMessage>(message);
+                // Add more detailed logging
+                Log.Info($"Received message from {(isFromServer ? "server" : "client")} of length {message.Length}");
 
-                if (MyAPIGateway.Session.IsServer)
+                AsteroidNetworkMessage asteroidMessage = MyAPIGateway.Utilities.SerializeFromBinary<AsteroidNetworkMessage>(message);
+
+                // Add validation logging
+                Log.Info($"Deserialized message for asteroid ID: {asteroidMessage.EntityId}");
+
+                if (!MyAPIGateway.Session.IsServer)
                 {
-                    if (asteroidMessage.IsInitialCreation && asteroidMessage.EntityId == 0)
-                    {
-                        // Server assigns entity ID and creates asteroid
-                        var asteroid = AsteroidEntity.CreateAsteroid(
-                            asteroidMessage.GetPosition(),
-                            asteroidMessage.Size,
-                            asteroidMessage.GetVelocity(),
-                            asteroidMessage.GetType());
-
-                        if (asteroid != null && _spawner != null)
-                        {
-                            _spawner.AddAsteroid(asteroid);
-
-                            // Server generates entity ID and sends it to the client
-                            var response = new AsteroidNetworkMessage(
-                                asteroid.PositionComp.GetPosition(),
-                                asteroid.Properties.Diameter,
-                                asteroid.Physics.LinearVelocity,
-                                asteroid.Physics.AngularVelocity,
-                                asteroid.Type,
-                                false, // IsRemoval
-                                asteroid.EntityId,
-                                false, // IsInitialCreation
-                                true, // IsUpdate
-                                Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix));
-
-                            byte[] responseBytes = MyAPIGateway.Utilities.SerializeToBinary(response);
-                            MyAPIGateway.Multiplayer.SendMessageToOthers(32000, responseBytes);
-                        }
-                    }
+                    ProcessClientMessage(asteroidMessage);
                 }
                 else
                 {
-                    Log.Info(
-                        $"Client received asteroid update: ID {asteroidMessage.EntityId}, Position: {asteroidMessage.GetPosition()}, Velocity: {asteroidMessage.GetVelocity()}");
-
-                    // Client receives the asteroid information from the server
-                    if (asteroidMessage.IsRemoval)
-                    {
-                        AsteroidEntity asteroid = MyEntities.GetEntityById(asteroidMessage.EntityId) as AsteroidEntity;
-                        if (asteroid != null)
-                        {
-                            MyEntities.Remove(asteroid);
-                            asteroid.Close();
-                        }
-                    }
-                    else
-                    {
-                        AsteroidEntity asteroid = MyEntities.GetEntityById(asteroidMessage.EntityId) as AsteroidEntity;
-
-                        if (asteroid == null)
-                        {
-                            // Create asteroid on the client if it doesn't already exist
-                            asteroid = AsteroidEntity.CreateAsteroid(
-                                asteroidMessage.GetPosition(),
-                                asteroidMessage.Size,
-                                asteroidMessage.GetVelocity(),
-                                asteroidMessage.GetType(),
-                                asteroidMessage.GetRotation(),
-                                asteroidMessage.EntityId);
-
-                            if (asteroid != null)
-                            {
-                                asteroid.Physics.AngularVelocity = asteroidMessage.GetAngularVelocity();
-                                MyEntities.Add(asteroid);
-                            }
-                        }
-                        else
-                        {
-                            // Asteroid already exists, so update its position and velocity with interpolation
-                            UpdateAsteroidOnClient(asteroid, asteroidMessage);
-                        }
-                    }
+                    ProcessServerMessage(asteroidMessage, steamId);
                 }
             }
             catch (Exception ex)
             {
-                Log.Exception(ex, typeof(MainSession), "Error processing received message: ");
+                Log.Exception(ex, typeof(MainSession), $"Error processing received message. IsServer: {MyAPIGateway.Session.IsServer}");
             }
+        }
+
+        public class NetworkMessageVerification
+        {
+            public static bool ValidateMessage(AsteroidNetworkMessage message)
+            {
+                // In C# 6, we need to do explicit null check
+                if (ReferenceEquals(message, null))
+                    return false;
+
+                if (message.EntityId == 0 && !message.IsInitialCreation)
+                    return false;
+
+                if (double.IsNaN(message.PosX) || double.IsNaN(message.PosY) || double.IsNaN(message.PosZ))
+                    return false;
+
+                return true;
+            }
+        }
+
+
+        private void ProcessServerMessage(AsteroidNetworkMessage message, ulong steamId)
+        {
+            if (!NetworkMessageVerification.ValidateMessage(message))
+            {
+                Log.Warning($"Server received invalid message from client {steamId}");
+                return;
+            }
+
+            if (message.IsInitialCreation && message.EntityId == 0)
+            {
+                // Handle client request to create new asteroid
+                var asteroid = AsteroidEntity.CreateAsteroid(
+                    message.GetPosition(),
+                    message.Size,
+                    message.GetVelocity(),
+                    message.GetType()
+                );
+
+                if (asteroid != null && _spawner != null)
+                {
+                    _spawner.AddAsteroid(asteroid);
+                    var response = new AsteroidNetworkMessage(
+                        asteroid.PositionComp.GetPosition(),
+                        asteroid.Properties.Diameter,
+                        asteroid.Physics.LinearVelocity,
+                        asteroid.Physics.AngularVelocity,
+                        asteroid.Type,
+                        false,
+                        asteroid.EntityId,
+                        false,
+                        true,
+                        Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix)
+                    );
+
+                    byte[] responseBytes = MyAPIGateway.Utilities.SerializeToBinary(response);
+                    MyAPIGateway.Multiplayer.SendMessageToOthers(32000, responseBytes);
+                }
+            }
+        }
+
+        private void RemoveAsteroidOnClient(long entityId)
+        {
+            Log.Info($"Client: Removing asteroid with ID {entityId}");
+
+            AsteroidEntity asteroid = MyEntities.GetEntityById(entityId) as AsteroidEntity;
+            if (asteroid != null)
+            {
+                try
+                {
+                    MyEntities.Remove(asteroid);
+                    asteroid.Close();
+                    Log.Info($"Client: Successfully removed asteroid {entityId}");
+                }
+                catch (Exception ex)
+                {
+                    Log.Exception(ex, typeof(MainSession), $"Error removing asteroid {entityId} on client");
+                }
+            }
+            else
+            {
+                Log.Warning($"Client: Could not find asteroid with ID {entityId} to remove");
+            }
+        }
+
+        private void CreateNewAsteroidOnClient(AsteroidNetworkMessage message)
+        {
+            Log.Info($"Client: Creating new asteroid at position {message.GetPosition()}");
+
+            try
+            {
+                var asteroid = AsteroidEntity.CreateAsteroid(
+                    message.GetPosition(),
+                    message.Size,
+                    message.GetVelocity(),
+                    message.GetType(),
+                    message.GetRotation(),
+                    message.EntityId
+                );
+
+                if (asteroid != null)
+                {
+                    asteroid.Physics.AngularVelocity = message.GetAngularVelocity();
+                    Log.Info($"Client: Successfully created asteroid {message.EntityId}");
+                }
+                else
+                {
+                    Log.Warning($"Client: Failed to create asteroid {message.EntityId}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Exception(ex, typeof(MainSession), $"Error creating new asteroid {message.EntityId} on client");
+            }
+        }
+
+        private void ProcessClientMessage(AsteroidNetworkMessage message)
+        {
+            Log.Info($"Client processing message for asteroid {message.EntityId}");
+
+            if (message.IsRemoval)
+            {
+                RemoveAsteroidOnClient(message.EntityId);
+                return;
+            }
+
+            AsteroidEntity asteroid = MyEntities.GetEntityById(message.EntityId) as AsteroidEntity;
+            if (asteroid == null && message.IsInitialCreation)
+            {
+                CreateNewAsteroidOnClient(message);
+            }
+            else if (asteroid != null)
+            {
+                UpdateExistingAsteroidOnClient(asteroid, message);
+            }
+        }
+
+        private void UpdateExistingAsteroidOnClient(AsteroidEntity asteroid, AsteroidNetworkMessage message)
+        {
+            Vector3D newPosition = message.GetPosition();
+            Vector3D newVelocity = message.GetVelocity();
+            Quaternion newRotation = message.GetRotation();
+
+            Log.Info($"Updating client asteroid {asteroid.EntityId} position: {newPosition}");
+
+            // Use smoother interpolation
+            float interpolationFactor = 0.15f; // Adjust this value to control smoothing
+            asteroid.PositionComp.SetPosition(Vector3D.Lerp(asteroid.PositionComp.GetPosition(), newPosition, interpolationFactor));
+            asteroid.Physics.LinearVelocity = Vector3D.Lerp(asteroid.Physics.LinearVelocity, newVelocity, interpolationFactor);
+            asteroid.WorldMatrix = MatrixD.Slerp(asteroid.WorldMatrix, MatrixD.CreateFromQuaternion(newRotation), interpolationFactor);
         }
 
         // This method interpolates the asteroid's state smoothly on the client side
@@ -616,5 +703,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             int randValue = Rand.Next(0, 2);
             return (AsteroidType)randValue;
         }
+
     }
 }
