@@ -29,6 +29,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
         public RealGasGiantsApi RealGasGiantsApi { get; private set; }
         private int _testTimer = 0;
         private KeenRicochetMissileBSWorkaroundHandler _missileHandler;
+        private Dictionary<long, Vector3D> _serverPositions = new Dictionary<long, Vector3D>();
+
 
         public override void LoadData()
         {
@@ -220,7 +222,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 
                         if (nearestAsteroid != null)
                         {
-                            Log.Info($"Server: Nearest asteroid to player at {playerPosition}: Asteroid ID: {nearestAsteroid.EntityId}, Position: {nearestAsteroid.PositionComp.GetPosition()}");
+                            //Log.Info($"Server: Nearest asteroid to player at {playerPosition}: Asteroid ID: {nearestAsteroid.EntityId}, Position: {nearestAsteroid.PositionComp.GetPosition()}");
                         }
                     }
 
@@ -587,23 +589,43 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 
         private void ProcessClientMessage(AsteroidNetworkMessage message)
         {
-            Log.Info($"Client processing message for asteroid {message.EntityId}");
+            try
+            {
+                Log.Info($"Client processing message for asteroid {message.EntityId} - " +
+                         $"IsRemoval: {message.IsRemoval}, " +
+                         $"IsInitialCreation: {message.IsInitialCreation}, " +
+                         $"Position: {message.GetPosition()}");
 
-            if (message.IsRemoval)
-            {
-                RemoveAsteroidOnClient(message.EntityId);
-                return;
-            }
+                // Update server position tracking
+                UpdateServerPosition(message.EntityId, message.GetPosition());
 
-            AsteroidEntity asteroid = MyEntities.GetEntityById(message.EntityId) as AsteroidEntity;
-            if (asteroid == null && message.IsInitialCreation)
-            {
-                CreateNewAsteroidOnClient(message);
+                if (message.IsRemoval)
+                {
+                    RemoveAsteroidOnClient(message.EntityId);
+                    _serverPositions.Remove(message.EntityId); // Clean up server position
+                    return;
+                }
+
+                AsteroidEntity asteroid = MyEntities.GetEntityById(message.EntityId) as AsteroidEntity;
+
+                if (asteroid == null && message.IsInitialCreation)
+                {
+                    CreateNewAsteroidOnClient(message);
+                }
+                else if (asteroid != null)
+                {
+                    UpdateExistingAsteroidOnClient(asteroid, message);
+                }
             }
-            else if (asteroid != null)
+            catch (Exception ex)
             {
-                UpdateExistingAsteroidOnClient(asteroid, message);
+                Log.Exception(ex, typeof(MainSession), $"Error processing client message for asteroid {message.EntityId}");
             }
+        }
+
+        private void UpdateServerPosition(long entityId, Vector3D position)
+        {
+            _serverPositions[entityId] = position;
         }
 
         private void UpdateExistingAsteroidOnClient(AsteroidEntity asteroid, AsteroidNetworkMessage message)
@@ -684,17 +706,48 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
         {
             try
             {
-                if (AsteroidSettings.EnableLogging && MyAPIGateway.Session?.Player?.Character != null)
-                {
-                    Vector3D characterPosition = MyAPIGateway.Session.Player.Character.PositionComp.GetPosition();
-                    AsteroidEntity nearestAsteroid = FindNearestAsteroid(characterPosition);
+                if (!AsteroidSettings.EnableLogging || MyAPIGateway.Session?.Player?.Character == null)
+                    return;
 
-                    nearestAsteroid?.DrawDebugSphere();
+                Vector3D characterPosition = MyAPIGateway.Session.Player.Character.PositionComp.GetPosition();
+                AsteroidEntity nearestAsteroid = FindNearestAsteroid(characterPosition);
+
+                if (nearestAsteroid != null)
+                {
+                    // Draw client-side position in red
+                    Vector3D clientPosition = nearestAsteroid.PositionComp.GetPosition();
+                    MatrixD clientWorldMatrix = MatrixD.CreateTranslation(clientPosition);
+                    Color clientColor = Color.Red;
+                    MySimpleObjectDraw.DrawTransparentSphere(ref clientWorldMatrix, nearestAsteroid.Properties.Radius,
+                        ref clientColor, MySimpleObjectRasterizer.Wireframe, 20);
+
+                    // Draw server position in blue if available
+                    Vector3D serverPosition;
+                    if (_serverPositions.TryGetValue(nearestAsteroid.EntityId, out serverPosition))
+                    {
+                        MatrixD serverWorldMatrix = MatrixD.CreateTranslation(serverPosition);
+                        Color serverColor = Color.Blue;
+                        MySimpleObjectDraw.DrawTransparentSphere(ref serverWorldMatrix, nearestAsteroid.Properties.Radius,
+                            ref serverColor, MySimpleObjectRasterizer.Wireframe, 20);
+
+                        // Draw line between positions
+                        Vector4 lineColor = Color.Yellow.ToVector4();
+                        MySimpleObjectDraw.DrawLine(clientPosition, serverPosition,
+                            MyStringId.GetOrCompute("Square"), ref lineColor, 0.1f);
+
+                        // Display distance
+                        double distance = Vector3D.Distance(clientPosition, serverPosition);
+                        MyAPIGateway.Utilities.ShowNotification(
+                            $"Distance between client and server positions: {distance:F2}m\n" +
+                            $"Client: {clientPosition.ToString("F2")}\n" +
+                            $"Server: {serverPosition.ToString("F2")}",
+                            16);
+                    }
                 }
             }
             catch (Exception ex)
             {
-                Log.Exception(ex, typeof(MainSession), "Error in Draw: ");
+                Log.Exception(ex, typeof(MainSession), "Error in Draw");
             }
         }
 

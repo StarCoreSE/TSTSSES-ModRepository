@@ -641,7 +641,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                         newPosition = zone.Center + RandVector() * AsteroidSettings.ZoneRadius;
                         zoneSpawnAttempts++;
                         totalSpawnAttempts++;
-                        Log.Info($"Attempting to spawn asteroid at {newPosition} (attempt {totalSpawnAttempts})");
+                        //Log.Info($"Attempting to spawn asteroid at {newPosition} (attempt {totalSpawnAttempts})");
 
                         if (AsteroidSettings.EnableGasGiantRingSpawning && _realGasGiantsApi != null && _realGasGiantsApi.IsReady)
                         {
@@ -669,7 +669,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     Vector3D newVelocity;
                     if (!AsteroidSettings.CanSpawnAsteroidAtPoint(newPosition, out newVelocity, isInRing))
                     {
-                        Log.Info($"Cannot spawn asteroid at {newPosition}, skipping.");
+                        //Log.Info($"Cannot spawn asteroid at {newPosition}, skipping.");
                         continue;
                     }
 
@@ -790,23 +790,23 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 float ringInfluence = _realGasGiantsApi.GetRingInfluenceAtPositionGlobal(position);
                 if (ringInfluence > AsteroidSettings.MinimumRingInfluenceForSpawn)
                 {
-                    Log.Info($"Valid position in ring: {position}, influence: {ringInfluence}");
+                    //Log.Info($"Valid position in ring: {position}, influence: {ringInfluence}");
                     return true;
                 }
             }
             foreach (SpawnableArea area in AsteroidSettings.ValidSpawnLocations)
             {
                 if (!area.ContainsPoint(position)) continue;
-                Log.Info($"Valid position in SpawnableArea: {position}");
+                //Log.Info($"Valid position in SpawnableArea: {position}");
                 return true;
             }
             foreach (AsteroidZone zone in zones)
             {
                 if (!zone.IsPointInZone(position)) continue;
-                Log.Info($"Valid position in player zone: {position}");
+                //Log.Info($"Valid position in player zone: {position}");
                 return true;
             }
-            Log.Info($"Invalid spawn position: {position}");
+            //Log.Info($"Invalid spawn position: {position}");
             return false;
         }
 
@@ -817,6 +817,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 
             try
             {
+                int messagesSent = 0;
                 _messageCache.ProcessMessages(message =>
                 {
                     if (message.EntityId == 0)
@@ -825,7 +826,29 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                         return;
                     }
 
-                    byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(message);
+                    // Get the actual asteroid to ensure it still exists
+                    AsteroidEntity asteroid = MyEntities.GetEntityById(message.EntityId) as AsteroidEntity;
+                    if (asteroid == null)
+                    {
+                        Log.Warning($"Attempted to send update for non-existent asteroid {message.EntityId}");
+                        return;
+                    }
+
+                    // Create fresh message with current data
+                    var updateMessage = new AsteroidNetworkMessage(
+                        asteroid.PositionComp.GetPosition(),
+                        asteroid.Properties.Diameter,
+                        asteroid.Physics.LinearVelocity,
+                        asteroid.Physics.AngularVelocity,
+                        asteroid.Type,
+                        false,
+                        asteroid.EntityId,
+                        false,
+                        false, // This is an update, not initial creation
+                        Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix)
+                    );
+
+                    byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(updateMessage);
 
                     if (messageBytes == null || messageBytes.Length == 0)
                     {
@@ -833,17 +856,26 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                         return;
                     }
 
-                    Log.Info($"Server: Sending message for asteroid ID {message.EntityId}, Position: {message.GetPosition()}, Size: {message.Size}");
+                    Log.Info($"Server: Sending position update for asteroid ID {updateMessage.EntityId}, " +
+                            $"Position: {updateMessage.GetPosition()}, " +
+                            $"Velocity: {updateMessage.GetVelocity()}, " +
+                            $"Data size: {messageBytes.Length} bytes");
+
                     MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
+                    messagesSent++;
                 });
+
+                if (messagesSent > 0)
+                {
+                    Log.Info($"Server: Successfully sent {messagesSent} asteroid updates");
+                }
             }
             catch (Exception ex)
             {
                 Log.Exception(ex, typeof(AsteroidSpawner), "Error sending network messages");
             }
         }
-
-
+         
         private void RemoveAsteroid(AsteroidEntity asteroid)
         {
             AsteroidEntity removedAsteroid;
