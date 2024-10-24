@@ -130,7 +130,12 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 }
 
                 Type = type;
-                ModelString = SelectModelForAsteroidType(type);
+                // Only select a new model if one hasn't been pre-set
+                if (string.IsNullOrEmpty(ModelString))
+                {
+                    ModelString = SelectModelForAsteroidType(type);
+                }
+
                 if (string.IsNullOrEmpty(ModelString))
                 {
                     Log.Exception(new Exception("ModelString is null or empty"),
@@ -348,56 +353,74 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     return;
                 }
 
-                // Store current state
+                // Remove from spawner FIRST to prevent feedback loop
+                MainSession.I._spawner.TryRemoveAsteroid(this);
+
+                string currentModel = ModelString;
+                Vector3D position = PositionComp.GetPosition();
                 Vector3D linearVelocity = Physics?.LinearVelocity ?? Vector3D.Zero;
                 Vector3D angularVelocity = Physics?.AngularVelocity ?? Vector3D.Zero;
-                MatrixD currentWorldMatrix = WorldMatrix;
+                Quaternion rotation = Quaternion.CreateFromRotationMatrix(WorldMatrix);
 
-                // Close physics
-                if (Physics != null)
+                // Create new asteroid
+                var newAsteroid = new AsteroidEntity();
+                newAsteroid.ModelString = currentModel;
+
+                try
                 {
-                    Log.Info($"Disposing old physics for asteroid {EntityId}");
-                    Physics.Close();
-                    Physics = null;
+                    newAsteroid.Init(position, newDiameter, linearVelocity, Type, rotation);
+                    MyEntities.Add(newAsteroid);
+                }
+                catch (Exception ex)
+                {
+                    Log.Exception(ex, typeof(AsteroidEntity), "Failed to initialize replacement asteroid");
+                    return;
                 }
 
-                // Update properties first
-                Properties = new AsteroidPhysicalProperties(newDiameter, Properties.Density, this);
-
-                // Store the model string before clearing
-                string modelPath = ModelString;
-
-                // Clear existing model
-                if (Render != null)
+                if (newAsteroid != null && newAsteroid.EntityId != 0)
                 {
-                    Render.RemoveRenderObjects();
-                    Render = null;
+                    newAsteroid.Physics.AngularVelocity = angularVelocity;
+                    MainSession.I._spawner.AddAsteroid(newAsteroid);
+
+                    var message = new AsteroidNetworkMessage(
+                        position,
+                        newDiameter,
+                        linearVelocity,
+                        angularVelocity,
+                        Type,
+                        false,
+                        newAsteroid.EntityId,
+                        false,
+                        true,
+                        rotation
+                    );
+
+                    byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(message);
+                    MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
+
+                    // Remove the old entity AFTER successfully creating the new one
+                    MyEntities.Remove(this);
+                    Close();
+
+                    Log.Info($"Replaced asteroid:\n" +
+                            $"Old EntityId: {EntityId}\n" +
+                            $"New EntityId: {newAsteroid.EntityId}\n" +
+                            $"Model Path: {currentModel}\n" +
+                            $"New Diameter: {newDiameter:F2}m\n" +
+                            $"New Mass: {newAsteroid.Properties.Mass:F2}kg");
                 }
-
-                // Reinitialize with new size
-                Init(null, modelPath, null, newDiameter);
-
-                // Restore position and orientation
-                PositionComp.SetWorldMatrix(ref currentWorldMatrix);
-
-                // Recreate physics
-                CreatePhysics();
-
-                if (Physics != null)
+                else
                 {
-                    Physics.LinearVelocity = linearVelocity;
-                    Physics.AngularVelocity = angularVelocity;
-
-                    Log.Info($"Model and physics rebuilt - New values:\n" +
-                            $"Diameter: {Properties.Diameter:F2}m\n" +
-                            $"Mass: {Properties.Mass:F2}kg\n" +
-                            $"Collision radius: {Properties.Radius:F2}m\n" +
-                            $"Model path: {modelPath}");
+                    // If creation failed, add the old asteroid back to tracking
+                    MainSession.I._spawner.AddAsteroid(this);
+                    Log.Warning($"Failed to create replacement asteroid for EntityId: {EntityId}");
                 }
             }
             catch (Exception ex)
             {
-                Log.Exception(ex, typeof(AsteroidEntity), $"Error updating size and physics for asteroid {EntityId}");
+                // If anything fails, make sure the old asteroid is still tracked
+                MainSession.I._spawner.AddAsteroid(this);
+                Log.Exception(ex, typeof(AsteroidEntity), $"Error replacing asteroid {EntityId} with new size");
             }
         }
     }
