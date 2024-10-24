@@ -11,7 +11,6 @@ using VRage.Game.Components;
 using VRage.Game.ModAPI;
 using VRage.Input;
 using VRage.ModAPI;
-using VRage.Scripting;
 using VRage.Utils;
 using VRageMath;
 
@@ -31,7 +30,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
         private int _testTimer = 0;
         private KeenRicochetMissileBSWorkaroundHandler _missileHandler;
         private Dictionary<long, Vector3D> _serverPositions = new Dictionary<long, Vector3D>();
-        private Dictionary<long, Quaternion> _serverRotations = new Dictionary<long, Quaternion>();
 
 
         public override void LoadData()
@@ -680,36 +678,41 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             {
                 Vector3D newPosition = message.GetPosition();
                 Vector3D newVelocity = message.GetVelocity();
-                Quaternion newRotation = message.GetRotation();
-                Vector3D newAngularVelocity = message.GetAngularVelocity();
 
-                // Store server state for visualization
+                // Store server position for visualization
                 _serverPositions[asteroid.EntityId] = newPosition;
-                _serverRotations[asteroid.EntityId] = newRotation;
 
-                // Hard sync everything
+                // Set position directly
                 asteroid.PositionComp.SetPosition(newPosition);
                 asteroid.Physics.LinearVelocity = newVelocity;
-                asteroid.WorldMatrix = MatrixD.CreateFromQuaternion(newRotation);
-                asteroid.Physics.AngularVelocity = newAngularVelocity;
 
-                // Calculate and log differences
-                MatrixD currentMatrix = asteroid.WorldMatrix;
-                Vector3D currentForward = currentMatrix.Forward;
-                Vector3D newForward = MatrixD.CreateFromQuaternion(newRotation).Forward;
-                double angleDifference = Math.Acos(Vector3D.Dot(currentForward, newForward));
+                // Only update rotation occasionally and very gently
+                if (MainSession.I.Rand.NextDouble() < 0.1) // 10% chance per update
+                {
+                    Vector3D serverAngularVel = message.GetAngularVelocity();
 
-                Log.Info($"Client asteroid {asteroid.EntityId} update:" +
-                         $"\nPosition Delta: {Vector3D.Distance(asteroid.PositionComp.GetPosition(), newPosition):F3}m" +
-                         $"\nRotation Delta: {MathHelper.ToDegrees(angleDifference):F1}°" +
-                         $"\nAngular Velocity: {newAngularVelocity.Length():F3} rad/s");
+                    // Very gentle interpolation of angular velocity
+                    const float angularLerpFactor = 0.05f;
+                    Vector3D newAngularVel = Vector3D.Lerp(
+                        asteroid.Physics.AngularVelocity,
+                        serverAngularVel,
+                        angularLerpFactor
+                    );
+
+                    asteroid.Physics.AngularVelocity = newAngularVel;
+
+                    Log.Info($"Client: Gentle rotation update for asteroid {asteroid.EntityId}:" +
+                             $"\nOld Angular Velocity: {asteroid.Physics.AngularVelocity}" +
+                             $"\nNew Angular Velocity: {newAngularVel}");
+                }
+
+                Log.Info($"Updated client asteroid {asteroid.EntityId} position: {newPosition}");
             }
             catch (Exception ex)
             {
                 Log.Exception(ex, typeof(MainSession), $"Error updating client asteroid {asteroid.EntityId}");
             }
         }
-
         private AsteroidEntity FindNearestAsteroid(Vector3D characterPosition)
         {
             if (characterPosition == null)
@@ -765,51 +768,33 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 
                 if (nearestAsteroid != null)
                 {
-                    // Position visualization
+                    // Draw client-side position in red
                     Vector3D clientPosition = nearestAsteroid.PositionComp.GetPosition();
                     MatrixD clientWorldMatrix = MatrixD.CreateTranslation(clientPosition);
                     Color clientColor = Color.Red;
                     MySimpleObjectDraw.DrawTransparentSphere(ref clientWorldMatrix, nearestAsteroid.Properties.Radius,
                         ref clientColor, MySimpleObjectRasterizer.Wireframe, 20);
 
+                    // Draw server position in blue if available
                     Vector3D serverPosition;
-                    Quaternion serverRotation;
-                    if (_serverPositions.TryGetValue(nearestAsteroid.EntityId, out serverPosition) &&
-                        _serverRotations.TryGetValue(nearestAsteroid.EntityId, out serverRotation))
+                    if (_serverPositions.TryGetValue(nearestAsteroid.EntityId, out serverPosition))
                     {
                         MatrixD serverWorldMatrix = MatrixD.CreateTranslation(serverPosition);
                         Color serverColor = Color.Blue;
                         MySimpleObjectDraw.DrawTransparentSphere(ref serverWorldMatrix, nearestAsteroid.Properties.Radius,
                             ref serverColor, MySimpleObjectRasterizer.Wireframe, 20);
 
-                        // Draw connection line
+                        // Draw line between positions
                         Vector4 lineColor = Color.Yellow.ToVector4();
                         MySimpleObjectDraw.DrawLine(clientPosition, serverPosition,
                             MyStringId.GetOrCompute("Square"), ref lineColor, 0.1f);
 
-                        // Calculate rotation difference using forward vectors
-                        MatrixD clientMatrix = nearestAsteroid.WorldMatrix;
-                        Vector3D clientForward = clientMatrix.Forward;
-                        MatrixD serverMatrix = MatrixD.CreateFromQuaternion(serverRotation);
-                        Vector3D serverForward = serverMatrix.Forward;
-
-                        // Calculate angle between forward vectors
-                        double angleDifference = Math.Acos(Vector3D.Dot(clientForward, serverForward));
-
-                        // Draw forward vectors
-                        Vector4 clientDirColor = Color.Red.ToVector4();
-                        Vector4 serverDirColor = Color.Blue.ToVector4();
-                        MySimpleObjectDraw.DrawLine(clientPosition,
-                            clientPosition + clientForward * nearestAsteroid.Properties.Radius * 2,
-                            MyStringId.GetOrCompute("Square"), ref clientDirColor, 0.1f);
-                        MySimpleObjectDraw.DrawLine(serverPosition,
-                            serverPosition + serverForward * nearestAsteroid.Properties.Radius * 2,
-                            MyStringId.GetOrCompute("Square"), ref serverDirColor, 0.1f);
-
+                        // Display distance
+                        double distance = Vector3D.Distance(clientPosition, serverPosition);
                         MyAPIGateway.Utilities.ShowNotification(
-                            $"Asteroid {nearestAsteroid.EntityId}:\n" +
-                            $"Position diff: {Vector3D.Distance(clientPosition, serverPosition):F2}m\n" +
-                            $"Rotation diff: {MathHelper.ToDegrees(angleDifference):F1}°",
+                            $"Distance between client and server positions: {distance:F2}m\n" +
+                            $"Client: {clientPosition.ToString("F2")}\n" +
+                            $"Server: {serverPosition.ToString("F2")}",
                             16);
                     }
                 }
