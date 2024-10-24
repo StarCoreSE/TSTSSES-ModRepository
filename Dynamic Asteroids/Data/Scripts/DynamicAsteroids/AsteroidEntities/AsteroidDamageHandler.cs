@@ -47,7 +47,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
             Log.Info($"Splitting asteroid {asteroid.EntityId}:");
             Log.Info($"Original mass: {totalMass:F2}, diameter: {asteroid.Properties.Diameter:F2}");
-            Log.Info($"Mass ratio: {massRatio:F2} (debris: {massForDebris:F2}, new asteroids: {massForNewAsteroids:F2})");
+            Log.Info(
+                $"Mass ratio: {massRatio:F2} (debris: {massForDebris:F2}, new asteroids: {massForNewAsteroids:F2})");
             Log.Info($"New asteroid diameter: {newProperties.Diameter:F2}");
 
             if (newProperties.Diameter <= AsteroidSettings.MinSubChunkSize)
@@ -61,9 +62,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     Vector3D offset = RandVector(MainSession.I.Rand) * asteroid.Properties.Diameter * 0.6f;
                     Vector3D newPos = asteroid.PositionComp.GetPosition() + offset;
                     Vector3D newVelocity = asteroid.Physics.LinearVelocity +
-                        RandVector(MainSession.I.Rand) * AsteroidSettings.GetRandomSubChunkVelocity(MainSession.I.Rand);
+                                           RandVector(MainSession.I.Rand) *
+                                           AsteroidSettings.GetRandomSubChunkVelocity(MainSession.I.Rand);
                     Vector3D newAngularVelocity = RandVector(MainSession.I.Rand) *
-                        AsteroidSettings.GetRandomSubChunkAngularVelocity(MainSession.I.Rand);
+                                                  AsteroidSettings.GetRandomSubChunkAngularVelocity(MainSession.I.Rand);
                     Quaternion newRotation = Quaternion.CreateFromYawPitchRoll(
                         (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi,
                         (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi,
@@ -124,8 +126,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             Log.Info($"Spawning debris with mass lost: {massLost} at impact position.");
             MyPhysicalItemDefinition itemDefinition = MyDefinitionManager.Static.GetPhysicalItemDefinition(
                 new MyDefinitionId(typeof(MyObjectBuilder_Ore), asteroid.Type.ToString()));
-            var newObject = MyObjectBuilderSerializer.CreateNewObject(itemDefinition.Id.TypeId, itemDefinition.Id.SubtypeId.ToString())
-                as MyObjectBuilder_PhysicalObject;
+            var newObject =
+                MyObjectBuilderSerializer.CreateNewObject(itemDefinition.Id.TypeId,
+                        itemDefinition.Id.SubtypeId.ToString())
+                    as MyObjectBuilder_PhysicalObject;
 
             float groupingRadius = 10.0f;
             List<MyFloatingObject> nearbyDebris = GetNearbyDebris(impactPosition, groupingRadius, newObject);
@@ -154,14 +158,16 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                             debris.Physics.LinearVelocity += randomVelocity;
                             Vector3D randomAngularVelocity = MyUtils.GetRandomVector3Normalized() * 5;
                             debris.Physics.AngularVelocity = randomAngularVelocity;
-                            Log.Info($"Spawned new debris with mass {massLost} at impact position {impactPosition}, initial velocity: {debris.Physics.LinearVelocity}");
+                            Log.Info(
+                                $"Spawned new debris with mass {massLost} at impact position {impactPosition}, initial velocity: {debris.Physics.LinearVelocity}");
                         }
                     }
                 );
             }
         }
 
-        private List<MyFloatingObject> GetNearbyDebris(Vector3D position, float radius, MyObjectBuilder_PhysicalObject itemType)
+        private List<MyFloatingObject> GetNearbyDebris(Vector3D position, float radius,
+            MyObjectBuilder_PhysicalObject itemType)
         {
             List<MyFloatingObject> nearbyDebris = new List<MyFloatingObject>();
             BoundingSphereD boundingSphereD = new BoundingSphereD(position, radius);
@@ -174,6 +180,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     nearbyDebris.Add(floatingObj);
                 }
             }
+
             return nearbyDebris;
         }
 
@@ -182,36 +189,24 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             var theta = rand.NextDouble() * 2.0 * Math.PI;
             var phi = Math.Acos(2.0 * rand.NextDouble() - 1.0);
             var sinPhi = Math.Sin(phi);
-            return Math.Pow(rand.NextDouble(), 1 / 3d) * new Vector3D(sinPhi * Math.Cos(theta), sinPhi * Math.Sin(theta), Math.Cos(phi));
+            return Math.Pow(rand.NextDouble(), 1 / 3d) *
+                   new Vector3D(sinPhi * Math.Cos(theta), sinPhi * Math.Sin(theta), Math.Cos(phi));
         }
 
         public bool DoDamage(AsteroidEntity asteroid, float damage, MyStringHash damageSource, bool sync,
             MyHitInfo? hitInfo = null, long attackerId = 0, long realHitEntityId = 0,
             bool shouldDetonateAmmo = true, MyStringHash? extraInfo = null)
         {
-            if (hitInfo.HasValue)
-            {
-                Vector3D impactVelocity = hitInfo.Value.Velocity;
-                Vector3 normal = hitInfo.Value.Normal;
-                float impactAngle = (float)Math.Acos(Vector3.Dot(normal, -impactVelocity.Normalized()));
-
-                if (AsteroidSettings.EnableLogging)
-                {
-                    MyAPIGateway.Utilities.ShowNotification(
-                        $"Impact detected:\n" +
-                        $"Velocity: {impactVelocity.Length():F2}\n" +
-                        $"Angle: {MathHelper.ToDegrees(impactAngle):F2}°\n" +
-                        $"DamageSource: {damageSource}", 1000);
-                }
-            }
+            // With WeaponDamagePerKg=1, damage directly translates to mass removed
+            float massToRemove = damage;
+            float currentMass = asteroid.Properties.Mass;
 
             Log.Info($"Processing damage for asteroid {asteroid.EntityId}:");
-            Log.Info($"- Damage amount: {damage}");
-            Log.Info($"- Current integrity: {asteroid.Properties.CurrentIntegrity:F2}/{asteroid.Properties.MaximumIntegrity:F2}");
-            Log.Info($"- Current instability: {asteroid.Properties.GetInstabilityPercentage():F1}%");
+            Log.Info($"- Damage/mass to remove: {massToRemove:F2}");
+            Log.Info($"- Current mass: {currentMass:F2}");
 
-            // Add instability
-            float instabilityIncrease = damage * AsteroidSettings.InstabilityFromDamage;
+            // Add instability based on damage relative to total mass
+            float instabilityIncrease = (massToRemove / currentMass) * asteroid.Properties.MaxInstability;
             asteroid.AddInstability(instabilityIncrease);
 
             if (asteroid.IsUnstable())
@@ -221,36 +216,37 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 return true;
             }
 
-            // Calculate and apply integrity damage
-            float integrityDamage = damage / AsteroidSettings.WeaponDamagePerKg;
+            // Reduce integrity (which equals mass with BaseIntegrity=1)
             float previousIntegrity = asteroid.Properties.CurrentIntegrity;
-            asteroid.Properties.ReduceIntegrity(integrityDamage);
+            asteroid.Properties.ReduceIntegrity(massToRemove);
 
             if (asteroid.Properties.IsDestroyed())
             {
-                Log.Info("Asteroid destroyed due to integrity loss");
+                Log.Info("Asteroid destroyed due to mass depletion");
                 asteroid.OnDestroy();
                 return true;
             }
 
-            // Calculate new size based on integrity loss
-            float integrityLossRatio = (previousIntegrity - asteroid.Properties.CurrentIntegrity) /
-                asteroid.Properties.MaximumIntegrity;
-            float newSize = asteroid.Properties.Diameter * (1f - integrityLossRatio);
+            // Calculate new size based on mass loss
+            float massRatio = asteroid.Properties.CurrentIntegrity / asteroid.Properties.MaximumIntegrity;
+            float newDiameter = asteroid.Properties.Diameter * (float)Math.Pow(massRatio, 1.0f / 3.0f);
 
-            if (Math.Abs(newSize - asteroid.Properties.Diameter) > 0.1f)
+            Log.Info($"Mass ratio after damage: {massRatio:F2}");
+            Log.Info($"New diameter: {newDiameter:F2} (was {asteroid.Properties.Diameter:F2})");
+
+            // Update physics if size change is significant
+            if (Math.Abs(newDiameter - asteroid.Properties.Diameter) > 0.1f)
             {
-                asteroid.UpdateSizeAndPhysics(newSize);
+                asteroid.UpdateSizeAndPhysics(newDiameter);
             }
 
-            // Spawn debris at impact point
-            if (hitInfo.HasValue)
+            // Spawn debris for the removed mass
+            if (hitInfo.HasValue && massToRemove > 0)
             {
-                SpawnDebrisAtImpact(asteroid, hitInfo.Value.Position, integrityDamage);
+                SpawnDebrisAtImpact(asteroid, hitInfo.Value.Position, massToRemove);
             }
 
             return true;
         }
-
     }
 }

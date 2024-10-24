@@ -321,43 +321,46 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                    new Vector3D(sinPhi * Math.Cos(theta), sinPhi * Math.Sin(theta), Math.Cos(phi));
         }
 
-        public void UpdateSizeAndPhysics(float newSize)
+        public void UpdateSizeAndPhysics(float newDiameter)
         {
             try
             {
-                Log.Info($"Updating asteroid size from {Properties.Diameter} to {newSize}");
+                Log.Info($"Updating asteroid size from {Properties.Diameter} to {newDiameter}");
 
-                if (Math.Abs(newSize - Properties.Diameter) < 1)
+                if (Math.Abs(newDiameter - Properties.Diameter) < 0.1f)
                 {
-                    Log.Info("New size is the same as the current size, skipping update.");
+                    Log.Info("Size change too small, skipping physics update.");
                     return;
                 }
 
+                // Store current physics state
                 Vector3D linearVelocity = Physics?.LinearVelocity ?? Vector3D.Zero;
                 Vector3D angularVelocity = Physics?.AngularVelocity ?? Vector3D.Zero;
                 MatrixD currentWorldMatrix = WorldMatrix;
 
+                // Dispose of old physics
                 if (Physics != null)
                 {
-                    Log.Info($"Disposing old physics for asteroid {EntityId}");
                     Physics.Close();
                     Physics = null;
                 }
 
-                Properties = new AsteroidPhysicalProperties(newSize);
+                // Create new physical properties with new size
+                Properties = new AsteroidPhysicalProperties(newDiameter, Properties.Density);
+
+                // Recreate physics
                 CreatePhysics();
 
+                // Restore physics state
                 if (Physics != null)
                 {
                     Physics.LinearVelocity = linearVelocity;
                     Physics.AngularVelocity = angularVelocity;
                     PositionComp.SetWorldMatrix(ref currentWorldMatrix);
 
-                    Log.Info($"Restored linear velocity: {Physics.LinearVelocity}, " +
-                             $"angular velocity: {Physics.AngularVelocity}, and orientation.");
+                    Log.Info($"Updated physics - Mass: {Properties.Mass:F2}, " +
+                             $"Diameter: {Properties.Diameter:F2}, Volume: {Properties.Volume:F2}");
                 }
-
-                Log.Info($"Successfully updated size and recreated physics for asteroid {EntityId}");
             }
             catch (Exception ex)
             {
@@ -365,6 +368,5 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     $"Error updating size and physics for asteroid {EntityId}");
             }
         }
-
     }
 }

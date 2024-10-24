@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using VRage.Game;
 using VRageMath;
 
 namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
@@ -32,8 +33,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             Volume = (4.0f / 3.0f) * MathHelper.Pi * (float)Math.Pow(Radius, 3);
             Mass = Volume * Density;
 
-            // Set integrity based on mass
-            MaximumIntegrity = Mass * (AsteroidSettings.BaseIntegrity / 100.0f);
+            // With BaseIntegrity=1, integrity should be equal to mass
+            MaximumIntegrity = Mass;
             CurrentIntegrity = MaximumIntegrity;
 
             // Set instability parameters
@@ -44,7 +45,13 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         public void ReduceIntegrity(float amount)
         {
+            float previousIntegrity = CurrentIntegrity;
             CurrentIntegrity = Math.Max(0, CurrentIntegrity - amount);
+
+            if (Math.Abs(previousIntegrity - CurrentIntegrity) > 0.01f)
+            {
+                UpdateSizeFromIntegrityLoss();
+            }
         }
 
         public void AddInstability(float amount)
@@ -52,25 +59,25 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             CurrentInstability = Math.Min(MaxInstability, CurrentInstability + amount);
         }
 
-        public float GetIntegrityPercentage()
+        public float GetIntegrityPercentage() => (CurrentIntegrity / MaximumIntegrity) * 100f;
+        public float GetInstabilityPercentage() => (CurrentInstability / MaxInstability) * 100f;
+        public bool IsDestroyed() => CurrentIntegrity <= 0;
+        public bool IsUnstable() => CurrentInstability >= InstabilityThreshold;
+
+        public void UpdateInstability()
         {
-            return (CurrentIntegrity / MaximumIntegrity) * 100f;
+            float previousInstability = CurrentInstability;
+            CurrentInstability = Math.Max(0, CurrentInstability -
+                                             (AsteroidSettings.InstabilityDecayRate * MyEngineConstants.UPDATE_STEP_SIZE_IN_SECONDS));
+
+            if (Math.Abs(previousInstability - CurrentInstability) > 0.01f)
+            {
+                Log.Info($"Instability decay: {previousInstability:F2} -> {CurrentInstability:F2} " +
+                         $"(-{previousInstability - CurrentInstability:F2})");
+            }
         }
 
-        public float GetInstabilityPercentage()
-        {
-            return (CurrentInstability / MaxInstability) * 100f;
-        }
 
-        public bool IsDestroyed()
-        {
-            return CurrentIntegrity <= 0;
-        }
-
-        public bool IsUnstable()
-        {
-            return CurrentInstability >= InstabilityThreshold;
-        }
 
         public static AsteroidPhysicalProperties CreateFromMass(float targetMass, float density = DEFAULT_DENSITY)
         {
@@ -78,5 +85,28 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             float radius = (float)Math.Pow((3.0f * volume) / (4.0f * MathHelper.Pi), 1.0f / 3.0f);
             return new AsteroidPhysicalProperties(radius * 2.0f, density);
         }
+
+        private void UpdateSizeFromIntegrityLoss()
+        {
+            float integrityRatio = CurrentIntegrity / MaximumIntegrity;
+            float newDiameter = Math.Max(
+                AsteroidSettings.MinSubChunkSize,
+                Diameter * (float)Math.Pow(integrityRatio, 1.0f / 3.0f)
+            );
+
+            // Update all physical properties
+            Diameter = newDiameter;
+            Radius = Diameter / 2.0f;
+            Volume = (4.0f / 3.0f) * MathHelper.Pi * (float)Math.Pow(Radius, 3);
+            Mass = Volume * Density;
+
+            Log.Info($"Updated asteroid properties after integrity loss:\n" +
+                     $"Integrity Ratio: {integrityRatio:F2}\n" +
+                     $"New Diameter: {Diameter:F2}m\n" +
+                     $"New Mass: {Mass:F2}kg\n" +
+                     $"New Volume: {Volume:F2}m³");
+        }
     }
+
 }
+
