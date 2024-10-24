@@ -560,12 +560,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     if (!zone.IsPointInZone(playerPosition)) continue;
                     PlayerMovementData data;
                     if (!playerMovementData.TryGetValue(player.IdentityId, out data)) continue;
-                    if (data.Speed > 1000)
-                    {
-                        Log.Info($"Skipping asteroid spawning for player {player.DisplayName} due to high speed: {data.Speed} m/s.");
-                        skipSpawning = true;
-                        break;
-                    }
+                    if (!(data.Speed > 1000)) continue;
+                    Log.Info($"Skipping asteroid spawning for player {player.DisplayName} due to high speed: {data.Speed} m/s.");
+                    skipSpawning = true;
+                    break;
                 }
 
                 if (skipSpawning)
@@ -588,6 +586,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                         newPosition = zone.Center + RandVector() * AsteroidSettings.ZoneRadius;
                         zoneSpawnAttempts++;
                         totalSpawnAttempts++;
+                        Log.Info($"Attempting to spawn asteroid at {newPosition} (attempt {totalSpawnAttempts})");
 
                         if (AsteroidSettings.EnableGasGiantRingSpawning && _realGasGiantsApi != null && _realGasGiantsApi.IsReady)
                         {
@@ -615,7 +614,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     Vector3D newVelocity;
                     if (!AsteroidSettings.CanSpawnAsteroidAtPoint(newPosition, out newVelocity, isInRing))
                     {
-                        //Log.Info($"Cannot spawn asteroid at {newPosition}, skipping.");
+                        Log.Info($"Cannot spawn asteroid at {newPosition}, skipping.");
                         continue;
                     }
 
@@ -638,25 +637,22 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                         break;
                     }
 
+                    float spawnChance = isInRing ?
+                        MathHelper.Lerp(0.1f, 1f, ringInfluence) * AsteroidSettings.MaxRingAsteroidDensityMultiplier :
+                        1f;
+
+                    if (MainSession.I.Rand.NextDouble() > spawnChance)
+                    {
+                        Log.Info($"Asteroid spawn skipped due to density scaling (spawn chance: {spawnChance})");
+                        continue;
+                    }
+
                     AsteroidType type = AsteroidSettings.GetAsteroidType(newPosition);
                     float size = AsteroidSettings.GetAsteroidSize(newPosition);
 
-                    // Calculate volume and mass based on size
-                    float radius = size / 2.0f;
-                    float volume = (4.0f / 3.0f) * MathHelper.Pi * (float)Math.Pow(radius, 3);  // Volume of a sphere
-                    const float density = 917.0f; // Ice density (adjust based on material)
-                    float mass = density * volume;
-
-                    // Clamp mass according to the type's Min/Max values
-                    AsteroidSettings.MassRange massRange;
-                    if (AsteroidSettings.MinMaxMassByType.TryGetValue(type, out massRange))
+                    if (isInRing)
                     {
-                        mass = MathHelper.Clamp(mass, massRange.MinMass, massRange.MaxMass);
-                        Log.Info($"Asteroid mass clamped to {mass}, type: {type}");
-                    }
-                    else
-                    {
-                        Log.Warning($"Asteroid type {type} not found in MinMaxMassByType, mass not clamped.");
+                        size *= MathHelper.Lerp(0.5f, 1f, ringInfluence);
                     }
 
                     Quaternion rotation = Quaternion.CreateFromYawPitchRoll(
@@ -665,13 +661,16 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                         (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi);
 
                     AsteroidEntity asteroid = AsteroidEntity.CreateAsteroid(newPosition, size, newVelocity, type, rotation);
-                    if (asteroid != null)
-                    {
-                        Log.Info($"Spawned asteroid with clamped mass {mass} at position {newPosition}");
-                        _asteroids.Add(asteroid);
-                        zone.AsteroidCount++;
-                        spawnedPositions.Add(newPosition);
-                    }
+
+                    if (asteroid == null) continue;
+                    _asteroids.Add(asteroid);
+                    zone.AsteroidCount++;
+                    spawnedPositions.Add(newPosition);
+
+                    _messageCache.AddMessage(new AsteroidNetworkMessage(newPosition, size, newVelocity, Vector3D.Zero, type, false, asteroid.EntityId, false, true, rotation));
+                    asteroidsSpawned++;
+
+                    Log.Info($"Spawned asteroid at {newPosition} with size {size} and type {type}");
                 }
 
                 totalAsteroidsSpawned += asteroidsSpawned;
