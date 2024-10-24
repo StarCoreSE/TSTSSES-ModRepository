@@ -21,6 +21,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public float CurrentInstability { get; private set; }
         public float InstabilityThreshold { get; private set; }
 
+        private const float CHUNK_THRESHOLD = 0.1f; // 10% intervals
+        private float _lastChunkThreshold = 0f;
+
         public const float DEFAULT_DENSITY = 917.0f; // kg/m³
 
         private AsteroidEntity ParentEntity { get; set; }
@@ -78,15 +81,13 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         private void UpdateSizeFromMassLoss()
         {
-            // Calculate new size based on new mass
             float newVolume = Mass / Density;
             float newRadius = (float)Math.Pow((3.0f * newVolume) / (4.0f * MathHelper.Pi), 1.0f / 3.0f);
-            float newDiameter = Math.Max(AsteroidSettings.MinSubChunkSize, newRadius * 2.0f);
+            float newDiameter = newRadius * 2.0f;
 
             if (Math.Abs(newDiameter - Diameter) > 0.1f)
             {
-                // Update local properties
-                Radius = newDiameter / 2.0f;
+                Radius = newRadius;
                 Diameter = newDiameter;
                 Volume = (4.0f / 3.0f) * MathHelper.Pi * (float)Math.Pow(Radius, 3);
 
@@ -95,7 +96,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                          $"New Diameter: {Diameter:F2}m\n" +
                          $"New Volume: {Volume:F2}m³");
 
-                // Update the entity's physics
                 if (ParentEntity != null)
                 {
                     ParentEntity.UpdateSizeAndPhysics(Diameter);
@@ -108,6 +108,25 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             float volume = targetMass / density;
             float radius = (float)Math.Pow((3.0f * volume) / (4.0f * MathHelper.Pi), 1.0f / 3.0f);
             return new AsteroidPhysicalProperties(radius * 2.0f, density, parentEntity);
+        }
+
+        public bool ShouldSpawnChunk()
+        {
+            float currentInstabilityPercent = CurrentInstability / MaxInstability;
+            float currentThreshold = (float)Math.Floor(currentInstabilityPercent / CHUNK_THRESHOLD) * CHUNK_THRESHOLD;
+
+            if (currentThreshold > _lastChunkThreshold)
+            {
+                _lastChunkThreshold = currentThreshold;
+                return true;
+            }
+            return false;
+        }
+
+        public void ResetInstability()
+        {
+            CurrentInstability = 0f;
+            _lastChunkThreshold = 0f;
         }
     }
 

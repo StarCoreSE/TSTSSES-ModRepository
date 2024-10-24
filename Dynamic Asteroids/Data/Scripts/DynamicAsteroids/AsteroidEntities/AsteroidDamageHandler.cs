@@ -27,77 +27,70 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             if (!MyAPIGateway.Session.IsServer)
                 return;
 
-            const int splits = 2;
             float totalMass = asteroid.Properties.Mass;
+            float chunkMass = totalMass * 0.1f; // 10% of mass
+            Vector3D baseVelocity = asteroid.Physics?.LinearVelocity ?? Vector3D.Zero;
 
-            // Calculate mass distribution
-            float massRatio = asteroid.IsUnstable() ? 0.4f : 0.8f;
-            float massForNewAsteroids = totalMass * massRatio;
-            float massForDebris = totalMass - massForNewAsteroids;
+            SpawnDebrisAtImpact(asteroid, asteroid.PositionComp.GetPosition(), chunkMass, baseVelocity);
 
-            // Create debris first
-            if (massForDebris > 0)
-            {
-                SpawnDebrisAtImpact(asteroid, asteroid.PositionComp.GetPosition(), massForDebris);
-            }
-
-            // Create new asteroids using AsteroidPhysicalProperties
-            float massPerAsteroid = massForNewAsteroids / splits;
-            var newProperties = AsteroidPhysicalProperties.CreateFromMass(massPerAsteroid);
-
-            Log.Info($"Splitting asteroid {asteroid.EntityId}:");
-            Log.Info($"Original mass: {totalMass:F2}, diameter: {asteroid.Properties.Diameter:F2}");
-            Log.Info(
-                $"Mass ratio: {massRatio:F2} (debris: {massForDebris:F2}, new asteroids: {massForNewAsteroids:F2})");
-            Log.Info($"New asteroid diameter: {newProperties.Diameter:F2}");
-
-            if (newProperties.Diameter <= AsteroidSettings.MinSubChunkSize)
-            {
-                SpawnDebrisAtImpact(asteroid, asteroid.PositionComp.GetPosition(), totalMass);
-            }
-            else
-            {
-                for (int i = 0; i < splits; i++)
-                {
-                    Vector3D offset = RandVector(MainSession.I.Rand) * asteroid.Properties.Diameter * 0.6f;
-                    Vector3D newPos = asteroid.PositionComp.GetPosition() + offset;
-                    Vector3D newVelocity = asteroid.Physics.LinearVelocity +
-                                           RandVector(MainSession.I.Rand) *
-                                           AsteroidSettings.GetRandomSubChunkVelocity(MainSession.I.Rand);
-                    Vector3D newAngularVelocity = RandVector(MainSession.I.Rand) *
-                                                  AsteroidSettings.GetRandomSubChunkAngularVelocity(MainSession.I.Rand);
-                    Quaternion newRotation = Quaternion.CreateFromYawPitchRoll(
-                        (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi,
-                        (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi,
-                        (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi);
-
-                    var subChunk = AsteroidEntity.CreateAsteroid(newPos, newProperties.Diameter,
-                        newVelocity, asteroid.Type, newRotation);
-                    if (subChunk != null)
-                    {
-                        subChunk.Physics.AngularVelocity = newAngularVelocity;
-                        MainSession.I._spawner.AddAsteroid(subChunk);
-
-                        var message = new AsteroidNetworkMessage(newPos, newProperties.Diameter,
-                            newVelocity, newAngularVelocity, asteroid.Type, true,
-                            subChunk.EntityId, false, true, newRotation);
-                        var messageBytes = MyAPIGateway.Utilities.SerializeToBinary(message);
-                        MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
-                    }
-                }
-            }
-
-            // Remove original asteroid
             var finalRemovalMessage = new AsteroidNetworkMessage(
-                asteroid.PositionComp.GetPosition(), asteroid.Properties.Diameter,
-                Vector3D.Zero, Vector3D.Zero, asteroid.Type, false,
-                asteroid.EntityId, true, false, Quaternion.Identity);
+                asteroid.PositionComp.GetPosition(),
+                asteroid.Properties.Diameter,
+                Vector3D.Zero,
+                Vector3D.Zero,
+                asteroid.Type,
+                false,
+                asteroid.EntityId,
+                true,
+                false,
+                Quaternion.Identity);
 
             var finalRemovalMessageBytes = MyAPIGateway.Utilities.SerializeToBinary(finalRemovalMessage);
             MyAPIGateway.Multiplayer.SendMessageToOthers(32000, finalRemovalMessageBytes);
 
             MainSession.I._spawner.TryRemoveAsteroid(asteroid);
             asteroid.Close();
+        }
+
+        public bool DoDamage(AsteroidEntity asteroid, float damage, MyStringHash damageSource, bool sync, MyHitInfo? hitInfo = null, long attackerId = 0, long realHitEntityId = 0, bool shouldDetonateAmmo = true, MyStringHash? extraInfo = null)
+        {
+            float massToRemove = damage * AsteroidSettings.KgLossPerDamage;
+            float instabilityIncrease = damage * AsteroidSettings.InstabilityPerDamage;
+            asteroid.AddInstability(instabilityIncrease);
+
+            if (asteroid.Properties.ShouldSpawnChunk())
+            {
+                float chunkMass = asteroid.Properties.Mass * AsteroidSettings.ChunkMassPercent;
+                Vector3D chunkVelocity = asteroid.Physics.LinearVelocity;
+
+                if (hitInfo.HasValue)
+                {
+                    Vector3D ejectionDir = Vector3D.Normalize(hitInfo.Value.Position - asteroid.PositionComp.GetPosition());
+                    chunkVelocity += ejectionDir * (AsteroidSettings.ChunkEjectionVelocity +
+                                                    (float)MainSession.I.Rand.NextDouble() * AsteroidSettings.ChunkVelocityRandomization);
+                }
+
+                SpawnDebrisAtImpact(asteroid, hitInfo?.Position ?? asteroid.PositionComp.GetPosition(),
+                    chunkMass, chunkVelocity);
+
+                asteroid.Properties.ReduceMass(chunkMass);
+                asteroid.Properties.ResetInstability();
+            }
+
+            if (hitInfo.HasValue)
+            {
+                asteroid.Properties.ReduceMass(massToRemove);
+                SpawnDebrisAtImpact(asteroid, hitInfo.Value.Position, massToRemove,
+                    asteroid.Physics.LinearVelocity);
+            }
+
+            if (asteroid.Properties.IsDestroyed())
+            {
+                asteroid.OnDestroy();
+                return true;
+            }
+
+            return true;
         }
 
         private int GetDropAmount(AsteroidEntity asteroid)
@@ -113,28 +106,37 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             return debrisCount > 0 ? debrisCount : 1;
         }
 
-        public void SpawnDebrisAtImpact(AsteroidEntity asteroid, Vector3D impactPosition, float massLost)
+        public void SpawnDebrisAtImpact(AsteroidEntity asteroid, Vector3D impactPosition, float massLost,
+            Vector3D chunkVelocity)
         {
+            if (AsteroidSettings.EnableLogging)
+            {
+                MyAPIGateway.Utilities.ShowNotification($"Spawning debris:\n" +
+                                                        $"Mass={massLost:F2}kg\n" +
+                                                        $"Type={asteroid.Type}", 1000);
+            }
+
             MyPhysicalItemDefinition itemDefinition = MyDefinitionManager.Static.GetPhysicalItemDefinition(
                 new MyDefinitionId(typeof(MyObjectBuilder_Ore), asteroid.Type.ToString()));
 
-            var newObject = MyObjectBuilderSerializer.CreateNewObject(itemDefinition.Id.TypeId,
+            var newObject = MyObjectBuilderSerializer.CreateNewObject(
+                itemDefinition.Id.TypeId,
                 itemDefinition.Id.SubtypeId.ToString()) as MyObjectBuilder_PhysicalObject;
 
             float groupingRadius = 10.0f;
-
-            // Only get nearby debris of the same type
             List<MyFloatingObject> nearbyDebris = GetNearbyDebris(impactPosition, groupingRadius, newObject);
+
+            Vector3D debrisVelocity = asteroid?.Physics?.LinearVelocity ?? Vector3D.Zero;
+            Vector3D randomVelocity = MyUtils.GetRandomVector3Normalized() * 10;
+            debrisVelocity += randomVelocity;
 
             if (nearbyDebris.Count > 0)
             {
-                // Add to existing debris of same type
                 MyFloatingObject closestDebris = nearbyDebris[0];
                 MyFloatingObjects.AddFloatingObjectAmount(closestDebris, (VRage.MyFixedPoint)massLost);
             }
             else
             {
-                // Create new floating object
                 MyFloatingObjects.Spawn(
                     new MyPhysicalInventoryItem((VRage.MyFixedPoint)massLost, newObject),
                     impactPosition,
@@ -145,7 +147,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                         MyFloatingObject debris = entity as MyFloatingObject;
                         if (debris?.Physics != null)
                         {
-                            debris.Physics.LinearVelocity = asteroid?.Physics?.LinearVelocity ?? Vector3D.Zero;
+                            debris.Physics.LinearVelocity = debrisVelocity;
+                            debris.Physics.AngularVelocity = MyUtils.GetRandomVector3Normalized() * 5;
                         }
                     }
                 );
@@ -180,27 +183,5 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                    new Vector3D(sinPhi * Math.Cos(theta), sinPhi * Math.Sin(theta), Math.Cos(phi));
         }
 
-        public bool DoDamage(AsteroidEntity asteroid, float damage, MyStringHash damageSource, bool sync, MyHitInfo? hitInfo = null, long attackerId = 0, long realHitEntityId = 0, bool shouldDetonateAmmo = true, MyStringHash? extraInfo = null)
-        {
-            // Remove instability mechanics
-            float previousMass = asteroid.Properties.Mass;
-            float massToRemove = damage * AsteroidSettings.KgLossPerDamage;
-
-            asteroid.Properties.ReduceMass(massToRemove);
-
-            if (hitInfo.HasValue)
-            {
-                // Spawn floating objects for removed mass
-                SpawnDebrisAtImpact(asteroid, hitInfo.Value.Position, massToRemove);
-            }
-
-            if (asteroid.Properties.IsDestroyed())
-            {
-                asteroid.OnDestroy();
-                return true;
-            }
-
-            return true;
-        }
     }
 }

@@ -293,6 +293,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         {
             try
             {
+                // Create physics settings with updated mass and size
                 PhysicsSettings settings = MyAPIGateway.Physics.CreateSettingsForPhysics(
                     this,
                     this.WorldMatrix,
@@ -306,14 +307,12 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                         Properties.Volume,
                         Properties.Mass,
                         Vector3.Zero,
-                        Properties.Mass * this.PositionComp.LocalAABB.Height *
-                        this.PositionComp.LocalAABB.Height / 6 * Matrix.Identity
+                        Properties.Mass * Matrix.Identity
                     )
                 );
 
+                // Create sphere physics with new radius
                 MyAPIGateway.Physics.CreateSpherePhysics(settings, Properties.Radius);
-                this.Physics.Enabled = true;
-                this.Physics.Activate();
 
                 Log.Info($"Created physics for asteroid {EntityId}:\n" +
                          $"Radius: {Properties.Radius:F2}m\n" +
@@ -322,8 +321,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             }
             catch (Exception ex)
             {
-                Log.Exception(ex, typeof(AsteroidEntity),
-                    $"Error creating physics for asteroid {EntityId}");
+                Log.Exception(ex, typeof(AsteroidEntity), $"Error creating physics for asteroid {EntityId}");
             }
         }
 
@@ -348,12 +346,12 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     return;
                 }
 
-                // Store current physics state
+                // Store current state
                 Vector3D linearVelocity = Physics?.LinearVelocity ?? Vector3D.Zero;
                 Vector3D angularVelocity = Physics?.AngularVelocity ?? Vector3D.Zero;
                 MatrixD currentWorldMatrix = WorldMatrix;
 
-                // Dispose of old physics
+                // Remove old physics
                 if (Physics != null)
                 {
                     Log.Info($"Disposing old physics for asteroid {EntityId}");
@@ -361,34 +359,57 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     Physics = null;
                 }
 
-                // Update model scale
-                float scale = newDiameter / Properties.Diameter; // Calculate relative scale
-                this.PositionComp.Scale = scale;
-
-                // Create new properties with new size
+                // Update properties first
+                float scale = newDiameter / Properties.Diameter;
                 Properties = new AsteroidPhysicalProperties(newDiameter, Properties.Density, this);
 
-                // Recreate physics
-                CreatePhysics();
+                // Update model scale and position
+                this.PositionComp.Scale = scale;
+                PositionComp.SetWorldMatrix(ref currentWorldMatrix);
+
+                // Create new physics with updated size
+                PhysicsSettings settings = MyAPIGateway.Physics.CreateSettingsForPhysics(
+                    this,
+                    currentWorldMatrix,
+                    Vector3.Zero,
+                    linearDamping: 0f,
+                    angularDamping: 0f,
+                    rigidBodyFlags: RigidBodyFlag.RBF_DEFAULT,
+                    collisionLayer: CollisionLayers.NoVoxelCollisionLayer,
+                    isPhantom: false,
+                    mass: new ModAPIMass(
+                        Properties.Volume,
+                        Properties.Mass,
+                        Vector3.Zero,
+                        Properties.Mass * Matrix.Identity
+                    )
+                );
+
+                // Create sphere physics with new radius
+                MyAPIGateway.Physics.CreateSpherePhysics(settings, Properties.Radius);
 
                 // Restore physics state
                 if (Physics != null)
                 {
                     Physics.LinearVelocity = linearVelocity;
                     Physics.AngularVelocity = angularVelocity;
-                    PositionComp.SetWorldMatrix(ref currentWorldMatrix);
+                    Physics.Enabled = true;
+                    Physics.Activate();
 
-                    Log.Info($"Physics updated - New values:\n" +
-                             $"Diameter: {Properties.Diameter:F2}m\n" +
-                             $"Mass: {Properties.Mass:F2}kg\n" +
-                             $"Scale: {scale:F2}\n" +
-                             $"Collision radius: {Properties.Radius:F2}m");
+                    Log.Info($"Physics updated successfully:\n" +
+                            $"Diameter: {Properties.Diameter:F2}m\n" +
+                            $"Radius: {Properties.Radius:F2}m\n" +
+                            $"Mass: {Properties.Mass:F2}kg\n" +
+                            $"Scale: {scale:F2}");
+                }
+                else
+                {
+                    Log.Warning($"Failed to create physics for asteroid {EntityId} after size update");
                 }
             }
             catch (Exception ex)
             {
-                Log.Exception(ex, typeof(AsteroidEntity),
-                    $"Error updating size and physics for asteroid {EntityId}");
+                Log.Exception(ex, typeof(AsteroidEntity), $"Error updating size and physics for asteroid {EntityId}");
             }
         }
     }

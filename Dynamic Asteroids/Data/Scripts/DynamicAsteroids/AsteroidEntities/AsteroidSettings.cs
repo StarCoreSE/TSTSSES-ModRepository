@@ -49,16 +49,16 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public static double UraniniteWeight = 0.05;
         public static float MinAsteroidSize = 50f;
         public static float MaxAsteroidSize = 250f;
-        public static float MinSubChunkSize = 5f;
-        public static double SubChunkVelocityMin = 1.0;
-        public static double SubChunkVelocityMax = 5.0;
-        public static double SubChunkAngularVelocityMin = 0.01;
-        public static double SubChunkAngularVelocityMax = 0.1;
         public static float InstabilityPerMass = 0.1f;
         public static float InstabilityThresholdPercent = 0.8f;
         public static float InstabilityDecayRate = 0.1f;
         public static float InstabilityFromDamage = 1.0f;
         public static float KgLossPerDamage = 1.0f; // 1 damage = 1 kg lost
+
+        public static float ChunkMassPercent = 0.1f;         // 10% of mass per chunk
+        public static float ChunkEjectionVelocity = 5.0f;    // Base velocity for ejected chunks
+        public static float ChunkVelocityRandomization = 2.0f; // Random velocity added to chunks
+        public static float InstabilityPerDamage = 0.1f;     // How much instability is added per damage point
 
         public struct MassRange
         {
@@ -150,16 +150,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             return AngularVelocityVariability * rand.NextDouble();
         }
 
-        public static double GetRandomSubChunkVelocity(Random rand)
-        {
-            return SubChunkVelocityMin + rand.NextDouble() * (SubChunkVelocityMax - SubChunkVelocityMin);
-        }
-
-        public static double GetRandomSubChunkAngularVelocity(Random rand)
-        {
-            return SubChunkAngularVelocityMin + rand.NextDouble() * (SubChunkAngularVelocityMax - SubChunkAngularVelocityMin);
-        }
-
         public static void SaveSettings()
         {
             try
@@ -209,13 +199,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     writer.WriteLine("[AsteroidSize]");
                     writer.WriteLine($"MinAsteroidSize={MinAsteroidSize}");
                     writer.WriteLine($"MaxAsteroidSize={MaxAsteroidSize}");
-                    writer.WriteLine($"MinSubChunkSize={MinSubChunkSize}");
-
-                    writer.WriteLine("[SubChunkVelocity]");
-                    writer.WriteLine($"SubChunkVelocityMin={SubChunkVelocityMin}");
-                    writer.WriteLine($"SubChunkVelocityMax={SubChunkVelocityMax}");
-                    writer.WriteLine($"SubChunkAngularVelocityMin={SubChunkAngularVelocityMin}");
-                    writer.WriteLine($"SubChunkAngularVelocityMax={SubChunkAngularVelocityMax}");
 
                     writer.WriteLine("[Instability]");
                     writer.WriteLine($"InstabilityPerMass={InstabilityPerMass}");
@@ -372,21 +355,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                                     break;
                                 case "MaxAsteroidSize":
                                     MaxAsteroidSize = float.Parse(value);
-                                    break;
-                                case "MinSubChunkSize":
-                                    MinSubChunkSize = float.Parse(value);
-                                    break;
-                                case "SubChunkVelocityMin":
-                                    SubChunkVelocityMin = double.Parse(value);
-                                    break;
-                                case "SubChunkVelocityMax":
-                                    SubChunkVelocityMax = double.Parse(value);
-                                    break;
-                                case "SubChunkAngularVelocityMin":
-                                    SubChunkAngularVelocityMin = double.Parse(value);
-                                    break;
-                                case "SubChunkAngularVelocityMax":
-                                    SubChunkAngularVelocityMax = double.Parse(value);
                                     break;
                                 case "Name":
                                     if (currentArea != null) ValidSpawnLocations.Add(currentArea);

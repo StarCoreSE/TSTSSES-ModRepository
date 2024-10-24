@@ -233,7 +233,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
         {
             try
             {
-                if (MyAPIGateway.Session.IsServer)
+                if (MyAPIGateway.Session == null || MyAPIGateway.Session.Player == null)
                 {
                     _spawner.UpdateTick();
                     if (_saveStateTimer > 0)
