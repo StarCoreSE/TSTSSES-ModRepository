@@ -403,22 +403,19 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             }
 
             // Store current properties
-            var currentProperties = new AsteroidProperties
-            {
-                Model = ModelString,
-                Position = PositionComp.GetPosition(),
-                WorldMatrix = WorldMatrix,
-                LinearVelocity = Physics?.LinearVelocity ?? Vector3D.Zero,
-                AngularVelocity = Physics?.AngularVelocity ?? Vector3D.Zero,
-                Rotation = Quaternion.CreateFromRotationMatrix(WorldMatrix),
-                Mass = Properties.Mass,
-                Density = Properties.Density,
-                CurrentIntegrity = Properties.CurrentIntegrity,
-                MaximumIntegrity = Properties.MaximumIntegrity,
-                CurrentInstability = Properties.CurrentInstability,
-                MaxInstability = Properties.MaxInstability,
-                InstabilityThreshold = Properties.InstabilityThreshold
-            };
+            string currentModel = ModelString;
+            Vector3D position = PositionComp.GetPosition();
+            MatrixD worldMatrix = WorldMatrix;
+            Vector3D linearVelocity = Physics?.LinearVelocity ?? Vector3D.Zero;
+            Vector3D angularVelocity = Physics?.AngularVelocity ?? Vector3D.Zero;
+            Quaternion rotation = Quaternion.CreateFromRotationMatrix(WorldMatrix);
+            float mass = Properties.Mass;
+            float density = Properties.Density;
+            float currentIntegrity = Properties.CurrentIntegrity;
+            float maximumIntegrity = Properties.MaximumIntegrity;
+            float currentInstability = Properties.CurrentInstability;
+            float maxInstability = Properties.MaxInstability;
+            float instabilityThreshold = Properties.InstabilityThreshold;
 
             // Safety check for entity removal
             if (!MainSession.I._spawner.TryRemoveAsteroid(this))
@@ -430,8 +427,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             try
             {
                 var newAsteroid = new AsteroidEntity();
-                newAsteroid.ModelString = currentProperties.Model;
-                newAsteroid.Init(currentProperties.Position, newDiameter, currentProperties.LinearVelocity, Type, currentProperties.Rotation);
+                newAsteroid.ModelString = currentModel;
+                newAsteroid.Init(position, newDiameter, linearVelocity, Type, rotation);
 
                 if (newAsteroid == null || newAsteroid.EntityId == 0)
                 {
@@ -440,15 +437,36 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 }
 
                 // Transfer properties
-                TransferProperties(newAsteroid, currentProperties, newDiameter);
+                TransferProperties(newAsteroid, currentModel, position, worldMatrix,
+                    linearVelocity, angularVelocity, mass, density,
+                    currentIntegrity, maximumIntegrity, currentInstability,
+                    maxInstability, instabilityThreshold, newDiameter);
 
                 // Add to entities and spawner
                 MyEntities.Add(newAsteroid);
                 MainSession.I._spawner.AddAsteroid(newAsteroid);
 
+                // Network message
+                var message = new AsteroidNetworkMessage(
+                    position,
+                    newDiameter,
+                    linearVelocity,
+                    newAsteroid.Physics.AngularVelocity,
+                    Type,
+                    false,
+                    newAsteroid.EntityId,
+                    false,
+                    true,
+                    rotation
+                );
+
+                byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(message);
+                MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
+
                 // Remove old entity
                 MyEntities.Remove(this);
                 Close();
+
             }
             catch (Exception ex)
             {
@@ -456,7 +474,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 Log.Exception(ex, typeof(AsteroidEntity), "Failed to process size update");
             }
         }
-
         private struct AsteroidProperties
         {
             public string Model;
@@ -474,38 +491,44 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             public float InstabilityThreshold;
         }
 
-        private void TransferProperties(AsteroidEntity newAsteroid, AsteroidProperties props, float newDiameter)
+        private void TransferProperties(AsteroidEntity newAsteroid,
+            string model, Vector3D position, MatrixD worldMatrix,
+            Vector3D linearVelocity, Vector3D angularVelocity,
+            float mass, float density, float currentIntegrity,
+            float maximumIntegrity, float currentInstability,
+            float maxInstability, float instabilityThreshold,
+            float newDiameter)
         {
             try
             {
-                newAsteroid.Properties = new AsteroidPhysicalProperties(newDiameter, props.Density, newAsteroid)
+                newAsteroid.Properties = new AsteroidPhysicalProperties(newDiameter, density, newAsteroid)
                 {
-                    Mass = props.Mass,
-                    CurrentInstability = props.CurrentInstability,
-                    MaxInstability = props.MaxInstability,
-                    InstabilityThreshold = props.InstabilityThreshold,
-                    CurrentIntegrity = props.CurrentIntegrity,
-                    MaximumIntegrity = props.MaximumIntegrity
+                    Mass = mass,
+                    CurrentInstability = currentInstability,
+                    MaxInstability = maxInstability,
+                    InstabilityThreshold = instabilityThreshold,
+                    CurrentIntegrity = currentIntegrity,
+                    MaximumIntegrity = maximumIntegrity
                 };
 
                 // Safe physics transfer
                 if (newAsteroid.Physics != null)
                 {
-                    newAsteroid.Physics.LinearVelocity = props.LinearVelocity;
+                    newAsteroid.Physics.LinearVelocity = linearVelocity;
                     newAsteroid.Physics.AngularVelocity = Vector3D.Lerp(
-                        props.AngularVelocity,
-                        props.AngularVelocity * (newDiameter / Properties.Diameter),
+                        angularVelocity,
+                        angularVelocity * (newDiameter / Properties.Diameter),
                         0.85
                     );
                 }
 
                 // Smooth matrix transition
                 MatrixD interpolatedMatrix = MatrixD.Lerp(
-                    props.WorldMatrix,
+                    worldMatrix,
                     MatrixD.CreateWorld(
-                        props.Position,
-                        props.WorldMatrix.Forward,
-                        props.WorldMatrix.Up
+                        position,
+                        worldMatrix.Forward,
+                        worldMatrix.Up
                     ),
                     0.85
                 );
@@ -517,8 +540,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 throw;
             }
         }
-
-
-
+        
     }
 }
