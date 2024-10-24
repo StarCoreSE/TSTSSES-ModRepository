@@ -38,20 +38,24 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             AsteroidSettings.LoadSettings();
             seed = AsteroidSettings.Seed;
             Rand = new Random(seed);
+
+            // Load RealGasGiants API
             RealGasGiantsApi = new RealGasGiantsApi();
             RealGasGiantsApi.Load();
             Log.Info("RealGasGiants API loaded in LoadData");
 
+            // Initialize damage handler
             AsteroidDamageHandler damageHandler = new AsteroidDamageHandler();
             _missileHandler = new KeenRicochetMissileBSWorkaroundHandler(damageHandler);
 
+            // Server-only initialization
             if (MyAPIGateway.Session.IsServer)
             {
                 _spawner = new AsteroidSpawner(RealGasGiantsApi);
                 _spawner.Init(seed);
-                // Remove persistence loading
             }
 
+            // Register network handlers for both client and server
             MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(32000, OnSecureMessageReceived);
             MyAPIGateway.Utilities.MessageEntered += OnMessageEntered;
         }
@@ -201,61 +205,103 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
         {
             try
             {
-                if (MyAPIGateway.Session == null || MyAPIGateway.Session.Player == null)
+                // Server-only updates
+                if (MyAPIGateway.Session.IsServer)
                 {
-                    _spawner.UpdateTick();
+                    _spawner?.UpdateTick();
+
                     if (_saveStateTimer > 0)
-                    {
                         _saveStateTimer--;
-                    }
-                    else
-                    {
-                        _saveStateTimer = AsteroidSettings.SaveStateInterval;
-                    }
 
                     if (_networkMessageTimer > 0)
-                    {
                         _networkMessageTimer--;
-                    }
                     else
                     {
-                        _spawner.SendNetworkMessages();
+                        _spawner?.SendNetworkMessages();
                         _networkMessageTimer = AsteroidSettings.NetworkMessageInterval;
                     }
                 }
 
-                // Debug missile detection
-                // DebugMissiles();
+                // Middle mouse spawn (handle for both client and server)
+                if (AsteroidSettings.EnableMiddleMouseAsteroidSpawn &&
+                    MyAPIGateway.Input.IsNewKeyPressed(MyKeys.MiddleButton) &&
+                    MyAPIGateway.Session?.Player != null)
+                {
+                    Vector3D position = MyAPIGateway.Session.Player.GetPosition();
+                    Vector3D velocity = MyAPIGateway.Session.Player.Character?.Physics?.LinearVelocity ?? Vector3D.Zero;
+                    AsteroidType type = DetermineAsteroidType();
 
-                // Modified this section to use GetAsteroids()
-                if (MyAPIGateway.Session?.Player?.Character != null && _spawner != null && _spawner.GetAsteroids().Any())
+                    if (MyAPIGateway.Session.IsServer)
+                    {
+                        // Server creates the asteroid directly
+                        var asteroid = AsteroidEntity.CreateAsteroid(position, Rand.Next(50), velocity, type);
+                        if (asteroid != null && _spawner != null)
+                        {
+                            _spawner.AddAsteroid(asteroid);
+
+                            // Send to clients
+                            var message = new AsteroidNetworkMessage(
+                                position,
+                                asteroid.Properties.Diameter,
+                                velocity,
+                                asteroid.Physics.AngularVelocity,
+                                type,
+                                false,
+                                asteroid.EntityId,
+                                false,
+                                true,
+                                Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix)
+                            );
+
+                            byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(message);
+                            MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
+                        }
+                    }
+                    else
+                    {
+                        // Client sends request to server
+                        var request = new AsteroidNetworkMessage(
+                            position,
+                            50, // default size
+                            velocity,
+                            Vector3D.Zero,
+                            type,
+                            false,
+                            0, // server will assign real ID
+                            false,
+                            true,
+                            Quaternion.Identity
+                        );
+
+                        byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(request);
+                        MyAPIGateway.Multiplayer.SendMessageToServer(32000, messageBytes);
+                    }
+
+                    Log.Info($"Asteroid spawn requested at {position} with velocity {velocity}");
+                }
+
+                // Client-only updates (debug visualization)
+                if (MyAPIGateway.Session?.Player?.Character != null)
                 {
                     Vector3D characterPosition = MyAPIGateway.Session.Player.Character.PositionComp.GetPosition();
                     AsteroidEntity nearestAsteroid = FindNearestAsteroid(characterPosition);
-                    if (nearestAsteroid != null)
+
+                    if (nearestAsteroid != null && AsteroidSettings.EnableLogging)
                     {
                         Vector3D angularVelocity = nearestAsteroid.Physics.AngularVelocity;
                         string rotationString = $"({angularVelocity.X:F2}, {angularVelocity.Y:F2}, {angularVelocity.Z:F2})";
                         string message = $"Nearest Asteroid: {nearestAsteroid.EntityId} ({nearestAsteroid.Type})\nRotation: {rotationString}";
-                        if (AsteroidSettings.EnableLogging) MyAPIGateway.Utilities.ShowNotification(message, 1000 / 60);
+                        MyAPIGateway.Utilities.ShowNotification(message, 1000 / 60);
                     }
                 }
 
-                if (AsteroidSettings.EnableMiddleMouseAsteroidSpawn && MyAPIGateway.Input.IsNewKeyPressed(MyKeys.MiddleButton))
+                // Shared updates
+                if (++_testTimer >= 240)
                 {
-                    if (MyAPIGateway.Session != null)
-                    {
-                        Vector3D position = MyAPIGateway.Session.Player?.GetPosition() ?? Vector3D.Zero;
-                        Vector3 velocity = MyAPIGateway.Session.Player?.Character?.Physics?.LinearVelocity ?? Vector3D.Zero;
-                        AsteroidType type = DetermineAsteroidType();
-                        AsteroidEntity.CreateAsteroid(position, Rand.Next(50), velocity, type);
-                        Log.Info($"Asteroid created at {position} with velocity {velocity}");
-                    }
+                    _testTimer = 0;
+                    TestNearestGasGiant();
                 }
 
-                if (++_testTimer < 240) return;
-                _testTimer = 0;
-                TestNearestGasGiant();
                 Log.Update();
             }
             catch (Exception ex)
@@ -386,28 +432,54 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     return;
                 }
 
-                Log.Info($"Client: Received message of {message.Length} bytes from {steamId}");
                 AsteroidNetworkMessage asteroidMessage = MyAPIGateway.Utilities.SerializeFromBinary<AsteroidNetworkMessage>(message);
 
-                if (asteroidMessage.IsRemoval)
+                if (MyAPIGateway.Session.IsServer)
                 {
-                    AsteroidEntity asteroid = MyEntities.GetEntityById(asteroidMessage.EntityId) as AsteroidEntity;
-                    if (asteroid != null)
+                    // Server receiving spawn request from client
+                    if (asteroidMessage.IsInitialCreation && asteroidMessage.EntityId == 0)
                     {
-                        MyEntities.Remove(asteroid);
-                        asteroid.Close();
-                    }
-                    else
-                    {
-                        Log.Info($"Client: Failed to find asteroid with ID {asteroidMessage.EntityId} for removal");
+                        var asteroid = AsteroidEntity.CreateAsteroid(
+                            asteroidMessage.GetPosition(),
+                            asteroidMessage.Size,
+                            asteroidMessage.GetVelocity(),
+                            asteroidMessage.GetType()
+                        );
+
+                        if (asteroid != null && _spawner != null)
+                        {
+                            _spawner.AddAsteroid(asteroid);
+
+                            // Send to all clients including requester
+                            var response = new AsteroidNetworkMessage(
+                                asteroid.PositionComp.GetPosition(),
+                                asteroid.Properties.Diameter,
+                                asteroid.Physics.LinearVelocity,
+                                asteroid.Physics.AngularVelocity,
+                                asteroid.Type,
+                                false,
+                                asteroid.EntityId,
+                                false,
+                                true,
+                                Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix)
+                            );
+
+                            byte[] responseBytes = MyAPIGateway.Utilities.SerializeToBinary(response);
+                            MyAPIGateway.Multiplayer.SendMessageToOthers(32000, responseBytes);
+                        }
                     }
                 }
                 else
                 {
-                    AsteroidEntity existingAsteroid = MyEntities.GetEntityById(asteroidMessage.EntityId) as AsteroidEntity;
-                    if (existingAsteroid != null)
+                    // Client receiving asteroid updates
+                    if (asteroidMessage.IsRemoval)
                     {
-                        Log.Info($"Client: Asteroid with ID {asteroidMessage.EntityId} already exists, skipping creation");
+                        AsteroidEntity asteroid = MyEntities.GetEntityById(asteroidMessage.EntityId) as AsteroidEntity;
+                        if (asteroid != null)
+                        {
+                            MyEntities.Remove(asteroid);
+                            asteroid.Close();
+                        }
                     }
                     else
                     {
@@ -417,16 +489,13 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                             asteroidMessage.GetVelocity(),
                             asteroidMessage.GetType(),
                             asteroidMessage.GetRotation(),
-                            asteroidMessage.EntityId);
+                            asteroidMessage.EntityId
+                        );
 
                         if (asteroid != null)
                         {
                             asteroid.Physics.AngularVelocity = asteroidMessage.GetAngularVelocity();
                             MyEntities.Add(asteroid);
-                        }
-                        else
-                        {
-                            Log.Info($"Client: Failed to create asteroid with ID {asteroidMessage.EntityId}");
                         }
                     }
                 }
@@ -436,8 +505,12 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 Log.Exception(ex, typeof(MainSession), "Error processing received message: ");
             }
         }
+
         private AsteroidEntity FindNearestAsteroid(Vector3D characterPosition)
         {
+            if (characterPosition == null)
+                return null;
+
             var entities = new HashSet<IMyEntity>();
             MyAPIGateway.Entities.GetEntities(entities);
 
@@ -457,6 +530,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     }
                 }
             }
+
             return nearestAsteroid;
         }
 
@@ -479,15 +553,12 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
         {
             try
             {
-                if (MyAPIGateway.Session?.Player?.Character != null && _spawner != null)
+                if (AsteroidSettings.EnableLogging && MyAPIGateway.Session?.Player?.Character != null)
                 {
                     Vector3D characterPosition = MyAPIGateway.Session.Player.Character.PositionComp.GetPosition();
                     AsteroidEntity nearestAsteroid = FindNearestAsteroid(characterPosition);
 
-                    if (nearestAsteroid != null)
-                    {
-                        nearestAsteroid.DrawDebugSphere();  // Draw the sphere every frame
-                    }
+                    nearestAsteroid?.DrawDebugSphere();
                 }
             }
             catch (Exception ex)
