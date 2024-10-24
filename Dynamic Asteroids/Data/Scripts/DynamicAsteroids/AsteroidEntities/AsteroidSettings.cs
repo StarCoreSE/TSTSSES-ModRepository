@@ -47,7 +47,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public static double GoldWeight = 0.05;
         public static double PlatinumWeight = 0.05;
         public static double UraniniteWeight = 0.05;
-        public static float BaseIntegrity = 100f;
         public static float MinAsteroidSize = 50f;
         public static float MaxAsteroidSize = 250f;
         public static float MinSubChunkSize = 5f;
@@ -55,12 +54,11 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public static double SubChunkVelocityMax = 5.0;
         public static double SubChunkAngularVelocityMin = 0.01;
         public static double SubChunkAngularVelocityMax = 0.1;
-        public static float WeaponDamagePerKg = 50.0f;  // Default value: 50 damage removes 1 kg of asteroid material
         public static float InstabilityPerMass = 0.1f;
         public static float InstabilityThresholdPercent = 0.8f;
         public static float InstabilityDecayRate = 0.1f;
         public static float InstabilityFromDamage = 1.0f;
-
+        public static float KgLossPerDamage = 1.0f; // 1 damage = 1 kg lost
 
         public struct MassRange
         {
@@ -77,7 +75,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         public static readonly Dictionary<AsteroidType, MassRange> MinMaxMassByType = new Dictionary<AsteroidType, MassRange>
         {
-            { AsteroidType.Ice, new MassRange(100000000f, 500000000f) },
+            { AsteroidType.Ice, new MassRange(1000f, 50000f) },
             { AsteroidType.Stone, new MassRange(80000f, 400000f) },
             { AsteroidType.Iron, new MassRange(50000f, 300000f) },
             { AsteroidType.Nickel, new MassRange(40000f, 250000f) },
@@ -194,7 +192,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     writer.WriteLine($"MinDistanceFromPlayer={MinDistanceFromPlayer}");
                     writer.WriteLine($"Seed={Seed}");
                     writer.WriteLine($"IgnorePlanets={IgnorePlanets}");
-                    writer.WriteLine($"WeaponDamagePerKg={WeaponDamagePerKg}");
 
                     writer.WriteLine("[Weights]");
                     writer.WriteLine($"IceWeight={IceWeight}");
@@ -210,7 +207,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     writer.WriteLine($"UraniniteWeight={UraniniteWeight}");
 
                     writer.WriteLine("[AsteroidSize]");
-                    writer.WriteLine($"BaseIntegrity={BaseIntegrity}");
                     writer.WriteLine($"MinAsteroidSize={MinAsteroidSize}");
                     writer.WriteLine($"MaxAsteroidSize={MaxAsteroidSize}");
                     writer.WriteLine($"MinSubChunkSize={MinSubChunkSize}");
@@ -371,9 +367,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                                 case "UraniniteWeight":
                                     UraniniteWeight = double.Parse(value);
                                     break;
-                                case "BaseIntegrity":
-                                    BaseIntegrity = float.Parse(value);
-                                    break;
                                 case "MinAsteroidSize":
                                     MinAsteroidSize = float.Parse(value);
                                     break;
@@ -394,9 +387,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                                     break;
                                 case "SubChunkAngularVelocityMax":
                                     SubChunkAngularVelocityMax = double.Parse(value);
-                                    break;
-                                case "WeaponDamagePerKg":
-                                    WeaponDamagePerKg = float.Parse(value);
                                     break;
                                 case "Name":
                                     if (currentArea != null) ValidSpawnLocations.Add(currentArea);

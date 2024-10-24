@@ -197,16 +197,23 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             MyHitInfo? hitInfo = null, long attackerId = 0, long realHitEntityId = 0,
             bool shouldDetonateAmmo = true, MyStringHash? extraInfo = null)
         {
-            // With WeaponDamagePerKg=1, damage directly translates to mass removed
-            float massToRemove = damage;
-            float currentMass = asteroid.Properties.Mass;
+            if (hitInfo.HasValue)
+            {
+                Vector3D impactVelocity = hitInfo.Value.Velocity;
+                Vector3 normal = hitInfo.Value.Normal;
+                float impactAngle = (float)Math.Acos(Vector3.Dot(normal, -impactVelocity.Normalized()));
+
+                Log.Info($"Hit details - Velocity: {impactVelocity}, Normal: {normal}, " +
+                         $"Position: {hitInfo.Value.Position}, Angle: {MathHelper.ToDegrees(impactAngle):F2}°");
+            }
 
             Log.Info($"Processing damage for asteroid {asteroid.EntityId}:");
-            Log.Info($"- Damage/mass to remove: {massToRemove:F2}");
-            Log.Info($"- Current mass: {currentMass:F2}");
+            Log.Info($"- Damage amount: {damage}");
+            Log.Info($"- Current mass: {asteroid.Properties.Mass:F2}kg");
 
             // Add instability based on damage relative to total mass
-            float instabilityIncrease = (massToRemove / currentMass) * asteroid.Properties.MaxInstability;
+            float instabilityIncrease = (damage * AsteroidSettings.KgLossPerDamage / asteroid.Properties.Mass) *
+                                        asteroid.Properties.MaxInstability;
             asteroid.AddInstability(instabilityIncrease);
 
             if (asteroid.IsUnstable())
@@ -216,9 +223,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 return true;
             }
 
-            // Reduce integrity (which equals mass with BaseIntegrity=1)
-            float previousIntegrity = asteroid.Properties.CurrentIntegrity;
-            asteroid.Properties.ReduceIntegrity(massToRemove);
+            // Remove mass based on damage
+            float previousMass = asteroid.Properties.Mass;
+            asteroid.Properties.ReduceMass(damage);
 
             if (asteroid.Properties.IsDestroyed())
             {
@@ -227,23 +234,14 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 return true;
             }
 
-            // Calculate new size based on mass loss
-            float massRatio = asteroid.Properties.CurrentIntegrity / asteroid.Properties.MaximumIntegrity;
-            float newDiameter = asteroid.Properties.Diameter * (float)Math.Pow(massRatio, 1.0f / 3.0f);
-
-            Log.Info($"Mass ratio after damage: {massRatio:F2}");
-            Log.Info($"New diameter: {newDiameter:F2} (was {asteroid.Properties.Diameter:F2})");
-
-            // Update physics if size change is significant
-            if (Math.Abs(newDiameter - asteroid.Properties.Diameter) > 0.1f)
-            {
-                asteroid.UpdateSizeAndPhysics(newDiameter);
-            }
-
             // Spawn debris for the removed mass
-            if (hitInfo.HasValue && massToRemove > 0)
+            if (hitInfo.HasValue)
             {
-                SpawnDebrisAtImpact(asteroid, hitInfo.Value.Position, massToRemove);
+                float massLost = previousMass - asteroid.Properties.Mass;
+                if (massLost > 0)
+                {
+                    SpawnDebrisAtImpact(asteroid, hitInfo.Value.Position, massLost);
+                }
             }
 
             return true;

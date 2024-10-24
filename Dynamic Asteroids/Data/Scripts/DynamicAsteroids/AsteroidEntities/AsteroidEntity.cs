@@ -117,8 +117,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             return ent;
         }
 
-        private void Init(Vector3D position, float size, Vector3D initialVelocity, AsteroidType type,
-            Quaternion? rotation)
+        private void Init(Vector3D position, float size, Vector3D initialVelocity, AsteroidType type, Quaternion? rotation)
         {
             try
             {
@@ -140,14 +139,13 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 }
 
                 // Initialize physical properties
-                Properties = new AsteroidPhysicalProperties(size);
+                Properties = new AsteroidPhysicalProperties(size, AsteroidPhysicalProperties.DEFAULT_DENSITY, this);
 
-                // Apply mass range constraints if they exist
                 AsteroidSettings.MassRange massRange;
                 if (AsteroidSettings.MinMaxMassByType.TryGetValue(type, out massRange))
                 {
                     float clampedMass = MathHelper.Clamp(Properties.Mass, massRange.MinMass, massRange.MaxMass);
-                    Properties = AsteroidPhysicalProperties.CreateFromMass(clampedMass);
+                    Properties = AsteroidPhysicalProperties.CreateFromMass(clampedMass, Properties.Density, this);
                 }
 
                 // Initialize model and position
@@ -268,7 +266,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             BoundingBoxD localBox = PositionComp.LocalAABB;
             MatrixD boxWorldMatrix = WorldMatrix;
             MySimpleObjectDraw.DrawTransparentBox(ref boxWorldMatrix, ref localBox,
-                ref otherColor, MySimpleObjectRasterizer.Wireframe, 1);
+                ref otherColor, MySimpleObjectRasterizer.Wireframe, 1, 0.1f);
         }
 
 
@@ -368,7 +366,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 this.PositionComp.Scale = scale;
 
                 // Create new properties with new size
-                Properties = new AsteroidPhysicalProperties(newDiameter, Properties.Density);
+                Properties = new AsteroidPhysicalProperties(newDiameter, Properties.Density, this);
 
                 // Recreate physics
                 CreatePhysics();

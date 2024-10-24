@@ -23,35 +23,22 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         public const float DEFAULT_DENSITY = 917.0f; // kg/m³
 
-        public AsteroidPhysicalProperties(float diameter, float density = DEFAULT_DENSITY)
+        private AsteroidEntity ParentEntity { get; set; }
+
+
+        public AsteroidPhysicalProperties(float diameter, float density = DEFAULT_DENSITY, AsteroidEntity parentEntity = null)
         {
+            ParentEntity = parentEntity;
             Diameter = diameter;
             Radius = diameter / 2.0f;
             Density = density;
 
-            // Calculate volume and mass
             Volume = (4.0f / 3.0f) * MathHelper.Pi * (float)Math.Pow(Radius, 3);
             Mass = Volume * Density;
 
-            // With BaseIntegrity=1, integrity should be equal to mass
-            MaximumIntegrity = Mass;
-            CurrentIntegrity = MaximumIntegrity;
-
-            // Set instability parameters
             MaxInstability = Mass * AsteroidSettings.InstabilityPerMass;
             InstabilityThreshold = MaxInstability * AsteroidSettings.InstabilityThresholdPercent;
             CurrentInstability = 0;
-        }
-
-        public void ReduceIntegrity(float amount)
-        {
-            float previousIntegrity = CurrentIntegrity;
-            CurrentIntegrity = Math.Max(0, CurrentIntegrity - amount);
-
-            if (Math.Abs(previousIntegrity - CurrentIntegrity) > 0.01f)
-            {
-                UpdateSizeFromIntegrityLoss();
-            }
         }
 
         public void AddInstability(float amount)
@@ -61,7 +48,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         public float GetIntegrityPercentage() => (CurrentIntegrity / MaximumIntegrity) * 100f;
         public float GetInstabilityPercentage() => (CurrentInstability / MaxInstability) * 100f;
-        public bool IsDestroyed() => CurrentIntegrity <= 0;
+        public bool IsDestroyed() => Mass <= 0;
         public bool IsUnstable() => CurrentInstability >= InstabilityThreshold;
 
         public void UpdateInstability()
@@ -77,34 +64,50 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             }
         }
 
+        public void ReduceMass(float damageAmount)
+        {
+            float massToRemove = damageAmount * AsteroidSettings.KgLossPerDamage;
+            float previousMass = Mass;
+            Mass = Math.Max(0, Mass - massToRemove);
 
+            if (Math.Abs(previousMass - Mass) > 0.01f)
+            {
+                UpdateSizeFromMassLoss();
+            }
+        }
 
-        public static AsteroidPhysicalProperties CreateFromMass(float targetMass, float density = DEFAULT_DENSITY)
+        private void UpdateSizeFromMassLoss()
+        {
+            // Calculate new size based on new mass
+            float newVolume = Mass / Density;
+            float newRadius = (float)Math.Pow((3.0f * newVolume) / (4.0f * MathHelper.Pi), 1.0f / 3.0f);
+            float newDiameter = Math.Max(AsteroidSettings.MinSubChunkSize, newRadius * 2.0f);
+
+            if (Math.Abs(newDiameter - Diameter) > 0.1f)
+            {
+                // Update local properties
+                Radius = newDiameter / 2.0f;
+                Diameter = newDiameter;
+                Volume = (4.0f / 3.0f) * MathHelper.Pi * (float)Math.Pow(Radius, 3);
+
+                Log.Info($"Updated asteroid properties after mass loss:\n" +
+                         $"New Mass: {Mass:F2}kg\n" +
+                         $"New Diameter: {Diameter:F2}m\n" +
+                         $"New Volume: {Volume:F2}m³");
+
+                // Update the entity's physics
+                if (ParentEntity != null)
+                {
+                    ParentEntity.UpdateSizeAndPhysics(Diameter);
+                }
+            }
+        }
+
+        public static AsteroidPhysicalProperties CreateFromMass(float targetMass, float density = DEFAULT_DENSITY, AsteroidEntity parentEntity = null)
         {
             float volume = targetMass / density;
             float radius = (float)Math.Pow((3.0f * volume) / (4.0f * MathHelper.Pi), 1.0f / 3.0f);
-            return new AsteroidPhysicalProperties(radius * 2.0f, density);
-        }
-
-        private void UpdateSizeFromIntegrityLoss()
-        {
-            float integrityRatio = CurrentIntegrity / MaximumIntegrity;
-            float newDiameter = Math.Max(
-                AsteroidSettings.MinSubChunkSize,
-                Diameter * (float)Math.Pow(integrityRatio, 1.0f / 3.0f)
-            );
-
-            // Update all physical properties
-            Diameter = newDiameter;
-            Radius = Diameter / 2.0f;
-            Volume = (4.0f / 3.0f) * MathHelper.Pi * (float)Math.Pow(Radius, 3);
-            Mass = Volume * Density;
-
-            Log.Info($"Updated asteroid properties after integrity loss:\n" +
-                     $"Integrity Ratio: {integrityRatio:F2}\n" +
-                     $"New Diameter: {Diameter:F2}m\n" +
-                     $"New Mass: {Mass:F2}kg\n" +
-                     $"New Volume: {Volume:F2}m³");
+            return new AsteroidPhysicalProperties(radius * 2.0f, density, parentEntity);
         }
     }
 
