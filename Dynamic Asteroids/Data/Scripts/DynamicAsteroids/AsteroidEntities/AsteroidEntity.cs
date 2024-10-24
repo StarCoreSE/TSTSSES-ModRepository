@@ -92,31 +92,42 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             AsteroidType type, Quaternion? rotation = null, long? entityId = null)
         {
             var ent = new AsteroidEntity();
-            Log.Info($"Creating AsteroidEntity at Position: {position}, Size: {size}, InitialVelocity: {initialVelocity}, Type: {type}");
-
-            if (entityId.HasValue)
-            {
-                ent.EntityId = entityId.Value;
-            }
-
             try
             {
-                ent.Init(position, size, initialVelocity, type, rotation);
-
-                if (ent.EntityId == 0)
+                if (entityId.HasValue)
                 {
-                    Log.Warning("EntityId is 0, expecting the game to assign a valid ID.");
+                    ent.EntityId = entityId.Value;
                 }
 
-                // Ensure position is set correctly before adding to entities
-                MatrixD worldMatrix = rotation.HasValue
-                    ? MatrixD.CreateFromQuaternion(rotation.Value)
-                    : MatrixD.CreateWorld(position, Vector3D.Forward, Vector3D.Up);
-                worldMatrix.Translation = position;
+                // Create the proper world matrix first
+                MatrixD worldMatrix;
+                if (rotation.HasValue)
+                {
+                    // Create rotation matrix first
+                    MatrixD rotationMatrix = MatrixD.CreateFromQuaternion(rotation.Value);
+                    // Create translation matrix
+                    MatrixD translationMatrix = MatrixD.CreateTranslation(position);
+                    // Combine them in the correct order
+                    worldMatrix = rotationMatrix * translationMatrix;
+                }
+                else
+                {
+                    // For no rotation, just create a world matrix directly
+                    worldMatrix = MatrixD.CreateWorld(position, Vector3D.Forward, Vector3D.Up);
+                }
+
+                // Set the world matrix before initialization
+                ent.PositionComp.SetPosition(position);
                 ent.WorldMatrix = worldMatrix;
 
+                // Initialize other properties
+                ent.Init(position, size, initialVelocity, type, rotation);
+
+                Log.Info($"Creating asteroid at position {position}");
+                Log.Info($"World matrix translation: {worldMatrix.Translation}");
+                Log.Info($"Position component: {ent.PositionComp.GetPosition()}");
+
                 MyEntities.Add(ent);
-                Log.Info($"{(MyAPIGateway.Session.IsServer ? "Server" : "Client")}: Added asteroid entity with ID {ent.EntityId} to MyEntities");
 
                 return ent;
             }
@@ -125,6 +136,40 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 Log.Exception(ex, typeof(AsteroidEntity), "Failed to initialize AsteroidEntity");
                 return null;
             }
+        }
+
+        private void SetupInitialPositionAndRotation(Vector3D position, Quaternion? rotation)
+        {
+            // Create rotation matrix
+            MatrixD rotationMatrix;
+            if (rotation.HasValue)
+            {
+                rotationMatrix = MatrixD.CreateFromQuaternion(rotation.Value);
+            }
+            else
+            {
+                rotationMatrix = MatrixD.CreateFromQuaternion(Quaternion.CreateFromYawPitchRoll(
+                    (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi,
+                    (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi,
+                    (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi));
+            }
+
+            // Create the world matrix properly
+            this.WorldMatrix = MatrixD.Identity;
+
+            // Set rotation first
+            MatrixD worldMatrix = this.WorldMatrix;
+            worldMatrix.Forward = rotationMatrix.Forward;
+            worldMatrix.Up = rotationMatrix.Up;
+            worldMatrix.Right = rotationMatrix.Right;
+
+            // Set position directly
+            worldMatrix.Translation = position;
+
+            Log.Info($"Setting up asteroid at position {position}:");
+            Log.Info($"Final matrix translation: {worldMatrix.Translation}");
+            Log.Info($"Final matrix forward: {worldMatrix.Forward}");
+            Log.Info($"Final matrix up: {worldMatrix.Up}");
         }
 
         private void Init(Vector3D position, float size, Vector3D initialVelocity, AsteroidType type, Quaternion? rotation)
@@ -191,26 +236,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 Log.Exception(ex, typeof(AsteroidEntity), "Failed to initialize AsteroidEntity");
                 this.Flags &= ~EntityFlags.Visible;
             }
-        }
-
-        private void SetupInitialPositionAndRotation(Vector3D position, Quaternion? rotation)
-        {
-            if (rotation.HasValue)
-            {
-                this.WorldMatrix = MatrixD.CreateFromQuaternion(rotation.Value) *
-                                   MatrixD.CreateWorld(position, Vector3D.Forward, Vector3D.Up);
-            }
-            else
-            {
-                var randomRotation = MatrixD.CreateFromQuaternion(Quaternion.CreateFromYawPitchRoll(
-                    (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi,
-                    (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi,
-                    (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi));
-                this.WorldMatrix = randomRotation * MatrixD.CreateWorld(position, Vector3D.Forward, Vector3D.Up);
-            }
-
-            this.WorldMatrix.Orthogonalize();
-            Log.Info($"WorldMatrix set for asteroid at position {position}");
         }
 
         private string SelectModelForAsteroidType(AsteroidType type)
