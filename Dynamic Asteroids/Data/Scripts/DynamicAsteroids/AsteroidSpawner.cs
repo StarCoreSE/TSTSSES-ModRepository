@@ -173,7 +173,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             List<AsteroidState> allStates = _asteroids.Select(asteroid => new AsteroidState
             {
                 Position = asteroid.PositionComp.GetPosition(),
-                Size = asteroid.Size,
+                Size = asteroid.Properties.Diameter,
                 Type = asteroid.Type,
                 EntityId = asteroid.EntityId
             }).Concat(dirtyStates).ToList();
@@ -553,7 +553,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             _stateCache.UpdateState(asteroid.EntityId, new AsteroidState
             {
                 Position = asteroid.PositionComp.GetPosition(),
-                Size = asteroid.Size,
+                Size = asteroid.Properties.Diameter,
                 Type = asteroid.Type,
                 EntityId = asteroid.EntityId
             });
@@ -832,11 +832,11 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 _despawnedAsteroids.Add(new AsteroidState
                 {
                     Position = asteroid.PositionComp.GetPosition(),
-                    Size = asteroid.Size,
+                    Size = asteroid.Properties.Diameter,
                     Type = asteroid.Type,
                     EntityId = asteroid.EntityId
                 });
-                _messageCache.AddMessage(new AsteroidNetworkMessage(asteroid.PositionComp.GetPosition(), asteroid.Size, Vector3D.Zero, Vector3D.Zero, asteroid.Type, false, asteroid.EntityId, true, false, Quaternion.Identity));
+                _messageCache.AddMessage(new AsteroidNetworkMessage(asteroid.PositionComp.GetPosition(), asteroid.Properties.Diameter, Vector3D.Zero, Vector3D.Zero, asteroid.Type, false, asteroid.EntityId, true, false, Quaternion.Identity));
                 MyEntities.Remove(asteroid);
                 asteroid.Close();
                 Log.Info($"Server: Removed asteroid with ID {asteroid.EntityId} from _asteroids list and MyEntities");

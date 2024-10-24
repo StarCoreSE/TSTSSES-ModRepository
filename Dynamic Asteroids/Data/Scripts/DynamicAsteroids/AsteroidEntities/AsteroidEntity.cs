@@ -69,14 +69,22 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         private static readonly string[] GoldAsteroidModels = { @"Models\OreAsteroid_Gold.mwm" };
         private static readonly string[] PlatinumAsteroidModels = { @"Models\OreAsteroid_Platinum.mwm" };
         private static readonly string[] UraniniteAsteroidModels = { @"Models\OreAsteroid_Uraninite.mwm" };
+      
         public AsteroidType Type { get; private set; }
-
-        public float Size;
         public string ModelString = "";
+        public AsteroidPhysicalProperties Properties { get; private set; }
 
-        public float MaxInstability { get; private set; }
-        public float CurrentInstability { get; private set; }
-        public float InstabilityThreshold { get; private set; }
+        public float Integrity => Properties.CurrentIntegrity;
+
+        public bool IsUnstable() => Properties.IsUnstable();
+
+        public void UpdateInstability() => Properties.UpdateInstability();
+
+        public void AddInstability(float amount) => Properties.AddInstability(amount);
+
+        // Required property implementation for `IMyDestroyableObject`
+        public bool UseDamageSystem => true;
+
 
         public static AsteroidEntity CreateAsteroid(Vector3D position, float size, Vector3D initialVelocity,
             AsteroidType type, Quaternion? rotation = null, long? entityId = null)
@@ -109,12 +117,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             return ent;
         }
 
-        private void Init(Vector3D position, float size, Vector3D initialVelocity, AsteroidType type,
-            Quaternion? rotation)
+        private void Init(Vector3D position, float size, Vector3D initialVelocity, AsteroidType type, Quaternion? rotation)
         {
-            Log.Info(
-                $"AsteroidEntity.Init called with position: {position}, size: {size}, initialVelocity: {initialVelocity}, type: {type}");
-
             try
             {
                 if (MainSession.I == null || MainSession.I.ModContext == null ||
@@ -125,74 +129,52 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     return;
                 }
 
-                // Assign asteroid type and model
                 Type = type;
                 ModelString = SelectModelForAsteroidType(type);
                 if (string.IsNullOrEmpty(ModelString))
                 {
-                    Log.Exception(new Exception("ModelString is null or empty"), typeof(AsteroidEntity),
-                        "Failed to initialize asteroid model");
+                    Log.Exception(new Exception("ModelString is null or empty"),
+                        typeof(AsteroidEntity), "Failed to initialize asteroid model");
                     return;
                 }
 
-                // Calculate volume and mass based on size (assuming size is diameter)
-                float radius = size / 2.0f;
-                float volume = (4.0f / 3.0f) * MathHelper.Pi * (float)Math.Pow(radius, 3); // Volume of a sphere
-                const float density = 917.0f; // Ice density (adjust based on material)
-                float mass = density * volume;
+                // Initialize physical properties
+                Properties = new AsteroidPhysicalProperties(size);
 
-                // Clamp mass according to the type's Min/Max values
+                // Apply mass range constraints if they exist
                 AsteroidSettings.MassRange massRange;
                 if (AsteroidSettings.MinMaxMassByType.TryGetValue(type, out massRange))
                 {
-                    mass = MathHelper.Clamp(mass, massRange.MinMass, massRange.MaxMass);
-                    Log.Info($"Asteroid mass clamped to {mass}, type: {type}");
-
-                    // Now adjust the size (radius) based on the clamped mass
-                    float newVolume = mass / density;
-                    float newRadius = (float)Math.Pow((3.0f * newVolume) / (4.0f * MathHelper.Pi), 1.0f / 3.0f);
-                    size = newRadius * 2.0f; // Set the new size based on the recalculated radius
+                    float clampedMass = MathHelper.Clamp(Properties.Mass, massRange.MinMass, massRange.MaxMass);
+                    Properties = AsteroidPhysicalProperties.CreateFromMass(clampedMass);
                 }
 
-                // Integrity is adjusted based on the clamped mass
-                _integrity = (AsteroidSettings.BaseIntegrity / 100.0f) * mass;
-                Log.Info(
-                    $"Calculated Integrity: {_integrity}, based on BaseIntegrity: {AsteroidSettings.BaseIntegrity}, Mass: {mass}");
-
-                // Initialize model, physics, and position using adjusted size
-                Size = size;
-                Init(null, ModelString, null, Size);
+                // Initialize model and position
+                Init(null, ModelString, null, Properties.Diameter);
                 SetupInitialPositionAndRotation(position, rotation);
 
                 Log.Info("Adding asteroid to MyEntities");
                 MyEntities.Add(this);
 
-                // Set up physics
                 Log.Info("Creating physics for asteroid");
                 CreatePhysics();
-                this.Physics.LinearVelocity = initialVelocity + RandVector() * AsteroidSettings.VelocityVariability;
-                this.Physics.AngularVelocity =
-                    RandVector() * AsteroidSettings.GetRandomAngularVelocity(MainSession.I.Rand);
-                Log.Info(
-                    $"Initial LinearVelocity: {this.Physics.LinearVelocity}, Initial AngularVelocity: {this.Physics.AngularVelocity}");
 
-                // Set sync flag for server
+                this.Physics.LinearVelocity = initialVelocity + RandVector() * AsteroidSettings.VelocityVariability;
+                this.Physics.AngularVelocity = RandVector() * AsteroidSettings.GetRandomAngularVelocity(MainSession.I.Rand);
+
+                Log.Info($"Initial LinearVelocity: {this.Physics.LinearVelocity}, " +
+                         $"Initial AngularVelocity: {this.Physics.AngularVelocity}");
+
                 if (MyAPIGateway.Session.IsServer)
                 {
                     this.SyncFlag = true;
                 }
 
-
-                MaxInstability = mass * AsteroidSettings.InstabilityPerMass;
-                InstabilityThreshold = MaxInstability * AsteroidSettings.InstabilityThresholdPercent;
-                CurrentInstability = 0;
-
-                Log.Info($"Initialized asteroid {EntityId} instability parameters:\n" +
-                         $"Max Instability: {MaxInstability:F2}\n" +
-                         $"Threshold: {InstabilityThreshold:F2}\n" +
-                         $"Starting Instability: {CurrentInstability:F2}");
-            
-
+                Log.Info($"Initialized asteroid {EntityId} properties:\n" +
+                         $"Mass: {Properties.Mass:F2}\n" +
+                         $"Diameter: {Properties.Diameter:F2}\n" +
+                         $"Integrity: {Properties.CurrentIntegrity:F2}/{Properties.MaximumIntegrity:F2}\n" +
+                         $"Instability: {Properties.CurrentInstability:F2}/{Properties.MaxInstability:F2}");
             }
             catch (Exception ex)
             {
@@ -270,18 +252,13 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         public void DrawDebugSphere()
         {
-            // Get the current position of the asteroid
             Vector3D asteroidPosition = this.PositionComp.GetPosition();
-
-            // Set the color and radius of the debug sphere
-            float radius = this.Size / 2; // Assuming the Size represents the diameter of the asteroid
+            float radius = Properties.Radius;
             Color sphereColor = Color.Red;
 
-            // Draw a transparent debug sphere at the asteroid's position
             MatrixD worldMatrix = MatrixD.CreateTranslation(asteroidPosition);
             MySimpleObjectDraw.DrawTransparentSphere(ref worldMatrix, radius, ref sphereColor,
                 MySimpleObjectRasterizer.Wireframe, 20);
-
         }
 
 
@@ -291,25 +268,15 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             damageHandler.SplitAsteroid(this);
         }
 
-        // Required property implementation for `IMyDestroyableObject`
-        public bool UseDamageSystem => true;
-
-        // Required property implementation for `IMyDestroyableObject`
-        public float Integrity => _integrity;
-
-        public float _integrity;
-
         public bool DoDamage(float damage, MyStringHash damageSource, bool sync, MyHitInfo? hitInfo = null,
             long attackerId = 0, long realHitEntityId = 0, bool shouldDetonateAmmo = true,
             MyStringHash? extraInfo = null)
         {
             Log.Info(
-                $"DoDamage called with damage: {damage}, damageSource: {damageSource}, integrity (mass) before damage: {_integrity}");
+                $"DoDamage called with damage: {damage}, damageSource: {damageSource}, " +
+                $"integrity before damage: {Properties.CurrentIntegrity}");
 
-            // Call the damage handler
             var damageHandler = new AsteroidDamageHandler();
-
-            // Ensure we aren't calling this method twice unnecessarily
             return damageHandler.DoDamage(this, damage, damageSource, sync, hitInfo, attackerId, realHitEntityId,
                 shouldDetonateAmmo, extraInfo);
         }
@@ -318,11 +285,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         {
             try
             {
-                float radius = Size / 2;
-                float volume = 4.0f / 3.0f * (float)Math.PI * (radius * radius * radius);
-                const float density = 917.0f;
-                float mass = density * volume;
-
                 PhysicsSettings settings = MyAPIGateway.Physics.CreateSettingsForPhysics(
                     this,
                     this.WorldMatrix,
@@ -332,16 +294,17 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     rigidBodyFlags: RigidBodyFlag.RBF_DEFAULT,
                     collisionLayer: CollisionLayers.NoVoxelCollisionLayer,
                     isPhantom: false,
-                    mass: new ModAPIMass(volume, mass, Vector3.Zero,
-                        mass * this.PositionComp.LocalAABB.Height * this.PositionComp.LocalAABB.Height / 6 *
-                        Matrix.Identity)
+                    mass: new ModAPIMass(Properties.Volume, Properties.Mass, Vector3.Zero,
+                        Properties.Mass * this.PositionComp.LocalAABB.Height *
+                        this.PositionComp.LocalAABB.Height / 6 * Matrix.Identity)
                 );
 
-                MyAPIGateway.Physics.CreateSpherePhysics(settings, radius);
+                MyAPIGateway.Physics.CreateSpherePhysics(settings, Properties.Radius);
                 this.Physics.Enabled = true;
                 this.Physics.Activate();
 
-                Log.Info($"Created physics for asteroid {EntityId} with radius {radius} and mass {mass}");
+                Log.Info($"Created physics for asteroid {EntityId} with radius {Properties.Radius} " +
+                         $"and mass {Properties.Mass}");
             }
             catch (Exception ex)
             {
@@ -362,94 +325,46 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         {
             try
             {
-                Log.Info($"Updating asteroid size from {Size} to {newSize}");
+                Log.Info($"Updating asteroid size from {Properties.Diameter} to {newSize}");
 
-                if (Math.Abs(newSize - Size) < 1)
+                if (Math.Abs(newSize - Properties.Diameter) < 1)
                 {
                     Log.Info("New size is the same as the current size, skipping update.");
                     return;
                 }
 
-                // Preserve the current velocities and world orientation before destroying the old physics
                 Vector3D linearVelocity = Physics?.LinearVelocity ?? Vector3D.Zero;
                 Vector3D angularVelocity = Physics?.AngularVelocity ?? Vector3D.Zero;
-                MatrixD currentWorldMatrix = WorldMatrix; // Preserve current position and orientation
+                MatrixD currentWorldMatrix = WorldMatrix;
 
-                // Dispose of old physics
                 if (Physics != null)
                 {
                     Log.Info($"Disposing old physics for asteroid {EntityId}");
                     Physics.Close();
-                    Physics = null; // Ensure the reference is cleared
+                    Physics = null;
                 }
 
-                // Update the size of the asteroid
-                Size = newSize;
-
-                // Recreate the physics with the new size
-                Log.Info($"Creating new physics for asteroid {EntityId} with new size {Size}");
+                Properties = new AsteroidPhysicalProperties(newSize);
                 CreatePhysics();
 
-                // Restore the velocities and world matrix to the newly created physics body
                 if (Physics != null)
                 {
                     Physics.LinearVelocity = linearVelocity;
                     Physics.AngularVelocity = angularVelocity;
-
-                    // Restore the exact world orientation (position and rotation)
                     PositionComp.SetWorldMatrix(ref currentWorldMatrix);
 
-                    Log.Info(
-                        $"Restored linear velocity: {Physics.LinearVelocity}, angular velocity: {Physics.AngularVelocity}, and orientation.");
+                    Log.Info($"Restored linear velocity: {Physics.LinearVelocity}, " +
+                             $"angular velocity: {Physics.AngularVelocity}, and orientation.");
                 }
 
                 Log.Info($"Successfully updated size and recreated physics for asteroid {EntityId}");
             }
             catch (Exception ex)
             {
-                Log.Exception(ex, typeof(AsteroidEntity), $"Error updating size and physics for asteroid {EntityId}");
+                Log.Exception(ex, typeof(AsteroidEntity),
+                    $"Error updating size and physics for asteroid {EntityId}");
             }
         }
 
-        public bool IsUnstable()
-        {
-            bool unstable = CurrentInstability >= InstabilityThreshold;
-            if (unstable)
-            {
-                Log.Info($"Asteroid {EntityId} has become unstable! " +
-                         $"Current: {CurrentInstability:F2} >= Threshold: {InstabilityThreshold:F2}");
-            }
-            return unstable;
-        }
-
-        public void UpdateInstability()
-        {
-            float previousInstability = CurrentInstability;
-            CurrentInstability = Math.Max(0, CurrentInstability - (AsteroidSettings.InstabilityDecayRate * MyEngineConstants.UPDATE_STEP_SIZE_IN_SECONDS));
-
-            if (Math.Abs(previousInstability - CurrentInstability) > 0.01f)
-            {
-                Log.Info($"Asteroid {EntityId} instability decay: {previousInstability:F2} -> {CurrentInstability:F2} " +
-                         $"(-{previousInstability - CurrentInstability:F2})");
-            }
-        }
-
-        public void AddInstability(float amount)
-        {
-            float previousInstability = CurrentInstability;
-            CurrentInstability = Math.Min(MaxInstability, CurrentInstability + amount);
-
-            Log.Info($"Asteroid {EntityId} instability increased: {previousInstability:F2} -> {CurrentInstability:F2} " +
-                     $"(+{amount:F2}) [{(CurrentInstability / MaxInstability) * 100:F1}% of max]");
-
-            if (AsteroidSettings.EnableLogging)
-            {
-                MyAPIGateway.Utilities.ShowNotification(
-                    $"Asteroid {EntityId} Instability:\n" +
-                    $"Current: {(CurrentInstability / MaxInstability) * 100:F1}%\n" +
-                    $"Threshold: {(InstabilityThreshold / MaxInstability) * 100:F1}%",
-                    1000 / 60);
-            }
-        }
     }
 }
