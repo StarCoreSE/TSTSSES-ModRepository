@@ -70,13 +70,23 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             private DateTime _lastSaveTime = DateTime.UtcNow;
             private ConcurrentBag<long> _dirtyAsteroids = new ConcurrentBag<long>();
 
+            private const double POSITION_CHANGE_THRESHOLD = 1; // 1m
+            private const double VELOCITY_CHANGE_THRESHOLD = 1; // 1m/s
+
 
             public void UpdateState(AsteroidEntity asteroid)
             {
                 AsteroidState cachedState;
+                Vector3D currentPosition = asteroid.PositionComp.GetPosition();
+                Vector3D currentVelocity = asteroid.Physics.LinearVelocity;
+
                 if (_stateCache.TryGetValue(asteroid.EntityId, out cachedState))
                 {
-                    if (cachedState.HasChanged(asteroid))
+                    // Check if position or velocity has changed significantly
+                    bool positionChanged = Vector3D.DistanceSquared(cachedState.Position, currentPosition) > POSITION_CHANGE_THRESHOLD * POSITION_CHANGE_THRESHOLD;
+                    bool velocityChanged = Vector3D.DistanceSquared(cachedState.Velocity, currentVelocity) > VELOCITY_CHANGE_THRESHOLD * VELOCITY_CHANGE_THRESHOLD;
+
+                    if (positionChanged || velocityChanged)
                     {
                         _dirtyAsteroids.Add(asteroid.EntityId);
                         _stateCache[asteroid.EntityId] = new AsteroidState(asteroid);
@@ -108,10 +118,18 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     .ToList();
             }
 
+            public void ClearDirtyStates()
+            {
+                long id;
+                while (_dirtyAsteroids.TryTake(out id)) { }
+            }
+
             public bool ShouldSave()
             {
                 return (DateTime.UtcNow - _lastSaveTime).TotalSeconds >= SaveInterval && !_dirtyStates.IsEmpty;
             }
+
+
         }
 
         private class NetworkMessageCache
@@ -884,41 +902,67 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             try
             {
                 var messages = new List<AsteroidNetworkMessage>();
+                List<IMyPlayer> players = new List<IMyPlayer>();
+                MyAPIGateway.Players.GetPlayers(players);
 
                 foreach (var asteroid in _asteroids)
                 {
                     if (asteroid == null || asteroid.MarkedForClose)
                         continue;
 
-                    Vector3D currentPosition = asteroid.PositionComp.GetPosition();
-                    Vector3D currentVelocity = asteroid.Physics.LinearVelocity;
-                    Vector3D currentAngularVel = asteroid.Physics.AngularVelocity;
+                    // Check if asteroid is near any player
+                    bool isNearPlayer = false;
+                    Vector3D asteroidPos = asteroid.PositionComp.GetPosition();
 
+                    foreach (var player in players)
+                    {
+                        double distSquared = Vector3D.DistanceSquared(player.GetPosition(), asteroidPos);
+                        if (distSquared <= AsteroidSettings.ZoneRadius * AsteroidSettings.ZoneRadius)
+                        {
+                            isNearPlayer = true;
+                            break;
+                        }
+                    }
+
+                    if (!isNearPlayer)
+                        continue;
+
+                    // Update state and check if asteroid needs update
+                    _stateCache.UpdateState(asteroid);
+                }
+
+                // Get only dirty asteroids that need updates
+                var dirtyAsteroids = _stateCache.GetDirtyAsteroids();
+
+                foreach (var state in dirtyAsteroids)
+                {
                     var positionUpdate = new AsteroidNetworkMessage(
-                        currentPosition,
-                        asteroid.Properties.Diameter,
-                        currentVelocity,
-                        currentAngularVel,
-                        asteroid.Type,
+                        state.Position,
+                        state.Size,
+                        state.Velocity,
+                        Vector3D.Zero, // Only send angular velocity occasionally
+                        state.Type,
                         false,
-                        asteroid.EntityId,
+                        state.EntityId,
                         false,
                         false,
-                        Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix)
+                        state.Rotation
                     );
 
                     messages.Add(positionUpdate);
                 }
 
-                // Only send if we have messages
+                // Only send if we have changes to report
                 if (messages.Count > 0)
                 {
                     var container = new AsteroidNetworkMessageContainer(messages.ToArray());
                     byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(container);
                     MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
 
-                    Log.Info($"Server: Sent batch update for {messages.Count} asteroids");
+                    Log.Info($"Server: Sent batch update for {messages.Count} changed asteroids");
                 }
+
+                _stateCache.ClearDirtyStates();
             }
             catch (Exception ex)
             {
