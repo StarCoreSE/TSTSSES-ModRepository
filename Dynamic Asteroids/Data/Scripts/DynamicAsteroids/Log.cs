@@ -1,9 +1,9 @@
-﻿using System;
-using System.IO;
+﻿using DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities;
+using Sandbox.ModAPI;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities;
-using Sandbox.ModAPI;
+using System.IO;
 
 namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 {
@@ -34,7 +34,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             _writer.Flush();
 
             _cachedMessages = new ConcurrentDictionary<string, LogEntry>();
-            _flushIntervalSeconds = 10;
+            _flushIntervalSeconds = 1;
             _lockObject = new object();
             _lastFlushTime = DateTime.UtcNow;
         }

@@ -1,16 +1,15 @@
-﻿using System;
-using System.IO;
-using Sandbox.ModAPI;
-using VRageMath;
+﻿using Sandbox.ModAPI;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using VRageMath;
 
 namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 {
     public static class AsteroidSettings
     {
         public static bool EnableLogging = false;
-        public static bool EnablePersistence = false;
         public static bool EnableMiddleMouseAsteroidSpawn = false;
         public static bool EnableVanillaAsteroidSpawnLatching = false;
         public static bool EnableGasGiantRingSpawning = false;
@@ -21,9 +20,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public static bool DisableZoneWhileMovingFast = true;
         public static double ZoneSpeedThreshold = 2000.0;
         public static int SaveStateInterval = 600;
-        public static int NetworkMessageInterval = 120;
+        public static int NetworkMessageInterval = 60;
         public static int SpawnInterval = 6;
-        public static int UpdateInterval = 120;
+        public static int UpdateInterval = 60;
         public static int MaxAsteroidCount = 20000;
         public static int MaxAsteroidsPerZone = 100;
         public static int MaxTotalAttempts = 100;
@@ -47,25 +46,46 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public static double GoldWeight = 0.05;
         public static double PlatinumWeight = 0.05;
         public static double UraniniteWeight = 0.05;
-        public static float BaseIntegrity = 1f;
         public static float MinAsteroidSize = 50f;
         public static float MaxAsteroidSize = 250f;
-        public static float MinSubChunkSize = 5f;
-        public static double SubChunkVelocityMin = 1.0;
-        public static double SubChunkVelocityMax = 5.0;
-        public static double SubChunkAngularVelocityMin = 0.01;
-        public static double SubChunkAngularVelocityMax = 0.1;
-        public static int[] IceDropRange = { 1000, 10000 };
-        public static int[] StoneDropRange = { 1000, 10000 };
-        public static int[] IronDropRange = { 500, 2500 };
-        public static int[] NickelDropRange = { 500, 2500 };
-        public static int[] CobaltDropRange = { 500, 2500 };
-        public static int[] MagnesiumDropRange = { 500, 2500 };
-        public static int[] SiliconDropRange = { 500, 2500 };
-        public static int[] SilverDropRange = { 500, 2500 };
-        public static int[] GoldDropRange = { 500, 2500 };
-        public static int[] PlatinumDropRange = { 500, 2500 };
-        public static int[] UraniniteDropRange = { 500, 2500 };
+        public static float InstabilityPerMass = 0.1f;
+        public static float InstabilityThresholdPercent = 0.8f;
+        public static float InstabilityDecayRate = 0.1f;
+        public static float InstabilityFromDamage = 1.0f;
+        public static float KgLossPerDamage = 0.01f; // 1 damage = 1 kg lost
+
+        public static float ChunkMassPercent = 0.1f;         // 10% of mass per chunk
+        public static float ChunkEjectionVelocity = 5.0f;    // Base velocity for ejected chunks
+        public static float ChunkVelocityRandomization = 2.0f; // Random velocity added to chunks
+        public static float InstabilityPerDamage = 0.1f;     // How much instability is added per damage point
+
+        public struct MassRange
+        {
+            public float MinMass;
+            public float MaxMass;
+
+            public MassRange(float minMass, float maxMass)
+            {
+                MinMass = minMass;
+                MaxMass = maxMass;
+            }
+        }
+
+
+        public static readonly Dictionary<AsteroidType, MassRange> MinMaxMassByType = new Dictionary<AsteroidType, MassRange>
+        {    //TODO: put thse into confings, gradient toward gasgiant in ring for bigger roids
+            { AsteroidType.Ice, new MassRange(100000f, 500000f) },
+            { AsteroidType.Stone, new MassRange(80000f, 400000f) },
+            { AsteroidType.Iron, new MassRange(50000f, 300000f) },
+            { AsteroidType.Nickel, new MassRange(40000f, 250000f) },
+            { AsteroidType.Cobalt, new MassRange(30000f, 200000f) },
+            { AsteroidType.Magnesium, new MassRange(20000f, 150000f) },
+            { AsteroidType.Silicon, new MassRange(50000f, 350000f) },
+            { AsteroidType.Silver, new MassRange(20000f, 100000f) },
+            { AsteroidType.Gold, new MassRange(10000f, 80000f) },
+            { AsteroidType.Platinum, new MassRange(5000f, 50000f) },
+            { AsteroidType.Uraninite, new MassRange(3000f, 20000f) }
+        };
 
         public static List<SpawnableArea> ValidSpawnLocations = new List<SpawnableArea>();
 
@@ -129,16 +149,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             return AngularVelocityVariability * rand.NextDouble();
         }
 
-        public static double GetRandomSubChunkVelocity(Random rand)
-        {
-            return SubChunkVelocityMin + rand.NextDouble() * (SubChunkVelocityMax - SubChunkVelocityMin);
-        }
-
-        public static double GetRandomSubChunkAngularVelocity(Random rand)
-        {
-            return SubChunkAngularVelocityMin + rand.NextDouble() * (SubChunkAngularVelocityMax - SubChunkAngularVelocityMin);
-        }
-
         public static void SaveSettings()
         {
             try
@@ -147,7 +157,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 {
                     writer.WriteLine("[General]");
                     writer.WriteLine($"EnableLogging={EnableLogging}");
-                    writer.WriteLine($"EnablePersistence={EnablePersistence}");
                     writer.WriteLine($"EnableMiddleMouseAsteroidSpawn={EnableMiddleMouseAsteroidSpawn}");
                     writer.WriteLine($"EnableVanillaAsteroidSpawnLatching={EnableVanillaAsteroidSpawnLatching}");
                     writer.WriteLine($"VanillaAsteroidSpawnLatchingRadius={VanillaAsteroidSpawnLatchingRadius}");
@@ -155,7 +164,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     writer.WriteLine($"EnableGasGiantRingSpawning={EnableGasGiantRingSpawning}");
                     writer.WriteLine($"DisableZoneWhileMovingFast={DisableZoneWhileMovingFast}");
                     writer.WriteLine($"ZoneSpeedThreshold={ZoneSpeedThreshold}");
-                    writer.WriteLine($"SaveStateInterval={SaveStateInterval}");
                     writer.WriteLine($"NetworkMessageInterval={NetworkMessageInterval}");
                     writer.WriteLine($"SpawnInterval={SpawnInterval}");
                     writer.WriteLine($"UpdateInterval={UpdateInterval}");
@@ -186,29 +194,15 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     writer.WriteLine($"UraniniteWeight={UraniniteWeight}");
 
                     writer.WriteLine("[AsteroidSize]");
-                    writer.WriteLine($"BaseIntegrity={BaseIntegrity}");
                     writer.WriteLine($"MinAsteroidSize={MinAsteroidSize}");
                     writer.WriteLine($"MaxAsteroidSize={MaxAsteroidSize}");
-                    writer.WriteLine($"MinSubChunkSize={MinSubChunkSize}");
 
-                    writer.WriteLine("[SubChunkVelocity]");
-                    writer.WriteLine($"SubChunkVelocityMin={SubChunkVelocityMin}");
-                    writer.WriteLine($"SubChunkVelocityMax={SubChunkVelocityMax}");
-                    writer.WriteLine($"SubChunkAngularVelocityMin={SubChunkAngularVelocityMin}");
-                    writer.WriteLine($"SubChunkAngularVelocityMax={SubChunkAngularVelocityMax}");
-
-                    writer.WriteLine("[DropRanges]");
-                    WriteIntArray(writer, "IceDropRange", IceDropRange);
-                    WriteIntArray(writer, "StoneDropRange", StoneDropRange);
-                    WriteIntArray(writer, "IronDropRange", IronDropRange);
-                    WriteIntArray(writer, "NickelDropRange", NickelDropRange);
-                    WriteIntArray(writer, "CobaltDropRange", CobaltDropRange);
-                    WriteIntArray(writer, "MagnesiumDropRange", MagnesiumDropRange);
-                    WriteIntArray(writer, "SiliconDropRange", SiliconDropRange);
-                    WriteIntArray(writer, "SilverDropRange", SilverDropRange);
-                    WriteIntArray(writer, "GoldDropRange", GoldDropRange);
-                    WriteIntArray(writer, "PlatinumDropRange", PlatinumDropRange);
-                    WriteIntArray(writer, "UraniniteDropRange", UraniniteDropRange);
+                    writer.WriteLine("[Instability]");
+                    writer.WriteLine($"InstabilityPerMass={InstabilityPerMass}");
+                    writer.WriteLine($"InstabilityThresholdPercent={InstabilityThresholdPercent}");
+                    writer.WriteLine($"InstabilityDecayRate={InstabilityDecayRate}");
+                    writer.WriteLine($"InstabilityFromDamage={InstabilityFromDamage}");
+                    writer.WriteLine($"KgLossPerDamage={KgLossPerDamage}");
 
                     writer.WriteLine("[SpawnableAreas]");
                     foreach (var area in ValidSpawnLocations)
@@ -252,9 +246,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                                 case "EnableLogging":
                                     EnableLogging = bool.Parse(value);
                                     break;
-                                case "EnablePersistence":
-                                    EnablePersistence = bool.Parse(value);
-                                    break;
                                 case "EnableMiddleMouseAsteroidSpawn":
                                     EnableMiddleMouseAsteroidSpawn = bool.Parse(value);
                                     break;
@@ -272,9 +263,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                                     break;
                                 case "ZoneSpeedThreshold":
                                     ZoneSpeedThreshold = double.Parse(value);
-                                    break;
-                                case "SaveStateInterval":
-                                    SaveStateInterval = int.Parse(value);
                                     break;
                                 case "NetworkMessageInterval":
                                     NetworkMessageInterval = int.Parse(value);
@@ -354,62 +342,11 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                                 case "UraniniteWeight":
                                     UraniniteWeight = double.Parse(value);
                                     break;
-                                case "BaseIntegrity":
-                                    BaseIntegrity = float.Parse(value);
-                                    break;
                                 case "MinAsteroidSize":
                                     MinAsteroidSize = float.Parse(value);
                                     break;
                                 case "MaxAsteroidSize":
                                     MaxAsteroidSize = float.Parse(value);
-                                    break;
-                                case "MinSubChunkSize":
-                                    MinSubChunkSize = float.Parse(value);
-                                    break;
-                                case "SubChunkVelocityMin":
-                                    SubChunkVelocityMin = double.Parse(value);
-                                    break;
-                                case "SubChunkVelocityMax":
-                                    SubChunkVelocityMax = double.Parse(value);
-                                    break;
-                                case "SubChunkAngularVelocityMin":
-                                    SubChunkAngularVelocityMin = double.Parse(value);
-                                    break;
-                                case "SubChunkAngularVelocityMax":
-                                    SubChunkAngularVelocityMax = double.Parse(value);
-                                    break;
-                                case "IceDropRange":
-                                    IceDropRange = ReadIntArray(value);
-                                    break;
-                                case "StoneDropRange":
-                                    StoneDropRange = ReadIntArray(value);
-                                    break;
-                                case "IronDropRange":
-                                    IronDropRange = ReadIntArray(value);
-                                    break;
-                                case "NickelDropRange":
-                                    NickelDropRange = ReadIntArray(value);
-                                    break;
-                                case "CobaltDropRange":
-                                    CobaltDropRange = ReadIntArray(value);
-                                    break;
-                                case "MagnesiumDropRange":
-                                    MagnesiumDropRange = ReadIntArray(value);
-                                    break;
-                                case "SiliconDropRange":
-                                    SiliconDropRange = ReadIntArray(value);
-                                    break;
-                                case "SilverDropRange":
-                                    SilverDropRange = ReadIntArray(value);
-                                    break;
-                                case "GoldDropRange":
-                                    GoldDropRange = ReadIntArray(value);
-                                    break;
-                                case "PlatinumDropRange":
-                                    PlatinumDropRange = ReadIntArray(value);
-                                    break;
-                                case "UraniniteDropRange":
-                                    UraniniteDropRange = ReadIntArray(value);
                                     break;
                                 case "Name":
                                     if (currentArea != null) ValidSpawnLocations.Add(currentArea);
@@ -421,6 +358,21 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                                     break;
                                 case "Radius":
                                     currentArea.Radius = double.Parse(value);
+                                    break;
+                                case "InstabilityPerMass":
+                                    InstabilityPerMass = float.Parse(value);
+                                    break;
+                                case "InstabilityThresholdPercent":
+                                    InstabilityThresholdPercent = float.Parse(value);
+                                    break;
+                                case "InstabilityDecayRate":
+                                    InstabilityDecayRate = float.Parse(value);
+                                    break;
+                                case "InstabilityFromDamage":
+                                    InstabilityFromDamage = float.Parse(value);
+                                    break;
+                                case "KgLossPerDamage":
+                                    KgLossPerDamage = float.Parse(value);
                                     break;
                             }
                         }

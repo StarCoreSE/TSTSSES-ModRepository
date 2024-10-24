@@ -1,6 +1,6 @@
-﻿using VRageMath;
+﻿using DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities;
 using ProtoBuf;
-using DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities;
+using VRageMath;
 
 namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 {
@@ -44,8 +44,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
         public double AngVelZ;
         [ProtoMember(11)]
         public int Type;
-        [ProtoMember(12)]
-        public bool IsSubChunk;
         [ProtoMember(13)]
         public long EntityId;
         [ProtoMember(14)]
@@ -74,7 +72,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             AngVelY = angularVelocity.Y;
             AngVelZ = angularVelocity.Z;
             Type = (int)type;
-            IsSubChunk = isSubChunk;
             EntityId = entityId;
             IsRemoval = isRemoval;
             IsInitialCreation = isInitialCreation;

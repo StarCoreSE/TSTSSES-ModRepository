@@ -1,24 +1,30 @@
 ﻿using DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities;
 using ProtoBuf;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using VRageMath;
 
 [ProtoContract]
 public class AsteroidState
 {
-    [ProtoMember(1)]
     public Vector3D Position { get; set; }
-
-    [ProtoMember(2)]
+    public Vector3D Velocity { get; set; }
+    public Quaternion Rotation { get; set; }
     public float Size { get; set; }
-
-    [ProtoMember(3)]
     public AsteroidType Type { get; set; }
+    public long EntityId { get; set; }
 
-    [ProtoMember(4)]
-    public long EntityId { get; set; } // Unique ID for each asteroid
+    public AsteroidState(AsteroidEntity asteroid)
+    {
+        Position = asteroid.PositionComp.GetPosition();
+        Velocity = asteroid.Physics.LinearVelocity;
+        Rotation = Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix);
+        Size = asteroid.Properties.Diameter;
+        Type = asteroid.Type;
+        EntityId = asteroid.EntityId;
+    }
+
+    public bool HasChanged(AsteroidEntity asteroid)
+    {
+        return Vector3D.DistanceSquared(Position, asteroid.PositionComp.GetPosition()) > 0.01
+               || Vector3D.DistanceSquared(Velocity, asteroid.Physics.LinearVelocity) > 0.01;
+    }
 }
