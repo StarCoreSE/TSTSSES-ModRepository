@@ -883,6 +883,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 
             try
             {
+                var messages = new List<AsteroidNetworkMessage>();
+
                 foreach (var asteroid in _asteroids)
                 {
                     if (asteroid == null || asteroid.MarkedForClose)
@@ -892,14 +894,11 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     Vector3D currentVelocity = asteroid.Physics.LinearVelocity;
                     Vector3D currentAngularVel = asteroid.Physics.AngularVelocity;
 
-                    // Send rotation data less frequently
-                    bool includeRotation = MainSession.I.Rand.NextDouble() < 0.2; // 20% chance
-
                     var positionUpdate = new AsteroidNetworkMessage(
                         currentPosition,
                         asteroid.Properties.Diameter,
                         currentVelocity,
-                        includeRotation ? currentAngularVel : Vector3D.Zero,
+                        currentAngularVel,
                         asteroid.Type,
                         false,
                         asteroid.EntityId,
@@ -908,13 +907,17 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                         Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix)
                     );
 
-                    byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(positionUpdate);
+                    messages.Add(positionUpdate);
+                }
+
+                // Only send if we have messages
+                if (messages.Count > 0)
+                {
+                    var container = new AsteroidNetworkMessageContainer(messages.ToArray());
+                    byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(container);
                     MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
 
-                    if (includeRotation)
-                    {
-                        Log.Info($"Server: Sent full update with rotation for asteroid {asteroid.EntityId}");
-                    }
+                    Log.Info($"Server: Sent batch update for {messages.Count} asteroids");
                 }
             }
             catch (Exception ex)

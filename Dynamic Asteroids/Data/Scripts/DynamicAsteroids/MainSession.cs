@@ -451,26 +451,37 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     return;
                 }
 
-                // Add more detailed logging
-                Log.Info($"Received message from {(isFromServer ? "server" : "client")} of length {message.Length}");
-
-                AsteroidNetworkMessage asteroidMessage = MyAPIGateway.Utilities.SerializeFromBinary<AsteroidNetworkMessage>(message);
-
-                // Add validation logging
-                Log.Info($"Deserialized message for asteroid ID: {asteroidMessage.EntityId}");
-
-                if (!MyAPIGateway.Session.IsServer)
+                // Try to deserialize as container first
+                try
                 {
-                    ProcessClientMessage(asteroidMessage);
+                    var container = MyAPIGateway.Utilities.SerializeFromBinary<AsteroidNetworkMessageContainer>(message);
+                    if (container != null && container.Messages != null)
+                    {
+                        Log.Info($"Received batch update with {container.Messages.Length} asteroids");
+                        foreach (var asteroidMessage in container.Messages)
+                        {
+                            ProcessClientMessage(asteroidMessage);
+                        }
+                        return;
+                    }
                 }
-                else
+                catch
                 {
-                    ProcessServerMessage(asteroidMessage, steamId);
+                    // If container deserialization fails, try individual message
+                    var asteroidMessage = MyAPIGateway.Utilities.SerializeFromBinary<AsteroidNetworkMessage>(message);
+                    if (!MyAPIGateway.Session.IsServer)
+                    {
+                        ProcessClientMessage(asteroidMessage);
+                    }
+                    else
+                    {
+                        ProcessServerMessage(asteroidMessage, steamId);
+                    }
                 }
             }
             catch (Exception ex)
             {
-                Log.Exception(ex, typeof(MainSession), $"Error processing received message. IsServer: {MyAPIGateway.Session.IsServer}");
+                Log.Exception(ex, typeof(MainSession), $"Error processing received message");
             }
         }
 
