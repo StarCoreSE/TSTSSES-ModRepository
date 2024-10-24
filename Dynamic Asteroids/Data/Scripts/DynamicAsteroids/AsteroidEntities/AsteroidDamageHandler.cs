@@ -147,22 +147,30 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     impactPosition,
                     Vector3D.Forward,
                     Vector3D.Up,
-                    asteroid.Physics,
-                    entity =>
-                    {
+                    asteroid?.Physics, // Add null check
+                    entity => {
                         MyFloatingObject debris = entity as MyFloatingObject;
-                        if (debris != null && debris.Physics != null)
+                        if (debris?.Physics == null) // Add null checks
                         {
-                            debris.Physics.LinearVelocity = asteroid.Physics.LinearVelocity;
+                            Log.Info($"Failed to spawn debris - Null physics or debris object");
+                            return;
+                        }
+
+                        try
+                        {
+                            debris.Physics.LinearVelocity = asteroid?.Physics?.LinearVelocity ?? Vector3D.Zero;
                             Vector3D randomVelocity = MyUtils.GetRandomVector3Normalized() * 10;
                             debris.Physics.LinearVelocity += randomVelocity;
                             Vector3D randomAngularVelocity = MyUtils.GetRandomVector3Normalized() * 5;
                             debris.Physics.AngularVelocity = randomAngularVelocity;
-                            Log.Info(
-                                $"Spawned new debris with mass {massLost} at impact position {impactPosition}, initial velocity: {debris.Physics.LinearVelocity}");
+
+                            Log.Info($"Spawned new debris with mass {massLost} at impact position {impactPosition}, initial velocity: {debris.Physics.LinearVelocity}");
                         }
-                    }
-                );
+                        catch (Exception ex)
+                        {
+                            Log.Exception(ex, typeof(AsteroidDamageHandler), "Error setting debris physics");
+                        }
+                    });
             }
         }
 
