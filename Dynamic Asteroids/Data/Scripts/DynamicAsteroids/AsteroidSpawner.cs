@@ -453,6 +453,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     _spawnIntervalTimer = AsteroidSettings.SpawnInterval;  // Reset the spawn timer
                 }
 
+
+                SendPositionUpdates();
+
+
                 // Log the number of active asteroids (for debugging purposes)
                 if (AsteroidSettings.EnableLogging)
                     MyAPIGateway.Utilities.ShowNotification($"Active Asteroids: {_asteroids.Count}", 1000 / 60);
@@ -908,6 +912,47 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             else
             {
                 _asteroids.Add(removedAsteroid); // Return it to the collection if not the same entity
+            }
+        }
+
+        public void SendPositionUpdates()
+        {
+            if (!MyAPIGateway.Session.IsServer)
+                return;
+
+            try
+            {
+                foreach (var asteroid in _asteroids)
+                {
+                    if (asteroid == null || asteroid.MarkedForClose)
+                        continue;
+
+                    Vector3D currentPosition = asteroid.PositionComp.GetPosition();
+                    Vector3D currentVelocity = asteroid.Physics.LinearVelocity;
+                    Quaternion currentRotation = Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix);
+
+                    var positionUpdate = new AsteroidNetworkMessage(
+                        currentPosition,
+                        asteroid.Properties.Diameter,
+                        currentVelocity,
+                        asteroid.Physics.AngularVelocity,
+                        asteroid.Type,
+                        false,
+                        asteroid.EntityId,
+                        false,
+                        false,
+                        currentRotation
+                    );
+
+                    byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(positionUpdate);
+                    MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
+
+                    Log.Info($"Server: Sent position update for asteroid {asteroid.EntityId} at {currentPosition}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Exception(ex, typeof(AsteroidSpawner), "Error sending position updates");
             }
         }
 

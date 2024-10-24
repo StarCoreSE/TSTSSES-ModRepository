@@ -591,23 +591,20 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
         {
             try
             {
-                Log.Info($"Client processing message for asteroid {message.EntityId} - " +
-                         $"IsRemoval: {message.IsRemoval}, " +
-                         $"IsInitialCreation: {message.IsInitialCreation}, " +
-                         $"Position: {message.GetPosition()}");
-
-                // Update server position tracking
-                UpdateServerPosition(message.EntityId, message.GetPosition());
-
                 if (message.IsRemoval)
                 {
                     RemoveAsteroidOnClient(message.EntityId);
-                    _serverPositions.Remove(message.EntityId); // Clean up server position
+                    _serverPositions.Remove(message.EntityId);
                     return;
                 }
 
-                AsteroidEntity asteroid = MyEntities.GetEntityById(message.EntityId) as AsteroidEntity;
+                // Always update the server position immediately
+                Vector3D newPosition = message.GetPosition();
+                _serverPositions[message.EntityId] = newPosition;
 
+                Log.Info($"Client: Received position update for asteroid {message.EntityId} - Server Position: {newPosition}");
+
+                AsteroidEntity asteroid = MyEntities.GetEntityById(message.EntityId) as AsteroidEntity;
                 if (asteroid == null && message.IsInitialCreation)
                 {
                     CreateNewAsteroidOnClient(message);
@@ -634,29 +631,22 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             Vector3D newVelocity = message.GetVelocity();
             Quaternion newRotation = message.GetRotation();
 
-            Log.Info($"Updating client asteroid {asteroid.EntityId} position: {newPosition}");
+            // Store the server position immediately
+            _serverPositions[asteroid.EntityId] = newPosition;
 
-            // Use smoother interpolation
-            float interpolationFactor = 0.15f; // Adjust this value to control smoothing
+            // Adjust interpolation factor based on distance
+            double distance = Vector3D.Distance(asteroid.PositionComp.GetPosition(), newPosition);
+            float interpolationFactor = distance > 10 ? 0.5f : 0.15f; // Faster catch-up for larger distances
+
+            Log.Info($"Updating client asteroid {asteroid.EntityId}:" +
+                     $"\nCurrent Position: {asteroid.PositionComp.GetPosition()}" +
+                     $"\nServer Position: {newPosition}" +
+                     $"\nDistance: {distance}" +
+                     $"\nInterpolation Factor: {interpolationFactor}");
+
             asteroid.PositionComp.SetPosition(Vector3D.Lerp(asteroid.PositionComp.GetPosition(), newPosition, interpolationFactor));
             asteroid.Physics.LinearVelocity = Vector3D.Lerp(asteroid.Physics.LinearVelocity, newVelocity, interpolationFactor);
             asteroid.WorldMatrix = MatrixD.Slerp(asteroid.WorldMatrix, MatrixD.CreateFromQuaternion(newRotation), interpolationFactor);
-        }
-
-        // This method interpolates the asteroid's state smoothly on the client side
-        private void UpdateAsteroidOnClient(AsteroidEntity asteroid, AsteroidNetworkMessage message)
-        {
-            Vector3D currentPosition = asteroid.PositionComp.GetPosition();
-            Vector3D newPosition = message.GetPosition();
-            Vector3D newVelocity = message.GetVelocity();
-            Quaternion newRotation = message.GetRotation();
-
-            Log.Info($"Updating asteroid: ID {asteroid.EntityId}, Current Position: {currentPosition}, Target Position: {newPosition}");
-
-            // Interpolate between current and new positions/rotations for smooth movement
-            asteroid.PositionComp.SetPosition(Vector3D.Lerp(currentPosition, newPosition, 0.1));
-            asteroid.Physics.LinearVelocity = Vector3D.Lerp(asteroid.Physics.LinearVelocity, newVelocity, 0.1);
-            asteroid.WorldMatrix = MatrixD.Slerp(asteroid.WorldMatrix, MatrixD.CreateFromQuaternion(newRotation), 0.1);
         }
 
         private AsteroidEntity FindNearestAsteroid(Vector3D characterPosition)
