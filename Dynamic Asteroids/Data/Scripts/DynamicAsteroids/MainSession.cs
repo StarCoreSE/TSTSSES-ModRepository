@@ -19,7 +19,7 @@ using VRageMath;
 namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 {
     [MySessionComponentDescriptor(MyUpdateOrder.AfterSimulation)]
-    public class MainSession : MySessionComponentBase
+    public partial class MainSession : MySessionComponentBase
     {
         public static MainSession I;
         public Random Rand;
@@ -790,86 +790,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             }
         }
 
-        public override void Draw()
-        {
-            try
-            {
-                if (!AsteroidSettings.EnableLogging || MyAPIGateway.Session?.Player?.Character == null)
-                    return;
-
-                Vector3D characterPosition = MyAPIGateway.Session.Player.Character.PositionComp.GetPosition();
-                AsteroidEntity nearestAsteroid = FindNearestAsteroid(characterPosition);
-
-                if (nearestAsteroid != null)
-                {
-                    // Position visualization
-                    Vector3D clientPosition = nearestAsteroid.PositionComp.GetPosition();
-                    MatrixD clientWorldMatrix = MatrixD.CreateTranslation(clientPosition);
-                    Color clientColor = Color.Red;
-                    MySimpleObjectDraw.DrawTransparentSphere(ref clientWorldMatrix, nearestAsteroid.Properties.Radius,
-                        ref clientColor, MySimpleObjectRasterizer.Wireframe, 20);
-
-                    Vector3D serverPosition;
-                    Quaternion serverRotation;
-                    if (_serverPositions.TryGetValue(nearestAsteroid.EntityId, out serverPosition) &&
-                        _serverRotations.TryGetValue(nearestAsteroid.EntityId, out serverRotation))
-                    {
-                        MatrixD serverWorldMatrix = MatrixD.CreateTranslation(serverPosition);
-                        Color serverColor = Color.Blue;
-                        MySimpleObjectDraw.DrawTransparentSphere(ref serverWorldMatrix, nearestAsteroid.Properties.Radius,
-                            ref serverColor, MySimpleObjectRasterizer.Wireframe, 20);
-
-                        // Draw connection line
-                        Vector4 lineColor = Color.Yellow.ToVector4();
-                        MySimpleObjectDraw.DrawLine(clientPosition, serverPosition,
-                            MyStringId.GetOrCompute("Square"), ref lineColor, 0.1f);
-
-                        // Calculate rotation difference
-                        MatrixD clientMatrix = nearestAsteroid.WorldMatrix;
-                        Quaternion clientRotation = Quaternion.CreateFromRotationMatrix(clientMatrix);
-
-                        float angleDifference = GetQuaternionAngleDifference(clientRotation, serverRotation);
-                        Vector3D clientForward = clientMatrix.Forward;
-                        Vector3D serverForward = MatrixD.CreateFromQuaternion(serverRotation).Forward;
-
-                        // Draw forward vectors
-                        Vector4 clientDirColor = Color.Red.ToVector4();
-                        Vector4 serverDirColor = Color.Blue.ToVector4();
-                        MySimpleObjectDraw.DrawLine(clientPosition,
-                            clientPosition + clientForward * nearestAsteroid.Properties.Radius * 2,
-                            MyStringId.GetOrCompute("Square"), ref clientDirColor, 0.1f);
-                        MySimpleObjectDraw.DrawLine(serverPosition,
-                            serverPosition + serverForward * nearestAsteroid.Properties.Radius * 2,
-                            MyStringId.GetOrCompute("Square"), ref serverDirColor, 0.1f);
-
-                        MyAPIGateway.Utilities.ShowNotification(
-                            $"Asteroid {nearestAsteroid.EntityId}:\n" +
-                            $"Position diff: {Vector3D.Distance(clientPosition, serverPosition):F2}m\n" +
-                            $"Rotation diff: {MathHelper.ToDegrees(angleDifference):F1}°",
-                            16);
-                    }
-                }
-                foreach (var zone in _clientZones.Values)
-                {
-                    MatrixD worldMatrix = MatrixD.CreateTranslation(zone.Center);
-                    Color zoneColor = Color.Green;
-                    MySimpleObjectDraw.DrawTransparentSphere(
-                        ref worldMatrix,
-                        (float)zone.Radius,
-                        ref zoneColor,
-                        MySimpleObjectRasterizer.Wireframe,
-                        20,
-                        MyStringId.GetOrCompute("Square"),
-                        MyStringId.GetOrCompute("Square"),
-                        5f);
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Exception(ex, typeof(MainSession), "Error in Draw");
-            }
-        }
-
         private AsteroidType DetermineAsteroidType()
         {
             int randValue = Rand.Next(0, 2);
@@ -899,6 +819,12 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 
             [ProtoMember(3)]
             public long PlayerId { get; set; }
+
+            [ProtoMember(4)]
+            public bool IsActive { get; set; }  // Whether this is the player's current active zone
+
+            [ProtoMember(5)]
+            public bool IsMerged { get; set; }  // Whether this zone is part of a merged group
         }
 
         private void ProcessZoneMessage(byte[] message)

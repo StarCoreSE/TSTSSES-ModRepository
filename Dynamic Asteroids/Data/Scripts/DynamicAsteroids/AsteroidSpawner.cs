@@ -14,16 +14,21 @@ using static DynamicAsteroids.Data.Scripts.DynamicAsteroids.MainSession;
 
 
 namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
-    public class AsteroidZone {
+    public class AsteroidZone
+    {
         public Vector3D Center { get; set; }
         public double Radius { get; set; }
         public int AsteroidCount { get; set; }
+        public bool IsMerged { get; set; }
+        public long EntityId { get; set; }
 
         public AsteroidZone(Vector3D center, double radius)
         {
             Center = center;
             Radius = radius;
             AsteroidCount = 0;
+            IsMerged = false;
+            EntityId = 0;
         }
 
         public bool IsPointInZone(Vector3D point)
@@ -1233,18 +1238,40 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             if (!MyAPIGateway.Session.IsServer) return;
 
             var zoneMessage = new ZoneNetworkMessage();
+            var mergedZoneIds = new HashSet<long>();
+
+            // First pass to identify merged zones
+            foreach (var zone1 in playerZones.Values)
+            {
+                foreach (var zone2 in playerZones.Values)
+                {
+                    if (zone1 != zone2)
+                    {
+                        double distance = Vector3D.Distance(zone1.Center, zone2.Center);
+                        if (distance <= zone1.Radius + zone2.Radius)
+                        {
+                            mergedZoneIds.Add(zone1.EntityId);
+                            mergedZoneIds.Add(zone2.EntityId);
+                        }
+                    }
+                }
+            }
+
+            // Create messages with merged status
             foreach (var kvp in playerZones)
             {
                 zoneMessage.Zones.Add(new ZoneData
                 {
                     Center = kvp.Value.Center,
                     Radius = kvp.Value.Radius,
-                    PlayerId = kvp.Key
+                    PlayerId = kvp.Key,
+                    IsActive = true, // Current zone is always active
+                    IsMerged = mergedZoneIds.Contains(kvp.Key)
                 });
             }
 
             byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(zoneMessage);
-            MyAPIGateway.Multiplayer.SendMessageToOthers(32001, messageBytes); // Using different channel for zone updates
+            MyAPIGateway.Multiplayer.SendMessageToOthers(32001, messageBytes);
         }
     }
 }
