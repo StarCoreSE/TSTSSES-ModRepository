@@ -1148,7 +1148,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 return;
 
             try {
-                var messages = new List<AsteroidNetworkMessage>();
+                var batchPacket = new AsteroidBatchUpdatePacket();
                 List<IMyPlayer> players = new List<IMyPlayer>();
                 MyAPIGateway.Players.GetPlayers(players);
 
@@ -1156,7 +1156,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                     if (asteroid == null || asteroid.MarkedForClose)
                         continue;
 
-                    // Check if asteroid is near any player
                     bool isNearPlayer = false;
                     Vector3D asteroidPos = asteroid.PositionComp.GetPosition();
 
@@ -1171,37 +1170,18 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                     if (!isNearPlayer)
                         continue;
 
-                    // Update state and check if asteroid needs update
                     _stateCache.UpdateState(asteroid);
                 }
 
-                // Get only dirty asteroids that need updates
                 var dirtyAsteroids = _stateCache.GetDirtyAsteroids();
-
                 foreach (AsteroidState state in dirtyAsteroids) {
-                    AsteroidNetworkMessage positionUpdate = new AsteroidNetworkMessage(
-                        state.Position,
-                        state.Size,
-                        state.Velocity,
-                        Vector3D.Zero,// Only send angular velocity occasionally
-                        state.Type,
-                        false,
-                        state.EntityId,
-                        false,
-                        false,
-                        state.Rotation
-                    );
-
-                    messages.Add(positionUpdate);
+                    batchPacket.Updates.Add(state);
                 }
 
-                // Only send if we have changes to report
-                if (messages.Count > 0) {
-                    AsteroidNetworkMessageContainer container = new AsteroidNetworkMessageContainer(messages.ToArray());
-                    byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(container);
+                if (batchPacket.Updates.Count > 0) {
+                    byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(batchPacket);
                     MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
-
-                    Log.Info($"Server: Sent batch update for {messages.Count} changed asteroids");
+                    Log.Info($"Server: Sent batch update for {batchPacket.Updates.Count} changed asteroids");
                 }
 
                 _stateCache.ClearDirtyStates();
