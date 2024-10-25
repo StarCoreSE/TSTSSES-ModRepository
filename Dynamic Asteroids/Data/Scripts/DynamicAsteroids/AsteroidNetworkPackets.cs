@@ -33,11 +33,15 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         [ProtoMember(6)]
         public long EntityId { get; set; }
 
+        [ProtoMember(7)]
+        public Vector3D AngularVelocity { get; set; }
+
         public AsteroidState() { }
 
         public AsteroidState(AsteroidEntity asteroid) {
             Position = asteroid.PositionComp.GetPosition();
             Velocity = asteroid.Physics.LinearVelocity;
+            AngularVelocity = asteroid.Physics.AngularVelocity;
             Rotation = Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix);
             Size = asteroid.Properties.Diameter;
             Type = asteroid.Type;
@@ -196,7 +200,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         }
     }
 
-    //TODO: do networking something like this, but what we have...works?
+    //TODO: do networking something like this, but what we have...works? gotta move stuff over but then physics started syncing
 
     public static class NetworkHandler {
         public static void SendAsteroidUpdate(AsteroidEntity asteroid) {

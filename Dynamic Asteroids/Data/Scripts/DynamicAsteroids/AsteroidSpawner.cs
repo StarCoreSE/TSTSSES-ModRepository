@@ -7,6 +7,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
 using VRage.ModAPI;
@@ -112,35 +113,58 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         }
 
         private class AsteroidStateCache {
-            private ConcurrentDictionary<long, AsteroidState> _stateCache = new ConcurrentDictionary<long, AsteroidState>();
             private ConcurrentBag<long> _dirtyStates = new ConcurrentBag<long>();
             private const int SaveInterval = 300;
             private DateTime _lastSaveTime = DateTime.UtcNow;
-            private ConcurrentBag<long> _dirtyAsteroids = new ConcurrentBag<long>();
 
-            private const double POSITION_CHANGE_THRESHOLD = 1;// 1m
-            private const double VELOCITY_CHANGE_THRESHOLD = 1;// 1m/s
+            private ConcurrentDictionary<long, AsteroidState> _stateCache = new ConcurrentDictionary<long, AsteroidState>();
+            private ConcurrentBag<long> _dirtyAsteroids = new ConcurrentBag<long>();
+            private const double POSITION_CHANGE_THRESHOLD = 1;
+            private const double ROTATION_CHANGE_THRESHOLD = 0.01; // Radians
+            private const double ACCELERATION_THRESHOLD = 0.1;     // m/s²
 
 
             public void UpdateState(AsteroidEntity asteroid) {
-                if (asteroid == null) return;
+                if (asteroid == null || asteroid.Physics == null)
+                    return;
 
                 Vector3D currentPosition = asteroid.PositionComp.GetPosition();
                 Vector3D currentVelocity = asteroid.Physics.LinearVelocity;
+                Vector3D currentAngularVelocity = asteroid.Physics.AngularVelocity;
+                Quaternion currentRotation = Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix);
 
-                lock (_stateCache) // Add thread safety
-                {
+                lock (_stateCache) {
                     AsteroidState cachedState;
                     if (_stateCache.TryGetValue(asteroid.EntityId, out cachedState)) {
-                        // Use squared distance for better performance
-                        double positionDeltaSquared = Vector3D.DistanceSquared(cachedState.Position, currentPosition);
-                        double velocityDeltaSquared = Vector3D.DistanceSquared(cachedState.Velocity, currentVelocity);
+                        bool needsUpdate = false;
 
-                        if (!(positionDeltaSquared > POSITION_CHANGE_THRESHOLD * POSITION_CHANGE_THRESHOLD) &&
-                            !(velocityDeltaSquared > VELOCITY_CHANGE_THRESHOLD * VELOCITY_CHANGE_THRESHOLD)) return;
-                        _stateCache[asteroid.EntityId] = new AsteroidState(asteroid);
-                        _dirtyAsteroids.Add(asteroid.EntityId);
-                        Log.Info($"Updated state for asteroid {asteroid.EntityId}: Position delta: {Math.Sqrt(positionDeltaSquared):F2}, Velocity delta: {Math.Sqrt(velocityDeltaSquared):F2}");
+                        // Check acceleration (velocity change)
+                        if (cachedState.Velocity != null) {
+                            Vector3D acceleration = (currentVelocity - cachedState.Velocity) / MyEngineConstants.UPDATE_STEP_SIZE_IN_SECONDS;
+                            if (acceleration.LengthSquared() > ACCELERATION_THRESHOLD * ACCELERATION_THRESHOLD) {
+                                needsUpdate = true;
+                                Log.Info($"Asteroid {asteroid.EntityId} updating due to acceleration: {acceleration.Length():F2} m/s²");
+                            }
+                        }
+
+                        // Check rotation change
+                        float rotationDiff = GetQuaternionAngleDifference(currentRotation, cachedState.Rotation);
+                        if (rotationDiff > ROTATION_CHANGE_THRESHOLD) {
+                            needsUpdate = true;
+                            Log.Info($"Asteroid {asteroid.EntityId} updating due to rotation change: {MathHelper.ToDegrees(rotationDiff):F2}°");
+                        }
+
+                        // Still check position for safety but with larger threshold
+                        double positionDeltaSquared = Vector3D.DistanceSquared(cachedState.Position, currentPosition);
+                        if (positionDeltaSquared > POSITION_CHANGE_THRESHOLD * POSITION_CHANGE_THRESHOLD * 4) {
+                            needsUpdate = true;
+                            Log.Info($"Asteroid {asteroid.EntityId} updating due to position change: {Math.Sqrt(positionDeltaSquared):F2}m");
+                        }
+
+                        if (needsUpdate) {
+                            _stateCache[asteroid.EntityId] = new AsteroidState(asteroid);
+                            _dirtyAsteroids.Add(asteroid.EntityId);
+                        }
                     }
                     else {
                         _stateCache[asteroid.EntityId] = new AsteroidState(asteroid);
@@ -148,6 +172,12 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                         Log.Info($"Initial state cache for asteroid {asteroid.EntityId}");
                     }
                 }
+            }
+
+            private float GetQuaternionAngleDifference(Quaternion a, Quaternion b) {
+                float dot = a.X * b.X + a.Y * b.Y + a.Z * b.Z + a.W * b.W;
+                dot = MathHelper.Clamp(dot, -1f, 1f);
+                return 2f * (float)Math.Acos(Math.Abs(dot));
             }
 
             public List<AsteroidState> GetDirtyAsteroids() {
