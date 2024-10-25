@@ -677,6 +677,16 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 }
 
                 SendPositionUpdates();
+                // Only run validation every 10 seconds
+                if (_updateIntervalTimer % 600 == 0) {
+                    try {
+                        ValidateAsteroidTracking();
+                    }
+                    catch (Exception ex) {
+                        Log.Exception(ex, typeof(AsteroidSpawner), "Error triggering validation");
+                    }
+                }
+                //CleanupZones();
 
                 // Check if cleanup should run
                 if (!_isCleanupRunning &&
@@ -1302,33 +1312,45 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         private void CleanupOrphanedAsteroids() {
             try {
                 var currentZones = playerZones.Values.ToList();
+                var trackedAsteroids = _asteroids.ToList();
                 var asteroidsToRemove = new List<AsteroidEntity>();
 
-                // First check tracked asteroids
-                var trackedAsteroids = _asteroids.ToList();
+                // First check our tracked asteroids
                 foreach (var asteroid in trackedAsteroids) {
                     if (asteroid == null || asteroid.MarkedForClose)
                         continue;
 
-                    if (!IsAsteroidInAnyZone(asteroid, currentZones)) {
-                        Log.Info($"Found tracked orphaned asteroid {asteroid.EntityId}");
+                    Vector3D asteroidPosition = asteroid.PositionComp.GetPosition();
+                    bool isInAnyZone = currentZones.Any(zone => zone.IsPointInZone(asteroidPosition));
+
+                    if (!isInAnyZone) {
                         asteroidsToRemove.Add(asteroid);
                     }
                 }
 
-                // Fallback: Check for any asteroids in the world that we've lost track of
+                // Entity search fallback - find any asteroids we've lost track of
                 var entities = new HashSet<IMyEntity>();
                 MyAPIGateway.Entities.GetEntities(entities);
 
                 foreach (var entity in entities) {
                     var asteroid = entity as AsteroidEntity;
-                    if (asteroid == null)
+                    if (asteroid == null || asteroidsToRemove.Contains(asteroid))
                         continue;
 
-                    // If it's not in our tracked list, it's lost its tracking
-                    if (!_asteroids.Any(a => a.EntityId == asteroid.EntityId)) {
-                        if (!IsAsteroidInAnyZone(asteroid, currentZones)) {
-                            Log.Info($"Found untracked orphaned asteroid {asteroid.EntityId} - lost tracking");
+                    // Check if this asteroid is in our tracking
+                    bool isTracked = trackedAsteroids.Any(a => a.EntityId == asteroid.EntityId);
+
+                    if (!isTracked) {
+                        Log.Warning($"Found untracked asteroid {asteroid.EntityId} at {asteroid.PositionComp.GetPosition()} - adding to removal list");
+                        asteroidsToRemove.Add(asteroid);
+                    }
+                    else {
+                        // Double check if it's orphaned
+                        Vector3D position = asteroid.PositionComp.GetPosition();
+                        bool isInAnyZone = currentZones.Any(zone => zone.IsPointInZone(position));
+
+                        if (!isInAnyZone) {
+                            Log.Warning($"Found tracked but orphaned asteroid {asteroid.EntityId} at {position}");
                             asteroidsToRemove.Add(asteroid);
                         }
                     }
@@ -1336,23 +1358,25 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
                 // Remove the identified asteroids
                 foreach (var asteroid in asteroidsToRemove) {
-                    Log.Info($"Removing orphaned asteroid {asteroid.EntityId}");
+                    Log.Info($"Removing asteroid {asteroid.EntityId} - tracked: {trackedAsteroids.Any(a => a.EntityId == asteroid.EntityId)}");
 
-                    // Remove from all zone tracking
+                    // Remove from all zone tracking first
                     foreach (var zone in currentZones) {
                         zone.ContainedAsteroids.Remove(asteroid.EntityId);
                         zone.TransferredFromOtherZone.Remove(asteroid.EntityId);
                     }
 
-                    // Remove from tracking bag if it's there
-                    AsteroidEntity dummy;
-                    while (_asteroids.TryTake(out dummy)) {
-                        if (dummy.EntityId == asteroid.EntityId)
-                            break;
-                        _asteroids.Add(dummy);
+                    // If it's in our tracking, remove it from the bag
+                    if (trackedAsteroids.Any(a => a.EntityId == asteroid.EntityId)) {
+                        AsteroidEntity dummy;
+                        while (_asteroids.TryTake(out dummy)) {
+                            if (dummy.EntityId == asteroid.EntityId)
+                                break;
+                            _asteroids.Add(dummy);
+                        }
                     }
 
-                    // Send removal message
+                    // Send removal message to clients
                     var message = new AsteroidNetworkMessage(
                         asteroid.PositionComp.GetPosition(),
                         asteroid.Properties.Diameter,
@@ -1369,13 +1393,13 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                     byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(message);
                     MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
 
+                    // Finally remove the entity
                     MyEntities.Remove(asteroid);
                     asteroid.Close();
                 }
 
                 if (asteroidsToRemove.Count > 0) {
-                    Log.Info($"Cleanup complete - Removed {asteroidsToRemove.Count} orphaned asteroids " +
-                            $"({asteroidsToRemove.Count(a => !_asteroids.Any(ta => ta.EntityId == a.EntityId))} were untracked)");
+                    Log.Info($"Cleanup complete - Removed {asteroidsToRemove.Count} asteroids ({asteroidsToRemove.Count(a => !trackedAsteroids.Contains(a))} were untracked)");
                 }
             }
             catch (Exception ex) {
@@ -1383,18 +1407,59 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             }
         }
 
-        private bool IsAsteroidInAnyZone(AsteroidEntity asteroid, List<AsteroidZone> zones) {
+        private const int VALIDATION_BATCH_SIZE = 100; // Only check this many entities per validation
+        private const double VALIDATION_MAX_TIME_MS = 16.0; // Max milliseconds to spend on validation (1 frame at 60fps)
+        private int _lastValidatedIndex = 0; // Track where we left off
+
+        private void ValidateAsteroidTracking() {
             try {
-                Vector3D position = asteroid.PositionComp.GetPosition();
-                foreach (var zone in zones) {
-                    if (zone.IsPointInZone(position))
-                        return true;
+                var startTime = DateTime.UtcNow;
+                var trackedIds = _asteroids.Select(a => a.EntityId).ToHashSet();
+                var entities = new HashSet<IMyEntity>();
+                MyAPIGateway.Entities.GetEntities(entities);
+
+                // Convert to list for indexed access
+                var entityList = entities.Skip(_lastValidatedIndex).Take(VALIDATION_BATCH_SIZE).ToList();
+                int untrackedCount = 0;
+                int processedCount = 0;
+
+                foreach (var entity in entityList) {
+                    // Check if we're taking too long
+                    if ((DateTime.UtcNow - startTime).TotalMilliseconds > VALIDATION_MAX_TIME_MS) {
+                        Log.Warning($"Validation taking too long - processed {processedCount} entities before timeout");
+                        break;
+                    }
+
+                    var asteroid = entity as AsteroidEntity;
+                    if (asteroid != null && !asteroid.MarkedForClose) {
+                        if (!trackedIds.Contains(asteroid.EntityId)) {
+                            untrackedCount++;
+                            Log.Warning($"Found untracked asteroid {asteroid.EntityId} at {asteroid.PositionComp.GetPosition()}");
+                        }
+                    }
+                    processedCount++;
+                }
+
+                // Update the index for next time
+                _lastValidatedIndex += processedCount;
+                if (_lastValidatedIndex >= entities.Count) {
+                    _lastValidatedIndex = 0; // Reset when we've checked everything
+
+                    if (untrackedCount > 0) {
+                        Log.Warning($"Validation cycle complete: Found {untrackedCount} untracked asteroids in world");
+                    }
+                }
+
+                double elapsedMs = (DateTime.UtcNow - startTime).TotalMilliseconds;
+                if (elapsedMs > 5.0) // Log if taking more than 5ms
+                {
+                    Log.Info($"Asteroid validation took {elapsedMs:F2}ms to process {processedCount} entities");
                 }
             }
             catch (Exception ex) {
-                Log.Warning($"Error checking zone for asteroid {asteroid.EntityId}: {ex.Message}");
+                Log.Exception(ex, typeof(AsteroidSpawner), "Error in asteroid validation");
+                _lastValidatedIndex = 0; // Reset on error
             }
-            return false;
         }
     }
 }
