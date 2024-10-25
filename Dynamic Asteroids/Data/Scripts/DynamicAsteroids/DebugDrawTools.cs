@@ -73,7 +73,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 ref color,
                 MySimpleObjectRasterizer.Wireframe,
                 20,
-                MyStringId.GetOrCompute("Square"),
+                null,
                 MyStringId.GetOrCompute("Square"),
                 5f);
 
@@ -83,9 +83,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 ref worldMatrix,
                 (float)zone.Radius,
                 ref fillColor,
-                MySimpleObjectRasterizer.Solid,
+                MySimpleObjectRasterizer.Wireframe,
                 20,
-                MyStringId.GetOrCompute("Square"),
+                null,
                 MyStringId.GetOrCompute("Square"),
                 5f);
         }
