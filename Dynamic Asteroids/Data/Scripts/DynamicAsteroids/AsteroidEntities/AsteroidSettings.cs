@@ -67,7 +67,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
                 MaxMass = maxMass;
             }
         }
-           
+
         public static readonly Dictionary<AsteroidType, MassRange> MinMaxMassByType = new Dictionary<AsteroidType, MassRange> {//TODO: put thse into confings, gradient toward gasgiant in ring for bigger roids
             { AsteroidType.Ice, new MassRange(100000f, 500000f) },
             { AsteroidType.Stone, new MassRange(80000f, 400000f) },

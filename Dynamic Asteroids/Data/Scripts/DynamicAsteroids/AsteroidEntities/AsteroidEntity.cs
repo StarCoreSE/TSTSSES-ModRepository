@@ -15,10 +15,8 @@ using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 using Color = VRageMath.Color;
 using VRage;
 
-namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
-{
-    public enum AsteroidType
-    {
+namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
+    public enum AsteroidType {
         Ice,
         Stone,
         Iron,
@@ -32,8 +30,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         Uraninite
     }
 
-    public class AsteroidEntity : MyEntity, IMyDestroyableObject
-    {
+    public class AsteroidEntity : MyEntity, IMyDestroyableObject {
         private static readonly string[] IceAsteroidModels =
         {
             @"Models\IceAsteroid_1.mwm",
@@ -89,11 +86,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
 
         public static AsteroidEntity CreateAsteroid(Vector3D position, float size, Vector3D initialVelocity,
-            AsteroidType type, Quaternion? rotation = null, long? entityId = null)
-        {
+            AsteroidType type, Quaternion? rotation = null, long? entityId = null) {
             var ent = new AsteroidEntity();
-            try
-            {
+            try {
                 if (entityId.HasValue)
                     ent.EntityId = entityId.Value;
 
@@ -103,8 +98,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 MyEntities.Add(ent);
 
                 // Verify that the entity is in the scene
-                if (!MyEntities.EntityExists(ent.EntityId))
-                {
+                if (!MyEntities.EntityExists(ent.EntityId)) {
                     Log.Warning($"Asteroid {ent.EntityId} failed to be added to the scene.");
                     return null;
                 }
@@ -112,17 +106,14 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 Log.Info($"Successfully added asteroid {ent.EntityId} to the scene at position {position}");
                 return ent;
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 Log.Exception(ex, typeof(AsteroidEntity), "Exception during asteroid creation");
                 return null;
             }
         }
 
-        private void Init(Vector3D position, float size, Vector3D initialVelocity, AsteroidType type, Quaternion? rotation)
-        {
-            try
-            {
+        private void Init(Vector3D position, float size, Vector3D initialVelocity, AsteroidType type, Quaternion? rotation) {
+            try {
                 Type = type;
                 ModelString = SelectModelForAsteroidType(type);
                 Properties = new AsteroidPhysicalProperties(size, AsteroidPhysicalProperties.DEFAULT_DENSITY, this);
@@ -132,42 +123,36 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 Init(null, ModelString, null, Properties.Diameter);
 
                 // Confirm model and position
-                if (string.IsNullOrEmpty(ModelString))
-                {
+                if (string.IsNullOrEmpty(ModelString)) {
                     Log.Warning($"Failed to assign model for asteroid type {type}");
                 }
 
                 PositionComp.SetPosition(position);
                 CreatePhysics();
 
-                if (Physics == null)
-                {
+                if (Physics == null) {
                     Log.Warning($"Physics creation failed for asteroid {EntityId}");
                 }
 
                 Physics.LinearVelocity = initialVelocity;
                 Physics.AngularVelocity = Vector3D.Zero;
 
-                if (MyAPIGateway.Session.IsServer)
-                {
+                if (MyAPIGateway.Session.IsServer) {
                     SyncFlag = true;
                 }
 
                 Log.Info($"Asteroid {EntityId} initialized with position {PositionComp.GetPosition()} and velocity {initialVelocity}");
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 Log.Exception(ex, typeof(AsteroidEntity), "Failed to initialize AsteroidEntity");
                 Flags &= ~EntityFlags.Visible; // Hide entity if initialization failed
             }
         }
 
-        private string SelectModelForAsteroidType(AsteroidType type)
-        {
+        private string SelectModelForAsteroidType(AsteroidType type) {
             // Select model based on asteroid type (same as before, refactor for clarity)
             string modPath = MainSession.I.ModContext.ModPath;
-            switch (type)
-            {
+            switch (type) {
                 case AsteroidType.Ice:
                     return GetRandomModel(IceAsteroidModels, modPath);
                 case AsteroidType.Stone:
@@ -196,10 +181,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             }
         }
 
-        private string GetRandomModel(string[] models, string modPath)
-        {
-            if (models.Length == 0)
-            {
+        private string GetRandomModel(string[] models, string modPath) {
+            if (models.Length == 0) {
                 Log.Info("Model array is empty");
                 return string.Empty;
             }
@@ -209,8 +192,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             return Path.Combine(modPath, models[modelIndex]);
         }
 
-        public void DrawDebugSphere()
-        {
+        public void DrawDebugSphere() {
             Vector3D asteroidPosition = this.PositionComp.GetPosition();
             float radius = Properties.Radius;
             Color sphereColor = Color.Red;
@@ -227,9 +209,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             MySimpleObjectDraw.DrawTransparentBox(ref boxWorldMatrix, ref localBox,
                 ref otherColor, MySimpleObjectRasterizer.Wireframe, 1, 0.1f);
         }
-   
-        public void OnDestroy()
-        {
+
+        public void OnDestroy() {
             if (!MyAPIGateway.Session.IsServer) return;
 
             // Play destruction effects
@@ -254,15 +235,13 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 Quaternion.Identity
             );
 
-            if (MyAPIGateway.Utilities.IsDedicated)
-            {
+            if (MyAPIGateway.Utilities.IsDedicated) {
                 var finalRemovalMessageBytes = MyAPIGateway.Utilities.SerializeToBinary(finalRemovalMessage);
                 MyAPIGateway.Multiplayer.SendMessageToOthers(32000, finalRemovalMessageBytes);
             }
 
             // Remove from spawner and entities
-            if (MainSession.I?._spawner != null)
-            {
+            if (MainSession.I?._spawner != null) {
                 MainSession.I._spawner.TryRemoveAsteroid(this);
             }
             MyEntities.Remove(this);
@@ -271,8 +250,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         public bool DoDamage(float damage, MyStringHash damageSource, bool sync, MyHitInfo? hitInfo = null,
             long attackerId = 0, long realHitEntityId = 0, bool shouldDetonateAmmo = true,
-            MyStringHash? extraInfo = null)
-        {
+            MyStringHash? extraInfo = null) {
             Log.Info(
                 $"DoDamage called with damage: {damage}, damageSource: {damageSource}, " +
                 $"integrity before damage: {Properties.CurrentIntegrity}");
@@ -282,12 +260,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 shouldDetonateAmmo, extraInfo);
         }
 
-        public void CreatePhysics()
-        {
-            try
-            {
-                if (Physics != null)
-                {
+        public void CreatePhysics() {
+            try {
+                if (Physics != null) {
                     Physics.Close();
                     Physics = null;
                 }
@@ -308,8 +283,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 MyAPIGateway.Physics.CreateSpherePhysics(settings, Properties.Radius);
 
                 // Give it an initial spin if we're on the server
-                if (MyAPIGateway.Session.IsServer)
-                {
+                if (MyAPIGateway.Session.IsServer) {
                     const float initialMaxSpin = 0.2f; // radians per second
                     Vector3D randomSpin = RandVector() * initialMaxSpin;
                     this.Physics.AngularVelocity = randomSpin;
@@ -318,14 +292,12 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
                 Log.Info($"Created physics for asteroid {EntityId} at position {this.PositionComp.GetPosition()}");
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 Log.Exception(ex, typeof(AsteroidEntity), $"Error creating physics for asteroid {EntityId}");
             }
         }
 
-        private Vector3D RandVector()
-        {
+        private Vector3D RandVector() {
             var theta = MainSession.I.Rand.NextDouble() * 2.0 * Math.PI;
             var phi = Math.Acos(2.0 * MainSession.I.Rand.NextDouble() - 1.0);
             var sinPhi = Math.Sin(phi);
