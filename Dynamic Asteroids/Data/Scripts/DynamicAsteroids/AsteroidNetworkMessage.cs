@@ -20,7 +20,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
     }
 
     [ProtoContract]
-    public struct AsteroidNetworkMessage
+    public class AsteroidNetworkMessage
     {
         [ProtoMember(1)]
         public double PosX;
@@ -58,6 +58,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
         public float RotZ;
         [ProtoMember(19)]
         public float RotW;
+
+        // Parameterless constructor required by Protobuf
+        public AsteroidNetworkMessage() { }
 
         public AsteroidNetworkMessage(Vector3D position, float size, Vector3D initialVelocity, Vector3D angularVelocity, AsteroidType type, bool isSubChunk, long entityId, bool isRemoval, bool isInitialCreation, Quaternion rotation)
         {
