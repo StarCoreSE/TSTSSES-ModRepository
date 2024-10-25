@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using VRage;
+using VRage.ModAPI;
 using VRageMath;
 
 namespace RealGasGiants
@@ -38,7 +39,7 @@ namespace RealGasGiants
         private Func<List<string>> _getGasGiantRingSkinList;
         private Func<Vector3D, List<MyPlanet>> _getOverlapGasGiantsAtPosition;
         private Func<Vector3D, List<MyPlanet>> _getAtmoGasGiantsAtPosition;
-        private Func<Vector3D, float> _getShadowFactor;
+        private Func<IMyEntity, float> _getShadowFactor;
         private Func<MyPlanet, Vector3D, float> _getAtmoDensity;
         private Func<Vector3D, float> _getAtmoDensityGlobal;
         private Func<MyPlanet, Vector3D, float> _getRingInfluenceAtPosition;
@@ -126,7 +127,7 @@ namespace RealGasGiants
             _getGasGiantRingSkinList = (Func<List<string>>)delegates["GetGasGiantRingSkinList"];
             _getOverlapGasGiantsAtPosition = (Func<Vector3D, List<MyPlanet>>)delegates["GetOverlapGasGiantsAtPosition"];
             _getAtmoGasGiantsAtPosition = (Func<Vector3D, List<MyPlanet>>)delegates["GetAtmoGasGiantsAtPosition"];
-            _getShadowFactor = (Func<Vector3D, float>)delegates["GetShadowFactor"];
+            _getShadowFactor = (Func<IMyEntity, float>)delegates["GetShadowFactor"];
             _getAtmoDensity = (Func<MyPlanet, Vector3D, float>)delegates["GetAtmoDensity"];
             _getAtmoDensityGlobal = (Func<Vector3D, float>)delegates["GetAtmoDensityGlobal"];
             _getRingInfluenceAtPosition = (Func<MyPlanet, Vector3D, float>)delegates["GetRingInfluenceAtPosition"];
@@ -155,7 +156,7 @@ namespace RealGasGiants
         public List<string> GetGasGiantRingSkinList() => _getGasGiantRingSkinList?.Invoke() ?? new List<string>();
         public List<MyPlanet> GetOverlapGasGiantsAtPosition(Vector3D position) => _getOverlapGasGiantsAtPosition?.Invoke(position) ?? new List<MyPlanet>();
         public List<MyPlanet> GetAtmoGasGiantsAtPosition(Vector3D position) => _getAtmoGasGiantsAtPosition?.Invoke(position) ?? new List<MyPlanet>();
-        public float GetShadowFactor(Vector3D position) => _getShadowFactor?.Invoke(position) ?? 0f;
+        public float GetShadowFactor(IMyEntity entity) => _getShadowFactor?.Invoke(entity) ?? 0f;
         public float GetAtmoDensity(MyPlanet planet, Vector3D position) => _getAtmoDensity?.Invoke(planet, position) ?? 0f;
         public float GetAtmoDensityGlobal(Vector3D position) => _getAtmoDensityGlobal?.Invoke(position) ?? 0f;
         public float GetRingInfluenceAtPosition(MyPlanet planet, Vector3D position) => _getRingInfluenceAtPosition?.Invoke(planet, position) ?? 0f;
