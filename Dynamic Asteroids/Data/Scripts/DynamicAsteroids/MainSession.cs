@@ -314,14 +314,23 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                         string rotationString = $"({angularVelocity.X:F2}, {angularVelocity.Y:F2}, {angularVelocity.Z:F2})";
                         string message = $"Nearest Asteroid: {nearestAsteroid.EntityId} ({nearestAsteroid.Type})\nRotation: {rotationString}";
                         MyAPIGateway.Utilities.ShowNotification(message, 1000 / 60);
-                        nearestAsteroid.DrawDebugSphere(); // Debug visualization
+                        nearestAsteroid.DrawDebugSphere(); 
                     }
 
                     // Log the number of active asteroids (for debugging purposes)
                     if (AsteroidSettings.EnableLogging)
                     {
-                        int activeAsteroids = _spawner?.GetAsteroids().Count() ?? 0;
-                        MyAPIGateway.Utilities.ShowNotification($"Active Asteroids: {activeAsteroids}", 1000 / 60);
+                        if (!MyAPIGateway.Session.IsServer)
+                        {
+                            var entities = new HashSet<IMyEntity>();
+                            MyAPIGateway.Entities.GetEntities(entities);
+                            int localAsteroidCount = entities.Count(e => e is AsteroidEntity);
+
+                            if (AsteroidSettings.EnableLogging)
+                            {
+                                MyAPIGateway.Utilities.ShowNotification($"Client Asteroids: {localAsteroidCount}", 1000 / 60);
+                            }
+                        }
                     }
                 }
 
