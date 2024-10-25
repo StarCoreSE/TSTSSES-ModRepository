@@ -3,8 +3,7 @@ using ProtoBuf;
 using VRageMath;
 
 [ProtoContract]
-public class AsteroidState
-{
+public class AsteroidState {
     public Vector3D Position { get; set; }
     public Vector3D Velocity { get; set; }
     public Quaternion Rotation { get; set; }
@@ -12,8 +11,9 @@ public class AsteroidState
     public AsteroidType Type { get; set; }
     public long EntityId { get; set; }
 
-    public AsteroidState(AsteroidEntity asteroid)
-    {
+    public AsteroidState() { }
+
+    public AsteroidState(AsteroidEntity asteroid) {
         Position = asteroid.PositionComp.GetPosition();
         Velocity = asteroid.Physics.LinearVelocity;
         Rotation = Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix);
@@ -22,8 +22,7 @@ public class AsteroidState
         EntityId = asteroid.EntityId;
     }
 
-    public bool HasChanged(AsteroidEntity asteroid)
-    {
+    public bool HasChanged(AsteroidEntity asteroid) {
         return Vector3D.DistanceSquared(Position, asteroid.PositionComp.GetPosition()) > 0.01
                || Vector3D.DistanceSquared(Velocity, asteroid.Physics.LinearVelocity) > 0.01;
     }

@@ -6,46 +6,51 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using VRage.Game;
+using VRage.ModAPI;
 using VRage.Utils;
 using VRageMath;
 using VRageRender;
 
-namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
-{
-    public partial class MainSession
-    {
+namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
+    public partial class MainSession {
+        private Queue<AsteroidZone> _lastRemovedZones = new Queue<AsteroidZone>(5); // Add this to class fields
+        private HashSet<AsteroidEntity> _orphanedAsteroids = new HashSet<AsteroidEntity>();
+        private int _orphanCheckTimer = 0;
+        private const int ORPHAN_CHECK_INTERVAL = 60; // Update once per second at 60 fps
 
-        public override void Draw()
-        {
-            try
-            {
+        public override void Draw() {
+            try {
                 if (!AsteroidSettings.EnableLogging || MyAPIGateway.Session?.Player?.Character == null)
                     return;
 
                 Vector3D characterPosition = MyAPIGateway.Session.Player.Character.PositionComp.GetPosition();
                 DrawPlayerZones(characterPosition);
                 DrawNearestAsteroidDebug(characterPosition);
+                DrawOrphanedAsteroids();
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 Log.Exception(ex, typeof(MainSession), "Error in Draw");
             }
         }
 
-        private void DrawPlayerZones(Vector3D characterPosition)
-        {
-            foreach (var kvp in _clientZones)
-            {
+
+        private void DrawPlayerZones(Vector3D characterPosition) {
+            // Draw active zones first
+            foreach (var kvp in _clientZones) {
                 DrawZone(kvp.Key, kvp.Value, characterPosition);
-                if (kvp.Value.IsMerged)
-                {
+                if (kvp.Value.IsMerged) {
                     DrawZoneMergeConnections(kvp.Value);
                 }
             }
+
+            // Draw recently removed zones with fading effect
+            foreach (var removedZone in _lastRemovedZones) {
+                Color fadeColor = Color.Red * 0.5f; // Semi-transparent red for removed zones
+                DrawZoneSphere(removedZone, fadeColor);
+            }
         }
 
-        private void DrawZone(long playerId, AsteroidZone zone, Vector3D characterPosition)
-        {
+        private void DrawZone(long playerId, AsteroidZone zone, Vector3D characterPosition) {
             bool isLocalPlayer = playerId == MyAPIGateway.Session.Player.IdentityId;
             bool playerInZone = zone.IsPointInZone(characterPosition);
 
@@ -55,18 +60,48 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             DrawZoneInfo(zone, isLocalPlayer, playerInZone);
         }
 
-        private Color DetermineZoneColor(bool isLocalPlayer, bool playerInZone, bool isMerged)
-        {
-            if (isLocalPlayer)
-                return playerInZone ? Color.Green : Color.Yellow;
-            return isMerged ? Color.Purple : Color.Blue;
+        private void DrawZoneInfo(AsteroidZone zone, bool isLocalPlayer, bool playerInZone) {
+            Vector3D textPosition = zone.Center + new Vector3D(0, zone.Radius + 100, 0);
+
+            // Create info string including new states
+            string zoneInfo = $"Asteroids: {zone.ContainedAsteroids?.Count ?? 0}\n" +
+                              $"Active: {!zone.IsMarkedForRemoval}\n" +
+                              $"Last Active: {(DateTime.UtcNow - zone.LastActiveTime).TotalSeconds:F1}s ago";
+
+            // Draw zone status text
+            MyTransparentGeometry.AddLineBillboard(
+                MyStringId.GetOrCompute("Square"),
+                Color.White,
+                textPosition,
+                Vector3.Right,
+                (float)zone.Radius * 0.1f,
+                0.5f,
+                MyBillboard.BlendTypeEnum.Standard
+            );
         }
 
-        private void DrawZoneSphere(AsteroidZone zone, Color color)
-        {
-            MatrixD worldMatrix = MatrixD.CreateTranslation(zone.Center);
+        private Color DetermineZoneColor(bool isLocalPlayer, bool playerInZone, bool isMerged) {
+            // Handle high-speed check through the AsteroidZone properties instead
+            if (isLocalPlayer && MyAPIGateway.Session?.Player != null) {
+                AsteroidZone currentZone;
+                if (_clientZones.TryGetValue(MyAPIGateway.Session.Player.IdentityId, out currentZone)) {
+                    if (currentZone.IsMarkedForRemoval)
+                        return Color.Red;
+                }
+            }
 
-            // Draw wireframe
+            // Use zone state for coloring
+            if (isLocalPlayer)
+                return playerInZone ? Color.Green : Color.Yellow;
+
+            if (isMerged)
+                return Color.Purple;
+
+            return Color.Blue;
+        }
+
+        private void DrawZoneSphere(AsteroidZone zone, Color color) {
+            MatrixD worldMatrix = MatrixD.CreateTranslation(zone.Center);
             MySimpleObjectDraw.DrawTransparentSphere(
                 ref worldMatrix,
                 (float)zone.Radius,
@@ -75,69 +110,34 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 20,
                 null,
                 MyStringId.GetOrCompute("Square"),
-                5f);
-
-            // Draw filled sphere
-            Color fillColor = new Color(color.R, color.G, color.B, 10);
-            MySimpleObjectDraw.DrawTransparentSphere(
-                ref worldMatrix,
-                (float)zone.Radius,
-                ref fillColor,
-                MySimpleObjectRasterizer.Wireframe,
-                20,
-                null,
-                MyStringId.GetOrCompute("Square"),
-                5f);
+                5f
+            );
         }
 
-        private void DrawZoneMergeConnections(AsteroidZone sourceZone)
-        {
-            foreach (var targetZone in _clientZones.Values)
-            {
-                if (targetZone.IsMerged && targetZone != sourceZone)
-                {
+        private void DrawZoneMergeConnections(AsteroidZone sourceZone) {
+            foreach (var targetZone in _clientZones.Values) {
+                if (targetZone.IsMerged && targetZone != sourceZone) {
                     double distance = Vector3D.Distance(sourceZone.Center, targetZone.Center);
-                    if (distance <= sourceZone.Radius + targetZone.Radius)
-                    {
-                        Vector4 mergeLineColor = Color.Purple.ToVector4();
+                    if (distance <= sourceZone.Radius + targetZone.Radius) {
+                        // Red lines for connections involving marked-for-removal zones
+                        Color connectionColor = (sourceZone.IsMarkedForRemoval || targetZone.IsMarkedForRemoval)
+                            ? Color.Red
+                            : Color.Purple;
+
+                        Vector4 mergeLineColor = connectionColor.ToVector4();
                         MySimpleObjectDraw.DrawLine(
                             sourceZone.Center,
                             targetZone.Center,
                             MyStringId.GetOrCompute("Square"),
                             ref mergeLineColor,
-                            2f);
+                            2f
+                        );
                     }
                 }
             }
         }
-
-        private void DrawZoneInfo(AsteroidZone zone, bool isLocalPlayer, bool playerInZone)
-        {
-            Vector3D textPosition = zone.Center + new Vector3D(0, zone.Radius + 100, 0);
-
-            // Fix the billboard drawing
-            MyTransparentGeometry.AddLineBillboard(
-                MyStringId.GetOrCompute("Square"),
-                Color.White,
-                textPosition,
-                Vector3.Right,
-                (float)zone.Radius * 0.1f,
-                0.5f,
-                MyBillboard.BlendTypeEnum.Standard);
-
-            if (isLocalPlayer)
-            {
-                MyAPIGateway.Utilities.ShowNotification(
-                    $"Your Zone Status:\n" +
-                    $"In Zone: {playerInZone}\n" +
-                    $"Distance: {Vector3D.Distance(MyAPIGateway.Session.Player.GetPosition(), zone.Center):F0}m\n" +
-                    $"Merged: {zone.IsMerged}",
-                    16);
-            }
-        }
-
-        private void DrawNearestAsteroidDebug(Vector3D characterPosition)
-        {
+       
+        private void DrawNearestAsteroidDebug(Vector3D characterPosition) {
             AsteroidEntity nearestAsteroid = FindNearestAsteroid(characterPosition);
             if (nearestAsteroid == null) return;
 
@@ -145,8 +145,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             DrawAsteroidServerComparison(nearestAsteroid);
         }
 
-        private void DrawAsteroidClientPosition(AsteroidEntity asteroid)
-        {
+        private void DrawAsteroidClientPosition(AsteroidEntity asteroid) {
             Vector3D clientPosition = asteroid.PositionComp.GetPosition();
             MatrixD clientWorldMatrix = MatrixD.CreateTranslation(clientPosition);
             Color clientColor = Color.Red;
@@ -158,8 +157,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 20);
         }
 
-        private void DrawAsteroidServerComparison(AsteroidEntity asteroid)
-        {
+        private void DrawAsteroidServerComparison(AsteroidEntity asteroid) {
             Vector3D serverPosition;
             Quaternion serverRotation;
 
@@ -173,8 +171,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             DisplayAsteroidDebugInfo(asteroid, serverPosition, serverRotation);
         }
 
-        private void DrawServerPositionSphere(AsteroidEntity asteroid, Vector3D serverPosition)
-        {
+        private void DrawServerPositionSphere(AsteroidEntity asteroid, Vector3D serverPosition) {
             MatrixD serverWorldMatrix = MatrixD.CreateTranslation(serverPosition);
             Color serverColor = Color.Blue;
             MySimpleObjectDraw.DrawTransparentSphere(
@@ -185,8 +182,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 20);
         }
 
-        private void DrawPositionComparisonLine(Vector3D clientPosition, Vector3D serverPosition)
-        {
+        private void DrawPositionComparisonLine(Vector3D clientPosition, Vector3D serverPosition) {
             Vector4 lineColor = Color.Yellow.ToVector4();
             MySimpleObjectDraw.DrawLine(
                 clientPosition,
@@ -196,8 +192,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 0.1f);
         }
 
-        private void DrawRotationComparison(AsteroidEntity asteroid, Vector3D serverPosition, Quaternion serverRotation)
-        {
+        private void DrawRotationComparison(AsteroidEntity asteroid, Vector3D serverPosition, Quaternion serverRotation) {
             Vector3D clientForward = asteroid.WorldMatrix.Forward;
             Vector3D serverForward = MatrixD.CreateFromQuaternion(serverRotation).Forward;
             Vector3D clientPosition = asteroid.PositionComp.GetPosition();
@@ -220,8 +215,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 0.1f);
         }
 
-        private void DisplayAsteroidDebugInfo(AsteroidEntity asteroid, Vector3D serverPosition, Quaternion serverRotation)
-        {
+        private void DisplayAsteroidDebugInfo(AsteroidEntity asteroid, Vector3D serverPosition, Quaternion serverRotation) {
             float angleDifference = GetQuaternionAngleDifference(
                 Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix),
                 serverRotation);
@@ -233,5 +227,75 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 16);
         }
 
+        private void UpdateOrphanedAsteroidsList() {
+            try {
+                _orphanedAsteroids.Clear();
+                var entities = new HashSet<IMyEntity>();
+                MyAPIGateway.Entities.GetEntities(entities);
+
+                foreach (var entity in entities) {
+                    var asteroid = entity as AsteroidEntity;
+                    if (asteroid == null)
+                        continue;
+
+                    Vector3D asteroidPosition = asteroid.PositionComp.GetPosition();
+                    bool isInAnyZone = false;
+
+                    foreach (var zoneKvp in _clientZones) {
+                        if (zoneKvp.Value.IsPointInZone(asteroidPosition)) {
+                            isInAnyZone = true;
+                            break;
+                        }
+                    }
+
+                    if (!isInAnyZone) {
+                        _orphanedAsteroids.Add(asteroid);
+                    }
+                }
+            }
+            catch (Exception ex) {
+                Log.Exception(ex, typeof(MainSession), "Error updating orphaned asteroids list");
+            }
+        }
+
+        private void DrawOrphanedAsteroids() {
+            foreach (var asteroid in _orphanedAsteroids) {
+                if (asteroid == null || asteroid.MarkedForClose)
+                    continue;
+
+                try {
+                    Vector3D asteroidPosition = asteroid.PositionComp.GetPosition();
+                    MatrixD worldMatrix = MatrixD.CreateTranslation(asteroidPosition);
+                    Color orphanColor = new Color(255, 0, 0, 128);
+
+                    MySimpleObjectDraw.DrawTransparentSphere(
+                        ref worldMatrix,
+                        asteroid.Properties.Radius * 1.5f,
+                        ref orphanColor,
+                        MySimpleObjectRasterizer.Wireframe,
+                        20,
+                        null,
+                        MyStringId.GetOrCompute("Square"),
+                        5f
+                    );
+
+                    Vector3D textPosition = asteroidPosition + new Vector3D(0, asteroid.Properties.Radius * 2, 0);
+                    string orphanInfo = $"Orphaned Asteroid {asteroid.EntityId}\nType: {asteroid.Type}";
+                    MyTransparentGeometry.AddLineBillboard(
+                        MyStringId.GetOrCompute("Square"),
+                        Color.Red,
+                        textPosition,
+                        Vector3.Right,
+                        asteroid.Properties.Radius * 0.2f,
+                        0.5f,
+                        MyBillboard.BlendTypeEnum.Standard
+                    );
+                }
+                catch (Exception ex) {
+                    _orphanedAsteroids.Remove(asteroid);
+                    Log.Warning($"Error drawing orphaned asteroid {asteroid.EntityId}: {ex.Message}");
+                }
+            }
+        }
     }
 }
