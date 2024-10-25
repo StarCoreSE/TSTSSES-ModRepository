@@ -732,12 +732,36 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         private void ProcessZoneMessage(byte[] message) {
             try {
                 var zoneMessage = MyAPIGateway.Utilities.SerializeFromBinary<ZoneNetworkMessage>(message);
-                if (zoneMessage?.Zones == null) return;
+                if (zoneMessage?.Zones == null)
+                    return;
+
+                // Store current zones that might be removed
+                var previousZones = new Dictionary<long, AsteroidZone>(_clientZones);
 
                 _clientZones.Clear();
                 foreach (var zoneData in zoneMessage.Zones) {
                     _clientZones[zoneData.PlayerId] = new AsteroidZone(zoneData.Center, zoneData.Radius);
-                    Log.Info($"Received zone update for player {zoneData.PlayerId} at {zoneData.Center}");
+                    previousZones.Remove(zoneData.PlayerId); // Remove zones that still exist
+                }
+
+                // Add remaining (removed) zones to our tracking queue
+                foreach (var removedZone in previousZones.Values) {
+                    _lastRemovedZones.Enqueue(removedZone);
+                    while (_lastRemovedZones.Count > 5)
+                        _lastRemovedZones.Dequeue();
+                }
+
+                // Send removal messages for asteroids in removed zones
+                foreach (var removedZone in previousZones.Values) {
+                    var entities = new HashSet<IMyEntity>();
+                    MyAPIGateway.Entities.GetEntities(entities);
+
+                    foreach (var entity in entities) {
+                        var asteroid = entity as AsteroidEntity;
+                        if (asteroid != null && removedZone.IsPointInZone(asteroid.PositionComp.GetPosition())) {
+                            RemoveAsteroidOnClient(asteroid.EntityId);
+                        }
+                    }
                 }
             }
             catch (Exception ex) {
