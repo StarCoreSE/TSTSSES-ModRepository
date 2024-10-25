@@ -125,15 +125,15 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 0.5f,
                 MyBillboard.BlendTypeEnum.Standard);
 
-            if (isLocalPlayer)
-            {
-                MyAPIGateway.Utilities.ShowNotification(
-                    $"Your Zone Status:\n" +
-                    $"In Zone: {playerInZone}\n" +
-                    $"Distance: {Vector3D.Distance(MyAPIGateway.Session.Player.GetPosition(), zone.Center):F0}m\n" +
-                    $"Merged: {zone.IsMerged}",
-                    16);
-            }
+            //if (isLocalPlayer)
+            //{
+            //    MyAPIGateway.Utilities.ShowNotification(
+            //        $"Your Zone Status:\n" +
+            //        $"In Zone: {playerInZone}\n" +
+            //        $"Distance: {Vector3D.Distance(MyAPIGateway.Session.Player.GetPosition(), zone.Center):F0}m\n" +
+            //        $"Merged: {zone.IsMerged}",
+            //        16);
+            //}
         }
 
         private void DrawNearestAsteroidDebug(Vector3D characterPosition)
