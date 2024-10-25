@@ -11,6 +11,8 @@ public class AsteroidState {
     public AsteroidType Type { get; set; }
     public long EntityId { get; set; }
 
+    public AsteroidState() { }
+
     public AsteroidState(AsteroidEntity asteroid) {
         Position = asteroid.PositionComp.GetPosition();
         Velocity = asteroid.Physics.LinearVelocity;

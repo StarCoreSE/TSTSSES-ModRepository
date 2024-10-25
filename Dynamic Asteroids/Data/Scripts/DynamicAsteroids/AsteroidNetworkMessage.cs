@@ -55,7 +55,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         [ProtoMember(19)]
         public float RotW;
 
-        // Parameterless constructor required by Protobuf
         public AsteroidNetworkMessage() { }
 
         public AsteroidNetworkMessage(Vector3D position, float size, Vector3D initialVelocity, Vector3D angularVelocity, AsteroidType type, bool isSubChunk, long entityId, bool isRemoval, bool isInitialCreation, Quaternion rotation) {

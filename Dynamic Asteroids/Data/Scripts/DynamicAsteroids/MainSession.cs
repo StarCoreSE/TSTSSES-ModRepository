@@ -684,18 +684,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             return nearestAsteroid;
         }
 
-        public void RegisterExistingAsteroids() {
-            var entities = new HashSet<IMyEntity>();
-            MyAPIGateway.Entities.GetEntities(entities);
-
-            foreach (var entity in entities) {
-                AsteroidEntity asteroid = entity as AsteroidEntity;
-                if (asteroid != null) {
-                    _spawner.AddAsteroid(asteroid);
-                }
-            }
-        }
-
         private AsteroidType DetermineAsteroidType() {
             int randValue = Rand.Next(0, 2);
             return (AsteroidType)randValue;
@@ -704,11 +692,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         [ProtoContract]
         public class ZoneNetworkMessage {
             [ProtoMember(1)]
-            public List<ZoneData> Zones { get; set; }
+            public List<ZoneData> Zones { get; set; } = new List<ZoneData>();
 
-            public ZoneNetworkMessage() {
-                Zones = new List<ZoneData>();
-            }
+            public ZoneNetworkMessage () { }
         }
 
         [ProtoContract]
@@ -725,7 +711,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             public bool IsMerged { get; set; }
             [ProtoMember(6)]
             public double CurrentSpeed { get; set; }
+
+            public ZoneData () { }
         }
+
 
         private void ProcessZoneMessage(byte[] message) {
             try {
