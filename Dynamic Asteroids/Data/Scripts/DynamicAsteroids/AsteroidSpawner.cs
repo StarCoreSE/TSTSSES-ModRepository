@@ -29,6 +29,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
         public HashSet<long> TransferringAsteroids { get; private set; } = new HashSet<long>();
         public DateTime CreationTime { get; private set; } = DateTime.UtcNow;
+        public HashSet<long> TransferredFromOtherZone { get; private set; } = new HashSet<long>();
+
+        public int TotalAsteroidCount => ContainedAsteroids.Count + TransferredFromOtherZone.Count;
 
         public const double MINIMUM_ZONE_LIFETIME = 5.0; // seconds
 
@@ -660,10 +663,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             var currentAsteroids = _asteroids.ToList();
             var activeZones = zones.Where(z => !z.IsMarkedForRemoval).ToList();
 
-            // Clear all zone asteroid counts first
+            // Clear transferred tracking at start of update
             foreach (var zone in zones) {
-                zone.ContainedAsteroids.Clear();
-                zone.AsteroidCount = 0;
+                zone.TransferredFromOtherZone.Clear();
             }
 
             foreach (var asteroid in currentAsteroids) {
@@ -672,35 +674,42 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
                 Vector3D asteroidPosition = asteroid.PositionComp.GetPosition();
                 bool inAnyZone = false;
+                AsteroidZone primaryZone = null;
 
-                // Check active zones first
+                // First pass - find primary zone (closest)
+                double closestDistance = double.MaxValue;
                 foreach (var zone in activeZones) {
                     if (zone.IsPointInZone(asteroidPosition)) {
-                        inAnyZone = true;
-                        // Only add if zone isn't at limit
-                        if (zone.AsteroidCount < AsteroidSettings.MaxAsteroidsPerZone) {
-                            zone.ContainedAsteroids.Add(asteroid.EntityId);
-                            zone.AsteroidCount++;
-                            break; // Stop checking zones once added
+                        double distance = Vector3D.DistanceSquared(asteroidPosition, zone.Center);
+                        if (distance < closestDistance) {
+                            closestDistance = distance;
+                            primaryZone = zone;
+                            inAnyZone = true;
                         }
                     }
                 }
 
-                // If not in any active zone or all zones are full
-                if (!inAnyZone) {
-                    // Check if in a removing zone
+                // Second pass - handle zone tracking
+                if (inAnyZone) {
+                    // Add to primary zone's direct containment
+                    primaryZone.ContainedAsteroids.Add(asteroid.EntityId);
+
+                    // Mark as transferred in other overlapping zones
+                    foreach (var zone in activeZones) {
+                        if (zone != primaryZone && zone.IsPointInZone(asteroidPosition)) {
+                            zone.TransferredFromOtherZone.Add(asteroid.EntityId);
+                        }
+                    }
+                }
+                else {
+                    // Not in any active zone - check if it's in a removing zone
                     var removingZone = zones.FirstOrDefault(z =>
                         z.IsMarkedForRemoval &&
                         z.IsPointInZone(asteroidPosition) &&
                         !z.CanBeRemoved());
 
-                    if (removingZone != null) {
-                        removingZone.TransferringAsteroids.Add(asteroid.EntityId);
-                        Log.Info($"Asteroid {asteroid.EntityId} in removing zone, delaying cleanup");
-                    }
-                    else {
+                    if (removingZone == null) {
                         asteroidsToRemove.Add(asteroid);
-                        Log.Info($"Marking asteroid {asteroid.EntityId} for removal - not in any zone or zones full");
                     }
                 }
             }
@@ -712,17 +721,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 foreach (var asteroid in batch) {
                     RemoveAsteroid(asteroid);
                 }
-            }
-
-            // Clean up fully removed zones
-            foreach (var zone in zones.Where(z => z.IsMarkedForRemoval && z.CanBeRemoved())) {
-                foreach (var asteroidId in zone.TransferringAsteroids.ToList()) {
-                    var asteroid = _asteroids.FirstOrDefault(a => a.EntityId == asteroidId);
-                    if (asteroid != null) {
-                        RemoveAsteroid(asteroid);
-                    }
-                }
-                zone.TransferringAsteroids.Clear();
             }
         }
 
@@ -777,7 +775,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 int asteroidsSpawned = 0;
                 int zoneSpawnAttempts = 0;
 
-                if (zone.AsteroidCount >= AsteroidSettings.MaxAsteroidsPerZone) {
+                if (zone.TotalAsteroidCount >= AsteroidSettings.MaxAsteroidsPerZone) {
                     continue;
                 }
 
@@ -942,6 +940,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         }
 
         private bool IsValidSpawnPosition(Vector3D position, List<AsteroidZone> zones) {
+            // Check for nearby players
             BoundingSphereD sphere = new BoundingSphereD(position, AsteroidSettings.MinDistanceFromPlayer);
             List<MyEntity> entities = new List<MyEntity>();
             MyGamePruningStructure.GetAllTopMostEntitiesInSphere(ref sphere, entities, MyEntityQueryType.Both);
@@ -950,24 +949,33 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                     return false;
                 }
             }
+
+            // Check gas giant rings
             if (AsteroidSettings.EnableGasGiantRingSpawning && _realGasGiantsApi != null && _realGasGiantsApi.IsReady) {
                 float ringInfluence = _realGasGiantsApi.GetRingInfluenceAtPositionGlobal(position);
                 if (ringInfluence > AsteroidSettings.MinimumRingInfluenceForSpawn) {
-                    //Log.Info($"Valid position in ring: {position}, influence: {ringInfluence}");
                     return true;
                 }
             }
+
+            // Check spawnable areas
             foreach (SpawnableArea area in AsteroidSettings.ValidSpawnLocations) {
-                if (!area.ContainsPoint(position)) continue;
-                //Log.Info($"Valid position in SpawnableArea: {position}");
-                return true;
+                if (area.ContainsPoint(position))
+                    return true;
             }
+
+            // Check zones and their asteroid counts
             foreach (AsteroidZone zone in zones) {
-                if (!zone.IsPointInZone(position)) continue;
-                //Log.Info($"Valid position in player zone: {position}");
-                return true;
+                if (zone.IsPointInZone(position)) {
+                    // Don't spawn if zone is at or over limit
+                    if (zone.TotalAsteroidCount >= AsteroidSettings.MaxAsteroidsPerZone) {
+                        Log.Info($"Zone at {zone.Center} is at capacity ({zone.TotalAsteroidCount} asteroids)");
+                        return false;
+                    }
+                    return true;
+                }
             }
-            //Log.Info($"Invalid spawn position: {position}");
+
             return false;
         }
 
