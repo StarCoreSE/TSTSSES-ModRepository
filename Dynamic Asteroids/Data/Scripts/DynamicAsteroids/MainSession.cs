@@ -528,34 +528,22 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
         private void CreateNewAsteroidOnClient(AsteroidNetworkMessage message) {
             try {
-                Vector3D position = message.GetPosition();
-                Quaternion rotation = message.GetRotation();
-
-                // First check if entity already exists
-                if (MyEntities.GetEntityById(message.EntityId) != null) {
-                    Log.Warning($"Client: Attempted to create duplicate asteroid {message.EntityId}");
-                    return;
-                }
-
-                // Create the asteroid with explicit entity ID
+                // Don't generate random rotation, use exactly what the server sent
                 var asteroid = AsteroidEntity.CreateAsteroid(
-                    position,
+                    message.GetPosition(),
                     message.Size,
                     message.GetVelocity(),
                     message.GetType(),
-                    rotation,
+                    message.GetRotation(),  // Use server's rotation
                     message.EntityId
                 );
 
                 if (asteroid != null) {
-                    // Add to world
-                    MyEntities.Add(asteroid);
-
-                    // Set physics properties
-                    asteroid.Physics.LinearVelocity = message.GetVelocity();
-                    asteroid.Physics.AngularVelocity = message.GetAngularVelocity();
-
-                    Log.Info($"Client: Successfully created asteroid {message.EntityId} at {position}");
+                    if (asteroid.Physics != null) {
+                        asteroid.Physics.LinearVelocity = message.GetVelocity();
+                        asteroid.Physics.AngularVelocity = message.GetAngularVelocity();
+                    }
+                    Log.Info($"Client: Successfully created asteroid {message.EntityId} with server rotation");
                 }
                 else {
                     Log.Warning($"Client: Failed to create asteroid {message.EntityId}");
@@ -565,7 +553,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 Log.Exception(ex, typeof(MainSession), "Error creating asteroid on client");
             }
         }
-
         private void ProcessClientMessage(AsteroidNetworkMessage message) {
             try {
                 if (!NetworkMessageVerification.ValidateMessage(message)) {
@@ -578,7 +565,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                     return;
                 }
 
-                // Check if asteroid already exists
                 AsteroidEntity existingAsteroid = MyEntities.GetEntityById(message.EntityId) as AsteroidEntity;
 
                 if (message.IsInitialCreation) {
@@ -586,17 +572,16 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                         Log.Warning($"Received creation message for existing asteroid {message.EntityId}");
                         return;
                     }
-
-                    // Ensure client-side creation
                     CreateNewAsteroidOnClient(message);
                 }
                 else if (existingAsteroid != null) {
-                    UpdateExistingAsteroidOnClient(existingAsteroid, message);
+                    if (!MyAPIGateway.Session.IsServer) // Only override client physics if we're not the server
+                    {
+                        UpdateExistingAsteroidOnClient(existingAsteroid, message);
+                    }
                 }
                 else {
-                    // Handle missing asteroid that should exist
                     Log.Warning($"Received update for non-existent asteroid {message.EntityId}");
-                    // Instead of requesting creation, we'll just create it
                     CreateNewAsteroidOnClient(new AsteroidNetworkMessage(
                         message.GetPosition(),
                         message.Size,
