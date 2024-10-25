@@ -10,19 +10,25 @@ using System.Linq;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
 using VRageMath;
+using static DynamicAsteroids.Data.Scripts.DynamicAsteroids.MainSession;
 
 
 namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
-    public class AsteroidZone {
+    public class AsteroidZone
+    {
         public Vector3D Center { get; set; }
         public double Radius { get; set; }
         public int AsteroidCount { get; set; }
+        public bool IsMerged { get; set; }
+        public long EntityId { get; set; }
 
         public AsteroidZone(Vector3D center, double radius)
         {
             Center = center;
             Radius = radius;
             AsteroidCount = 0;
+            IsMerged = false;
+            EntityId = 0;
         }
 
         public bool IsPointInZone(Vector3D point)
@@ -649,6 +655,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             AssignZonesToPlayers();
             MergeZones();
             UpdateZones();
+            SendZoneUpdates();
 
             try
             {
@@ -784,6 +791,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
         public void SpawnAsteroids(List<AsteroidZone> zones)
         {
+            if (!MyAPIGateway.Session.IsServer) return; // Ensure only server handles spawning
+
             int totalSpawnAttempts = 0;
 
             if (AsteroidSettings.MaxAsteroidCount == 0)
@@ -949,8 +958,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
         private void UpdatePlayerMovementData()
         {
-            const double SPEED_SMOOTHING_FACTOR = 0.3;
-            const double MIN_TIME_DELTA = 0.016; // Minimum time delta to prevent division by zero
+            const double SPEED_SMOOTHING_FACTOR = 1;
+            const double MIN_TIME_DELTA = 1; // Minimum time delta to prevent division by zero
 
             List<IMyPlayer> players = new List<IMyPlayer>();
             MyAPIGateway.Players.GetPlayers(players);
@@ -1028,8 +1037,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
         public void SendNetworkMessages()
         {
-            if (!MyAPIGateway.Session.IsServer)
-                return;
+            if (!MyAPIGateway.Session.IsServer || !MyAPIGateway.Utilities.IsDedicated)
+                return; // Skip in single-player or client-hosted games
 
             try
             {
@@ -1060,7 +1069,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                         false,
                         asteroid.EntityId,
                         false,
-                        false,// This is an update, not initial creation
+                        false, // This is an update, not initial creation
                         Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix)
                     );
 
@@ -1224,6 +1233,47 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             double phi = Math.Acos(2.0 * rand.NextDouble() - 1.0);
             double sinPhi = Math.Sin(phi);
             return Math.Pow(rand.NextDouble(), 1 / 3d) * new Vector3D(sinPhi * Math.Cos(theta), sinPhi * Math.Sin(theta), Math.Cos(phi));
+        }
+
+        public void SendZoneUpdates()
+        {
+            if (!MyAPIGateway.Session.IsServer) return;
+
+            var zoneMessage = new ZoneNetworkMessage();
+            var mergedZoneIds = new HashSet<long>();
+
+            // First pass to identify merged zones
+            foreach (var zone1 in playerZones.Values)
+            {
+                foreach (var zone2 in playerZones.Values)
+                {
+                    if (zone1 != zone2)
+                    {
+                        double distance = Vector3D.Distance(zone1.Center, zone2.Center);
+                        if (distance <= zone1.Radius + zone2.Radius)
+                        {
+                            mergedZoneIds.Add(zone1.EntityId);
+                            mergedZoneIds.Add(zone2.EntityId);
+                        }
+                    }
+                }
+            }
+
+            // Create messages with merged status
+            foreach (var kvp in playerZones)
+            {
+                zoneMessage.Zones.Add(new ZoneData
+                {
+                    Center = kvp.Value.Center,
+                    Radius = kvp.Value.Radius,
+                    PlayerId = kvp.Key,
+                    IsActive = true, // Current zone is always active
+                    IsMerged = mergedZoneIds.Contains(kvp.Key)
+                });
+            }
+
+            byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(zoneMessage);
+            MyAPIGateway.Multiplayer.SendMessageToOthers(32001, messageBytes);
         }
     }
 }

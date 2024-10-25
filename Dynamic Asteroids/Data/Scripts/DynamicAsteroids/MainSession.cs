@@ -1,4 +1,5 @@
 ﻿using DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities;
+using ProtoBuf;
 using RealGasGiants;
 using Sandbox.Definitions;
 using Sandbox.Game.Entities;
@@ -18,7 +19,7 @@ using VRageMath;
 namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 {
     [MySessionComponentDescriptor(MyUpdateOrder.AfterSimulation)]
-    public class MainSession : MySessionComponentBase
+    public partial class MainSession : MySessionComponentBase
     {
         public static MainSession I;
         public Random Rand;
@@ -31,6 +32,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
         private KeenRicochetMissileBSWorkaroundHandler _missileHandler;
         private Dictionary<long, Vector3D> _serverPositions = new Dictionary<long, Vector3D>();
         private Dictionary<long, Quaternion> _serverRotations = new Dictionary<long, Quaternion>();
+        private Dictionary<long, AsteroidZone> _clientZones = new Dictionary<long, AsteroidZone>();
 
 
         public override void LoadData()
@@ -60,6 +62,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 
             // Register network handlers for both client and server
             MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(32000, OnSecureMessageReceived);
+            MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(32001, OnSecureMessageReceived);
             MyAPIGateway.Utilities.MessageEntered += OnMessageEntered;
         }
 
@@ -117,6 +120,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 }
 
                 MyAPIGateway.Multiplayer.UnregisterSecureMessageHandler(32000, OnSecureMessageReceived);
+                MyAPIGateway.Multiplayer.UnregisterSecureMessageHandler(32001, OnSecureMessageReceived);
                 MyAPIGateway.Utilities.MessageEntered -= OnMessageEntered;
 
                 if (RealGasGiantsApi != null)
@@ -451,6 +455,12 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                     return;
                 }
 
+                if (handlerId == 32001) // Zone updates
+                {
+                    ProcessZoneMessage(message);
+                    return;
+                }
+
                 // Try to deserialize as container first
                 try
                 {
@@ -570,17 +580,19 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 
         private void CreateNewAsteroidOnClient(AsteroidNetworkMessage message)
         {
-            Log.Info($"Client: Creating new asteroid at position {message.GetPosition()}");
             try
             {
                 Vector3D position = message.GetPosition();
                 Quaternion rotation = message.GetRotation();
 
-                // Create the initial world matrix properly
-                MatrixD worldMatrix = MatrixD.CreateFromQuaternion(rotation);
-                worldMatrix.Translation = position;
+                // First check if entity already exists
+                if (MyEntities.GetEntityById(message.EntityId) != null)
+                {
+                    Log.Warning($"Client: Attempted to create duplicate asteroid {message.EntityId}");
+                    return;
+                }
 
-                // Create the asteroid with proper initial position
+                // Create the asteroid with explicit entity ID
                 var asteroid = AsteroidEntity.CreateAsteroid(
                     position,
                     message.Size,
@@ -592,21 +604,14 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 
                 if (asteroid != null)
                 {
-                    // Ensure everything is set correctly after creation
-                    asteroid.WorldMatrix = worldMatrix;
-                    asteroid.PositionComp.SetPosition(position);
+                    // Add to world
+                    MyEntities.Add(asteroid);
+
+                    // Set physics properties
                     asteroid.Physics.LinearVelocity = message.GetVelocity();
                     asteroid.Physics.AngularVelocity = message.GetAngularVelocity();
 
-                    // Verify position
-                    Vector3D finalPosition = asteroid.PositionComp.GetPosition();
-                    Log.Info($"Client: Created asteroid {message.EntityId}:" +
-                             $"\nRequested Position: {position}" +
-                             $"\nFinal Position: {finalPosition}" +
-                             $"\nMatrix Translation: {asteroid.WorldMatrix.Translation}");
-
-                    _serverPositions[message.EntityId] = position;
-                    _serverRotations[message.EntityId] = rotation;
+                    Log.Info($"Client: Successfully created asteroid {message.EntityId} at {position}");
                 }
                 else
                 {
@@ -615,7 +620,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             }
             catch (Exception ex)
             {
-                Log.Exception(ex, typeof(MainSession), $"Error creating new asteroid {message.EntityId} on client");
+                Log.Exception(ex, typeof(MainSession), "Error creating asteroid on client");
             }
         }
 
@@ -623,62 +628,58 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
         {
             try
             {
-                Log.Info($"Client processing message - ID: {message.EntityId}, IsInitial: {message.IsInitialCreation}, Position: {message.GetPosition()}");
-
-                // If this is a removal message, handle it first
-                if (message.IsRemoval)
+                if (!NetworkMessageVerification.ValidateMessage(message))
                 {
-                    RemoveAsteroidOnClient(message.EntityId);
-                    _serverPositions.Remove(message.EntityId);
+                    Log.Warning($"Client received invalid message - ID: {message.EntityId}");
                     return;
                 }
 
-                // Get existing asteroid if any
-                AsteroidEntity asteroid = MyEntities.GetEntityById(message.EntityId) as AsteroidEntity;
+                if (message.IsRemoval)
+                {
+                    RemoveAsteroidOnClient(message.EntityId);
+                    return;
+                }
 
-                // Handle initial creation
+                // Check if asteroid already exists
+                AsteroidEntity existingAsteroid = MyEntities.GetEntityById(message.EntityId) as AsteroidEntity;
+
                 if (message.IsInitialCreation)
                 {
-                    if (asteroid != null)
+                    if (existingAsteroid != null)
                     {
                         Log.Warning($"Received creation message for existing asteroid {message.EntityId}");
                         return;
                     }
 
-                    // Create new asteroid with correct initial position
-                    MatrixD worldMatrix = MatrixD.CreateFromQuaternion(message.GetRotation());
-                    worldMatrix.Translation = message.GetPosition();
-
-                    asteroid = AsteroidEntity.CreateAsteroid(
+                    // Ensure client-side creation
+                    CreateNewAsteroidOnClient(message);
+                }
+                else if (existingAsteroid != null)
+                {
+                    UpdateExistingAsteroidOnClient(existingAsteroid, message);
+                }
+                else
+                {
+                    // Handle missing asteroid that should exist
+                    Log.Warning($"Received update for non-existent asteroid {message.EntityId}");
+                    // Instead of requesting creation, we'll just create it
+                    CreateNewAsteroidOnClient(new AsteroidNetworkMessage(
                         message.GetPosition(),
                         message.Size,
                         message.GetVelocity(),
+                        message.GetAngularVelocity(),
                         message.GetType(),
-                        message.GetRotation(),
-                        message.EntityId
-                    );
-
-                    if (asteroid != null)
-                    {
-                        // Ensure proper initialization
-                        asteroid.WorldMatrix = worldMatrix;
-                        asteroid.Physics.LinearVelocity = message.GetVelocity();
-                        asteroid.Physics.AngularVelocity = message.GetAngularVelocity();
-                        _serverPositions[message.EntityId] = message.GetPosition();
-
-                        Log.Info($"Created new asteroid {message.EntityId} at {asteroid.PositionComp.GetPosition()}");
-                    }
-                }
-                // Handle position updates only for existing asteroids
-                else if (asteroid != null)
-                {
-                    _serverPositions[message.EntityId] = message.GetPosition();
-                    UpdateExistingAsteroidOnClient(asteroid, message);
+                        false,
+                        message.EntityId,
+                        false,
+                        true,
+                        message.GetRotation()
+                    ));
                 }
             }
             catch (Exception ex)
             {
-                Log.Exception(ex, typeof(MainSession), $"Error processing client message for asteroid {message.EntityId}");
+                Log.Exception(ex, typeof(MainSession), $"Error processing client message");
             }
         }
 
@@ -780,76 +781,61 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             }
         }
 
-        public override void Draw()
-        {
-            try
-            {
-                if (!AsteroidSettings.EnableLogging || MyAPIGateway.Session?.Player?.Character == null)
-                    return;
-
-                Vector3D characterPosition = MyAPIGateway.Session.Player.Character.PositionComp.GetPosition();
-                AsteroidEntity nearestAsteroid = FindNearestAsteroid(characterPosition);
-
-                if (nearestAsteroid != null)
-                {
-                    // Position visualization
-                    Vector3D clientPosition = nearestAsteroid.PositionComp.GetPosition();
-                    MatrixD clientWorldMatrix = MatrixD.CreateTranslation(clientPosition);
-                    Color clientColor = Color.Red;
-                    MySimpleObjectDraw.DrawTransparentSphere(ref clientWorldMatrix, nearestAsteroid.Properties.Radius,
-                        ref clientColor, MySimpleObjectRasterizer.Wireframe, 20);
-
-                    Vector3D serverPosition;
-                    Quaternion serverRotation;
-                    if (_serverPositions.TryGetValue(nearestAsteroid.EntityId, out serverPosition) &&
-                        _serverRotations.TryGetValue(nearestAsteroid.EntityId, out serverRotation))
-                    {
-                        MatrixD serverWorldMatrix = MatrixD.CreateTranslation(serverPosition);
-                        Color serverColor = Color.Blue;
-                        MySimpleObjectDraw.DrawTransparentSphere(ref serverWorldMatrix, nearestAsteroid.Properties.Radius,
-                            ref serverColor, MySimpleObjectRasterizer.Wireframe, 20);
-
-                        // Draw connection line
-                        Vector4 lineColor = Color.Yellow.ToVector4();
-                        MySimpleObjectDraw.DrawLine(clientPosition, serverPosition,
-                            MyStringId.GetOrCompute("Square"), ref lineColor, 0.1f);
-
-                        // Calculate rotation difference
-                        MatrixD clientMatrix = nearestAsteroid.WorldMatrix;
-                        Quaternion clientRotation = Quaternion.CreateFromRotationMatrix(clientMatrix);
-
-                        float angleDifference = GetQuaternionAngleDifference(clientRotation, serverRotation);
-                        Vector3D clientForward = clientMatrix.Forward;
-                        Vector3D serverForward = MatrixD.CreateFromQuaternion(serverRotation).Forward;
-
-                        // Draw forward vectors
-                        Vector4 clientDirColor = Color.Red.ToVector4();
-                        Vector4 serverDirColor = Color.Blue.ToVector4();
-                        MySimpleObjectDraw.DrawLine(clientPosition,
-                            clientPosition + clientForward * nearestAsteroid.Properties.Radius * 2,
-                            MyStringId.GetOrCompute("Square"), ref clientDirColor, 0.1f);
-                        MySimpleObjectDraw.DrawLine(serverPosition,
-                            serverPosition + serverForward * nearestAsteroid.Properties.Radius * 2,
-                            MyStringId.GetOrCompute("Square"), ref serverDirColor, 0.1f);
-
-                        MyAPIGateway.Utilities.ShowNotification(
-                            $"Asteroid {nearestAsteroid.EntityId}:\n" +
-                            $"Position diff: {Vector3D.Distance(clientPosition, serverPosition):F2}m\n" +
-                            $"Rotation diff: {MathHelper.ToDegrees(angleDifference):F1}°",
-                            16);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Exception(ex, typeof(MainSession), "Error in Draw");
-            }
-        }
-
         private AsteroidType DetermineAsteroidType()
         {
             int randValue = Rand.Next(0, 2);
             return (AsteroidType)randValue;
+        }
+
+        [ProtoContract]
+        public class ZoneNetworkMessage
+        {
+            [ProtoMember(1)]
+            public List<ZoneData> Zones { get; set; }
+
+            public ZoneNetworkMessage()
+            {
+                Zones = new List<ZoneData>();
+            }
+        }
+
+        [ProtoContract]
+        public class ZoneData
+        {
+            [ProtoMember(1)]
+            public Vector3D Center { get; set; }
+
+            [ProtoMember(2)]
+            public double Radius { get; set; }
+
+            [ProtoMember(3)]
+            public long PlayerId { get; set; }
+
+            [ProtoMember(4)]
+            public bool IsActive { get; set; }  // Whether this is the player's current active zone
+
+            [ProtoMember(5)]
+            public bool IsMerged { get; set; }  // Whether this zone is part of a merged group
+        }
+
+        private void ProcessZoneMessage(byte[] message)
+        {
+            try
+            {
+                var zoneMessage = MyAPIGateway.Utilities.SerializeFromBinary<ZoneNetworkMessage>(message);
+                if (zoneMessage?.Zones == null) return;
+
+                _clientZones.Clear();
+                foreach (var zoneData in zoneMessage.Zones)
+                {
+                    _clientZones[zoneData.PlayerId] = new AsteroidZone(zoneData.Center, zoneData.Radius);
+                    Log.Info($"Received zone update for player {zoneData.PlayerId} at {zoneData.Center}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Exception(ex, typeof(MainSession), "Error processing zone message");
+            }
         }
 
     }
