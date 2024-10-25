@@ -48,6 +48,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
 
             return true;
         }
+        //TODO: something here breaks serializing the world, something with myobjectbuilder. maybe use MVSP.spawnitem
+        // digi: "try MyObjectBuilderSerializer if you've not (only works in paths in appdata and game folder, not in published mods' folder 🙄 )
 
         public void SpawnDebrisAtImpact(AsteroidEntity asteroid, Vector3D impactPosition, float massLost) {
             MyPhysicalItemDefinition itemDefinition = MyDefinitionManager.Static.GetPhysicalItemDefinition(
@@ -56,7 +58,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
             var newObject = MyObjectBuilderSerializer.CreateNewObject(
                 itemDefinition.Id.TypeId,
                 itemDefinition.Id.SubtypeId.ToString()) as MyObjectBuilder_PhysicalObject;
-
             // Try to find nearby debris of same type to combine with
             float groupingRadius = 10.0f;
             List<MyFloatingObject> nearbyDebris = GetNearbyDebris(impactPosition, groupingRadius, newObject);

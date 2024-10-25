@@ -694,7 +694,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             [ProtoMember(1)]
             public List<ZoneData> Zones { get; set; } = new List<ZoneData>();
 
-            public ZoneNetworkMessage () { }
+            public ZoneNetworkMessage() { }
         }
 
         [ProtoContract]
@@ -712,7 +712,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             [ProtoMember(6)]
             public double CurrentSpeed { get; set; }
 
-            public ZoneData () { }
+            public ZoneData() { }
         }
 
 

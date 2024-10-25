@@ -112,7 +112,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
             }
         }
 
-        private void Init(Vector3D position, float size, Vector3D initialVelocity, AsteroidType type, Quaternion? rotation) {
+        private void Init(Vector3D position, float size, Vector3D initialVelocity, AsteroidType type,
+            Quaternion? rotation) {
             try {
                 Type = type;
                 ModelString = SelectModelForAsteroidType(type);
@@ -141,7 +142,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
                     SyncFlag = true;
                 }
 
-                Log.Info($"Asteroid {EntityId} initialized with position {PositionComp.GetPosition()} and velocity {initialVelocity}");
+                Log.Info(
+                    $"Asteroid {EntityId} initialized with position {PositionComp.GetPosition()} and velocity {initialVelocity}");
             }
             catch (Exception ex) {
                 Log.Exception(ex, typeof(AsteroidEntity), "Failed to initialize AsteroidEntity");
@@ -214,7 +216,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
             if (!MyAPIGateway.Session.IsServer) return;
 
             // Play destruction effects
-            MyVisualScriptLogicProvider.CreateParticleEffectAtPosition("roidbreakparticle1", PositionComp.GetPosition());
+            MyVisualScriptLogicProvider.CreateParticleEffectAtPosition("roidbreakparticle1",
+                PositionComp.GetPosition());
             MyVisualScriptLogicProvider.PlaySingleSoundAtPosition("roidbreak", PositionComp.GetPosition());
 
             // Spawn remaining mass as floating objects
@@ -244,6 +247,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
             if (MainSession.I?._spawner != null) {
                 MainSession.I._spawner.TryRemoveAsteroid(this);
             }
+
             MyEntities.Remove(this);
             Close();
         }
@@ -277,7 +281,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
                     rigidBodyFlags: RigidBodyFlag.RBF_DEFAULT,
                     collisionLayer: CollisionLayers.NoVoxelCollisionLayer,
                     isPhantom: false,
-                    mass: new ModAPIMass(Properties.Volume, Properties.Mass, Vector3.Zero, Properties.Mass * Matrix.Identity)
+                    mass: new ModAPIMass(Properties.Volume, Properties.Mass, Vector3.Zero,
+                        Properties.Mass * Matrix.Identity)
                 );
 
                 MyAPIGateway.Physics.CreateSpherePhysics(settings, Properties.Radius);
