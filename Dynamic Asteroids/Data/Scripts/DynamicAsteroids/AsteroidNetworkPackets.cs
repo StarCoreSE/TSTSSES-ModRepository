@@ -196,6 +196,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         }
     }
 
+    //TODO: do networking something like this, but what we have...works?
+
     public static class NetworkHandler {
         public static void SendAsteroidUpdate(AsteroidEntity asteroid) {
             var packet = new AsteroidBatchPacket();
