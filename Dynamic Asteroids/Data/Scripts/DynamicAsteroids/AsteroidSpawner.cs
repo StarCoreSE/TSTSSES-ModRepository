@@ -134,37 +134,76 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 
         private class NetworkMessageCache
         {
-            private ConcurrentDictionary<long, AsteroidNetworkMessage> _messageCache = new ConcurrentDictionary<long, AsteroidNetworkMessage>();
-            private ConcurrentQueue<AsteroidNetworkMessage> _messageQueue = new ConcurrentQueue<AsteroidNetworkMessage>();
-            private const int MessageBatchSize = 100;  //the metal pipes sent to the client (we can probably hit 10k without issue, all server load is physics!!)
-            private const int MessageExpirationSeconds = 10;
+            private ConcurrentDictionary<long, AsteroidNetworkMessage> _messageCache;
+            private ConcurrentQueue<AsteroidNetworkMessage> _physicsUpdateQueue;
+            private ConcurrentQueue<AsteroidNetworkMessage> _spawnQueue;
+            private ConcurrentQueue<AsteroidNetworkMessage> _removalQueue;
+
+            private const int PhysicsMessageBatchSize = 100;
+            private const int SpawnMessageBatchSize = 10;
+            private const int RemovalMessageBatchSize = 20;
+
+            public NetworkMessageCache()
+            {
+                _messageCache = new ConcurrentDictionary<long, AsteroidNetworkMessage>();
+                _physicsUpdateQueue = new ConcurrentQueue<AsteroidNetworkMessage>();
+                _spawnQueue = new ConcurrentQueue<AsteroidNetworkMessage>();
+                _removalQueue = new ConcurrentQueue<AsteroidNetworkMessage>();
+            }
 
             public void AddMessage(AsteroidNetworkMessage message)
             {
                 if (_messageCache.TryAdd(message.EntityId, message))
                 {
-                    _messageQueue.Enqueue(message);
+                    if (message.IsInitialCreation)
+                    {
+                        _spawnQueue.Enqueue(message);
+                    }
+                    else if (message.IsRemoval)
+                    {
+                        _removalQueue.Enqueue(message);
+                    }
+                    else
+                    {
+                        _physicsUpdateQueue.Enqueue(message);
+                    }
                 }
             }
 
             public void ProcessMessages(Action<AsteroidNetworkMessage> sendAction)
             {
+                // Process spawns first
+                ProcessQueue(_spawnQueue, SpawnMessageBatchSize, sendAction);
+
+                // Process removals next
+                ProcessQueue(_removalQueue, RemovalMessageBatchSize, sendAction);
+
+                // Process physics updates last
+                ProcessQueue(_physicsUpdateQueue, PhysicsMessageBatchSize, sendAction);
+            }
+
+            private void ProcessQueue(ConcurrentQueue<AsteroidNetworkMessage> queue,
+                                    int batchSize,
+                                    Action<AsteroidNetworkMessage> sendAction)
+            {
                 int processedCount = 0;
                 AsteroidNetworkMessage message;
-                while (processedCount < MessageBatchSize && _messageQueue.TryDequeue(out message))
+
+                while (processedCount < batchSize && queue.TryDequeue(out message))
                 {
                     try
                     {
                         sendAction(message);
                         AsteroidNetworkMessage removedMessage;
                         _messageCache.TryRemove(message.EntityId, out removedMessage);
+                        processedCount++;
                     }
                     catch (Exception ex)
                     {
-                        Log.Exception(ex, typeof(NetworkMessageCache), "Failed to process network message");
-                        _messageQueue.Enqueue(message);
+                        Log.Exception(ex, typeof(NetworkMessageCache),
+                            "Failed to process network message");
+                        queue.Enqueue(message);
                     }
-                    processedCount++;
                 }
             }
         }
