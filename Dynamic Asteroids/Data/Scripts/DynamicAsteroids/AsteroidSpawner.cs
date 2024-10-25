@@ -1232,12 +1232,13 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         }
 
         public void SendZoneUpdates() {
-            if (!MyAPIGateway.Session.IsServer) return;
+            if (!MyAPIGateway.Session.IsServer)
+                return;
 
-            var zoneMessage = new ZoneNetworkMessage();
+            var zonePacket = new ZoneUpdatePacket();
             var mergedZoneIds = new HashSet<long>();
 
-            // First pass to identify merged zones
+            // Find merged zones
             foreach (var zone1 in playerZones.Values) {
                 foreach (var zone2 in playerZones.Values) {
                     if (zone1 != zone2) {
@@ -1250,18 +1251,20 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 }
             }
 
-            // Create messages with merged status
+            // Create zone data
             foreach (var kvp in playerZones) {
-                zoneMessage.Zones.Add(new ZoneData {
+                zonePacket.Zones.Add(new ZoneData {
                     Center = kvp.Value.Center,
                     Radius = kvp.Value.Radius,
                     PlayerId = kvp.Key,
-                    IsActive = true, // Current zone is always active
-                    IsMerged = mergedZoneIds.Contains(kvp.Key)
+                    IsActive = true,
+                    IsMerged = mergedZoneIds.Contains(kvp.Key),
+                    CurrentSpeed = kvp.Value.CurrentSpeed
                 });
             }
 
-            byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(zoneMessage);
+            // Serialize and send
+            byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(zonePacket);
             MyAPIGateway.Multiplayer.SendMessageToOthers(32001, messageBytes);
         }
 
