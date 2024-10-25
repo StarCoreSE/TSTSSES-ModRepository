@@ -5,17 +5,16 @@ using System.IO;
 using System.Linq;
 using VRageMath;
 
-namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
-{
-    public static class AsteroidSettings
-    {
+
+namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
+    public static class AsteroidSettings {
         public static bool EnableLogging = false;
         public static bool EnableMiddleMouseAsteroidSpawn = false;
         public static bool EnableVanillaAsteroidSpawnLatching = false;
         public static bool EnableGasGiantRingSpawning = false;
         public static float MinimumRingInfluenceForSpawn = 0.1f;
-        public static double RingAsteroidVelocityBase = 50.0; // Adjust as needed
-        public static float MaxRingAsteroidDensityMultiplier = 1f; // Adjust this value as needed
+        public static double RingAsteroidVelocityBase = 50.0;// Adjust as needed
+        public static float MaxRingAsteroidDensityMultiplier = 1f;// Adjust this value as needed
         public static double VanillaAsteroidSpawnLatchingRadius = 10000;
         public static bool DisableZoneWhileMovingFast = true;
         public static double ZoneSpeedThreshold = 2000.0;
@@ -52,15 +51,14 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public static float InstabilityThresholdPercent = 0.8f;
         public static float InstabilityDecayRate = 0.1f;
         public static float InstabilityFromDamage = 1.0f;
-        public static float KgLossPerDamage = 0.01f; // 1 damage = 1 kg lost
+        public static float KgLossPerDamage = 0.01f;// 1 damage = 1 kg lost
+        public static int MaxPlayersPerZone = 64; // splits zones if more than this number is in same zone. YMMV
+        public static float ChunkMassPercent = 0.1f;// 10% of mass per chunk
+        public static float ChunkEjectionVelocity = 5.0f;// Base velocity for ejected chunks
+        public static float ChunkVelocityRandomization = 2.0f;// Random velocity added to chunks
+        public static float InstabilityPerDamage = 0.1f;// How much instability is added per damage point
 
-        public static float ChunkMassPercent = 0.1f;         // 10% of mass per chunk
-        public static float ChunkEjectionVelocity = 5.0f;    // Base velocity for ejected chunks
-        public static float ChunkVelocityRandomization = 2.0f; // Random velocity added to chunks
-        public static float InstabilityPerDamage = 0.1f;     // How much instability is added per damage point
-
-        public struct MassRange
-        {
+        public struct MassRange {
             public float MinMass;
             public float MaxMass;
 
@@ -72,8 +70,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         }
 
 
-        public static readonly Dictionary<AsteroidType, MassRange> MinMaxMassByType = new Dictionary<AsteroidType, MassRange>
-        {    //TODO: put thse into confings, gradient toward gasgiant in ring for bigger roids
+        public static readonly Dictionary<AsteroidType, MassRange> MinMaxMassByType = new Dictionary<AsteroidType, MassRange> {//TODO: put thse into confings, gradient toward gasgiant in ring for bigger roids
             { AsteroidType.Ice, new MassRange(100000f, 500000f) },
             { AsteroidType.Stone, new MassRange(80000f, 400000f) },
             { AsteroidType.Iron, new MassRange(50000f, 300000f) },
@@ -93,17 +90,15 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         {
             if (isInRing)
             {
-                velocity = Vector3D.Zero; // You might want to calculate an appropriate orbital velocity here
+                velocity = Vector3D.Zero;// You might want to calculate an appropriate orbital velocity here
                 return true;
             }
 
-            foreach (var area in ValidSpawnLocations)
+            foreach (SpawnableArea area in ValidSpawnLocations)
             {
-                if (area.ContainsPoint(point))
-                {
-                    velocity = area.VelocityAtPoint(point);
-                    return true;
-                }
+                if (!area.ContainsPoint(point)) continue;
+                velocity = area.VelocityAtPoint(point);
+                return true;
             }
 
             velocity = Vector3D.Zero;
@@ -111,6 +106,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         }
 
         private static Random rand = new Random(Seed);
+
+      //  public static int MaxPlayersPerZone { get; internal set; }
 
         public static AsteroidType GetAsteroidType(Vector3D position)
         {
@@ -153,7 +150,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         {
             try
             {
-                using (var writer = MyAPIGateway.Utilities.WriteFileInWorldStorage("AsteroidSettings.cfg", typeof(AsteroidSettings)))
+                using (TextWriter writer = MyAPIGateway.Utilities.WriteFileInWorldStorage("AsteroidSettings.cfg", typeof(AsteroidSettings)))
                 {
                     writer.WriteLine("[General]");
                     writer.WriteLine($"EnableLogging={EnableLogging}");
@@ -205,7 +202,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     writer.WriteLine($"KgLossPerDamage={KgLossPerDamage}");
 
                     writer.WriteLine("[SpawnableAreas]");
-                    foreach (var area in ValidSpawnLocations)
+                    foreach (SpawnableArea area in ValidSpawnLocations)
                     {
                         writer.WriteLine($"Name={area.Name}");
                         writer.WriteLine($"CenterPosition={area.CenterPosition.X},{area.CenterPosition.Y},{area.CenterPosition.Z}");
@@ -225,11 +222,11 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
             {
                 if (MyAPIGateway.Utilities.FileExistsInWorldStorage("AsteroidSettings.cfg", typeof(AsteroidSettings)))
                 {
-                    using (var reader = MyAPIGateway.Utilities.ReadFileInWorldStorage("AsteroidSettings.cfg", typeof(AsteroidSettings)))
+                    using (TextReader reader = MyAPIGateway.Utilities.ReadFileInWorldStorage("AsteroidSettings.cfg", typeof(AsteroidSettings)))
                     {
                         string line;
                         SpawnableArea currentArea = null;
-                        while ((line = reader.ReadLine()) != null)
+                        while((line = reader.ReadLine()) != null)
                         {
                             if (line.StartsWith("[") || string.IsNullOrWhiteSpace(line))
                                 continue;
@@ -382,8 +379,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 else
                 {
                     // Create default configuration if it doesn't exist
-                    ValidSpawnLocations.Add(new SpawnableArea
-                    {
+                    ValidSpawnLocations.Add(new SpawnableArea {
                         Name = "DefaultArea",
                         CenterPosition = new Vector3D(0.0, 0.0, 0.0),
                         Radius = 0
@@ -415,8 +411,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         public static void AddSpawnableArea(string name, Vector3D center, double radius)
         {
-            ValidSpawnLocations.Add(new SpawnableArea
-            {
+            ValidSpawnLocations.Add(new SpawnableArea {
                 Name = name,
                 CenterPosition = center,
                 Radius = radius
@@ -426,18 +421,15 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
 
         public static void RemoveSpawnableArea(string name)
         {
-            var area = ValidSpawnLocations.FirstOrDefault(a => a.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
-            if (area != null)
-            {
-                ValidSpawnLocations.Remove(area);
-                SaveSettings();
-            }
+            SpawnableArea area = ValidSpawnLocations.FirstOrDefault(a => a.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            if (area == null) return;
+            ValidSpawnLocations.Remove(area);
+            SaveSettings();
         }
 
     }
 
-    public class SpawnableArea
-    {
+    public class SpawnableArea {
         public string Name { get; set; }
         public Vector3D CenterPosition { get; set; }
         public double Radius { get; set; }
