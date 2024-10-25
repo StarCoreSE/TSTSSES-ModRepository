@@ -29,7 +29,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         }
 
         private void DrawPlayerZones(Vector3D characterPosition) {
-            // Draw active zones
+            // Draw active zones first
             foreach (var kvp in _clientZones) {
                 DrawZone(kvp.Key, kvp.Value, characterPosition);
                 if (kvp.Value.IsMerged) {
@@ -37,9 +37,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 }
             }
 
-            // Draw last 5 removed zones
+            // Draw recently removed zones with fading effect
             foreach (var removedZone in _lastRemovedZones) {
-                DrawRemovedZone(removedZone);
+                Color fadeColor = Color.Red * 0.5f; // Semi-transparent red for removed zones
+                DrawZoneSphere(removedZone, fadeColor);
             }
         }
 
@@ -89,16 +90,16 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         }
 
         private Color DetermineZoneColor(bool isLocalPlayer, bool playerInZone, bool isMerged) {
-            AsteroidZone zone = isLocalPlayer ? _clientZones.Values.FirstOrDefault(z => z.IsPointInZone(MyAPIGateway.Session.Player.GetPosition())) : null;
+            // Handle high-speed check through the AsteroidZone properties instead
+            if (isLocalPlayer && MyAPIGateway.Session?.Player != null) {
+                AsteroidZone currentZone;
+                if (_clientZones.TryGetValue(MyAPIGateway.Session.Player.IdentityId, out currentZone)) {
+                    if (currentZone.IsMarkedForRemoval)
+                        return Color.Red;
+                }
+            }
 
-            // Red for zones marked for removal
-            if (zone?.IsMarkedForRemoval ?? false)
-                return Color.Red;
-
-            // Orange for zones with no asteroids
-            if (zone?.ContainedAsteroids?.Count == 0)
-                return Color.Orange;
-
+            // Use zone state for coloring
             if (isLocalPlayer)
                 return playerInZone ? Color.Green : Color.Yellow;
 

@@ -715,18 +715,16 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         public class ZoneData {
             [ProtoMember(1)]
             public Vector3D Center { get; set; }
-
             [ProtoMember(2)]
             public double Radius { get; set; }
-
             [ProtoMember(3)]
             public long PlayerId { get; set; }
-
             [ProtoMember(4)]
-            public bool IsActive { get; set; }  // Whether this is the player's current active zone
-
+            public bool IsActive { get; set; }
             [ProtoMember(5)]
-            public bool IsMerged { get; set; }  // Whether this zone is part of a merged group
+            public bool IsMerged { get; set; }
+            [ProtoMember(6)]
+            public double CurrentSpeed { get; set; }
         }
 
         private void ProcessZoneMessage(byte[] message) {
@@ -735,31 +733,31 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 if (zoneMessage?.Zones == null)
                     return;
 
-                // Store current zones that might be removed
+                // Track existing zones before updating
                 var previousZones = new Dictionary<long, AsteroidZone>(_clientZones);
 
                 _clientZones.Clear();
                 foreach (var zoneData in zoneMessage.Zones) {
-                    _clientZones[zoneData.PlayerId] = new AsteroidZone(zoneData.Center, zoneData.Radius);
-                    previousZones.Remove(zoneData.PlayerId); // Remove zones that still exist
+                    var newZone = new AsteroidZone(zoneData.Center, zoneData.Radius);
+                    _clientZones[zoneData.PlayerId] = newZone;
+                    previousZones.Remove(zoneData.PlayerId); // Remove from tracking if still exists
                 }
 
-                // Add remaining (removed) zones to our tracking queue
+                // Add remaining (removed) zones to history
                 foreach (var removedZone in previousZones.Values) {
                     _lastRemovedZones.Enqueue(removedZone);
                     while (_lastRemovedZones.Count > 5)
                         _lastRemovedZones.Dequeue();
-                }
 
-                // Send removal messages for asteroids in removed zones
-                foreach (var removedZone in previousZones.Values) {
-                    var entities = new HashSet<IMyEntity>();
-                    MyAPIGateway.Entities.GetEntities(entities);
-
-                    foreach (var entity in entities) {
-                        var asteroid = entity as AsteroidEntity;
-                        if (asteroid != null && removedZone.IsPointInZone(asteroid.PositionComp.GetPosition())) {
-                            RemoveAsteroidOnClient(asteroid.EntityId);
+                    // Clean up asteroids in removed zones
+                    if (!MyAPIGateway.Session.IsServer) {
+                        var entities = new HashSet<IMyEntity>();
+                        MyAPIGateway.Entities.GetEntities(entities);
+                        foreach (var entity in entities) {
+                            var asteroid = entity as AsteroidEntity;
+                            if (asteroid != null && removedZone.IsPointInZone(asteroid.PositionComp.GetPosition())) {
+                                RemoveAsteroidOnClient(asteroid.EntityId);
+                            }
                         }
                     }
                 }
@@ -768,6 +766,5 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 Log.Exception(ex, typeof(MainSession), "Error processing zone message");
             }
         }
-
     }
 }
