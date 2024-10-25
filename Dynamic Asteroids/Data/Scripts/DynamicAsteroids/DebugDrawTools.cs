@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using VRage.Game;
+using VRage.ModAPI;
 using VRage.Utils;
 using VRageMath;
 using VRageRender;
@@ -13,6 +14,9 @@ using VRageRender;
 namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
     public partial class MainSession {
         private Queue<AsteroidZone> _lastRemovedZones = new Queue<AsteroidZone>(5); // Add this to class fields
+        private HashSet<AsteroidEntity> _orphanedAsteroids = new HashSet<AsteroidEntity>();
+        private int _orphanCheckTimer = 0;
+        private const int ORPHAN_CHECK_INTERVAL = 60; // Update once per second at 60 fps
 
         public override void Draw() {
             try {
@@ -22,11 +26,13 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 Vector3D characterPosition = MyAPIGateway.Session.Player.Character.PositionComp.GetPosition();
                 DrawPlayerZones(characterPosition);
                 DrawNearestAsteroidDebug(characterPosition);
+                DrawOrphanedAsteroids();
             }
             catch (Exception ex) {
                 Log.Exception(ex, typeof(MainSession), "Error in Draw");
             }
         }
+
 
         private void DrawPlayerZones(Vector3D characterPosition) {
             // Draw active zones first
@@ -238,5 +244,75 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 16);
         }
 
+        private void UpdateOrphanedAsteroidsList() {
+            try {
+                _orphanedAsteroids.Clear();
+                var entities = new HashSet<IMyEntity>();
+                MyAPIGateway.Entities.GetEntities(entities);
+
+                foreach (var entity in entities) {
+                    var asteroid = entity as AsteroidEntity;
+                    if (asteroid == null)
+                        continue;
+
+                    Vector3D asteroidPosition = asteroid.PositionComp.GetPosition();
+                    bool isInAnyZone = false;
+
+                    foreach (var zoneKvp in _clientZones) {
+                        if (zoneKvp.Value.IsPointInZone(asteroidPosition)) {
+                            isInAnyZone = true;
+                            break;
+                        }
+                    }
+
+                    if (!isInAnyZone) {
+                        _orphanedAsteroids.Add(asteroid);
+                    }
+                }
+            }
+            catch (Exception ex) {
+                Log.Exception(ex, typeof(MainSession), "Error updating orphaned asteroids list");
+            }
+        }
+
+        private void DrawOrphanedAsteroids() {
+            foreach (var asteroid in _orphanedAsteroids) {
+                if (asteroid == null || asteroid.MarkedForClose)
+                    continue;
+
+                try {
+                    Vector3D asteroidPosition = asteroid.PositionComp.GetPosition();
+                    MatrixD worldMatrix = MatrixD.CreateTranslation(asteroidPosition);
+                    Color orphanColor = new Color(255, 0, 0, 128);
+
+                    MySimpleObjectDraw.DrawTransparentSphere(
+                        ref worldMatrix,
+                        asteroid.Properties.Radius * 1.5f,
+                        ref orphanColor,
+                        MySimpleObjectRasterizer.Wireframe,
+                        20,
+                        null,
+                        MyStringId.GetOrCompute("Square"),
+                        5f
+                    );
+
+                    Vector3D textPosition = asteroidPosition + new Vector3D(0, asteroid.Properties.Radius * 2, 0);
+                    string orphanInfo = $"Orphaned Asteroid {asteroid.EntityId}\nType: {asteroid.Type}";
+                    MyTransparentGeometry.AddLineBillboard(
+                        MyStringId.GetOrCompute("Square"),
+                        Color.Red,
+                        textPosition,
+                        Vector3.Right,
+                        asteroid.Properties.Radius * 0.2f,
+                        0.5f,
+                        MyBillboard.BlendTypeEnum.Standard
+                    );
+                }
+                catch (Exception ex) {
+                    _orphanedAsteroids.Remove(asteroid);
+                    Log.Warning($"Error drawing orphaned asteroid {asteroid.EntityId}: {ex.Message}");
+                }
+            }
+        }
     }
 }

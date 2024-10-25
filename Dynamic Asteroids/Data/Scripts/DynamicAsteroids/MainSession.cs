@@ -294,6 +294,12 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                             }
                         }
                     }
+
+                    // Update orphaned asteroids list periodically
+                    if (++_orphanCheckTimer >= ORPHAN_CHECK_INTERVAL) {
+                        _orphanCheckTimer = 0;
+                        UpdateOrphanedAsteroidsList();
+                    }
                 }
 
                 // Shared updates
