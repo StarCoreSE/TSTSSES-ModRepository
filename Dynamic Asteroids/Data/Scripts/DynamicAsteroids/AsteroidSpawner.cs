@@ -27,6 +27,11 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         public DateTime LastActiveTime { get; set; }
         public double CurrentSpeed { get; set; } // Add this property
 
+        public HashSet<long> TransferringAsteroids { get; private set; } = new HashSet<long>();
+        public DateTime CreationTime { get; private set; } = DateTime.UtcNow;
+
+        public const double MINIMUM_ZONE_LIFETIME = 5.0; // seconds
+
         public AsteroidZone(Vector3D center, double radius) {
             Center = center;
             Radius = radius;
@@ -61,6 +66,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
         public bool IsPointInZone(Vector3D point) {
             return Vector3D.DistanceSquared(Center, point) <= Radius * Radius;
+        }
+
+        public bool CanBeRemoved() {
+            return (DateTime.UtcNow - CreationTime).TotalSeconds >= MINIMUM_ZONE_LIFETIME;
         }
 
         public bool IsDisabledDueToSpeed() {
@@ -649,125 +658,71 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         private void UpdateAsteroids(List<AsteroidZone> zones) {
             var asteroidsToRemove = new List<AsteroidEntity>();
             var currentAsteroids = _asteroids.ToList();
+            var activeZones = zones.Where(z => !z.IsMarkedForRemoval).ToList();
 
-            // Only consider fully active zones for asteroid management
-            var activeZones = zones.Where(z => z.State == ZoneState.Active).ToList();
+            // Clear all zone asteroid counts first
+            foreach (var zone in zones) {
+                zone.ContainedAsteroids.Clear();
+                zone.AsteroidCount = 0;
+            }
 
-            // Process asteroids in batches
-            const int PROCESS_BATCH_SIZE = 100;
-            for (int i = 0; i < currentAsteroids.Count; i += PROCESS_BATCH_SIZE) {
-                var batch = currentAsteroids.Skip(i).Take(PROCESS_BATCH_SIZE).ToList();
+            foreach (var asteroid in currentAsteroids) {
+                if (asteroid == null || asteroid.MarkedForClose)
+                    continue;
 
-                foreach (var asteroid in batch) {
-                    if (asteroid == null || asteroid.MarkedForClose)
-                        continue;
+                Vector3D asteroidPosition = asteroid.PositionComp.GetPosition();
+                bool inAnyZone = false;
 
-                    bool inActiveZone = false;
-                    Vector3D asteroidPosition = asteroid.PositionComp.GetPosition();
-
-                    foreach (AsteroidZone zone in activeZones) {
-                        if (zone.IsPointInZone(asteroidPosition)) {
+                // Check active zones first
+                foreach (var zone in activeZones) {
+                    if (zone.IsPointInZone(asteroidPosition)) {
+                        inAnyZone = true;
+                        // Only add if zone isn't at limit
+                        if (zone.AsteroidCount < AsteroidSettings.MaxAsteroidsPerZone) {
                             zone.ContainedAsteroids.Add(asteroid.EntityId);
-                            inActiveZone = true;
-                            break;
+                            zone.AsteroidCount++;
+                            break; // Stop checking zones once added
                         }
                     }
+                }
 
-                    if (!inActiveZone) {
+                // If not in any active zone or all zones are full
+                if (!inAnyZone) {
+                    // Check if in a removing zone
+                    var removingZone = zones.FirstOrDefault(z =>
+                        z.IsMarkedForRemoval &&
+                        z.IsPointInZone(asteroidPosition) &&
+                        !z.CanBeRemoved());
+
+                    if (removingZone != null) {
+                        removingZone.TransferringAsteroids.Add(asteroid.EntityId);
+                        Log.Info($"Asteroid {asteroid.EntityId} in removing zone, delaying cleanup");
+                    }
+                    else {
                         asteroidsToRemove.Add(asteroid);
+                        Log.Info($"Marking asteroid {asteroid.EntityId} for removal - not in any zone or zones full");
                     }
                 }
-
-                // Process removals for this batch
-                RemoveAsteroidBatch(asteroidsToRemove);
-                asteroidsToRemove.Clear();
             }
 
-            // Update zone states
-            foreach (var zone in zones.Where(z => z.State == ZoneState.PendingRemoval)) {
-                if (zone.RemovalStartTime.HasValue &&
-                    (DateTime.UtcNow - zone.RemovalStartTime.Value).TotalSeconds >= AsteroidZone.REMOVAL_TRANSITION_TIME) {
-                    zone.State = ZoneState.Removed;
-                }
-            }
-        }
-
-        private void ValidateAsteroidTracking() {
-            try {
-                var trackedIds = new HashSet<long>(_asteroids.Select(a => a.EntityId));
-                var zoneIds = new HashSet<long>();
-
-                foreach (var zone in playerZones.Values) {
-                    foreach (var asteroidId in zone.ContainedAsteroids) {
-                        zoneIds.Add(asteroidId);
-                    }
-                }
-
-                // Find IDs in zones but not in tracking
-                var orphanedIds = zoneIds.Except(trackedIds);
-                if (orphanedIds.Any()) {
-                    Log.Warning($"Found {orphanedIds.Count()} orphaned asteroid IDs in zones");
-                    foreach (var id in orphanedIds) {
-                        // Remove from all zones
-                        foreach (var zone in playerZones.Values) {
-                            zone.ContainedAsteroids.Remove(id);
-                        }
-                    }
-                }
-
-                // Find tracked asteroids not in any zone
-                var unzonedIds = trackedIds.Except(zoneIds);
-                if (unzonedIds.Any()) {
-                    Log.Warning($"Found {unzonedIds.Count()} tracked asteroids not in any zone");
-                    var asteroidsToRemove = _asteroids.Where(a => unzonedIds.Contains(a.EntityId)).ToList();
-                    RemoveAsteroidBatch(asteroidsToRemove);
-                }
-            }
-            catch (Exception ex) {
-                Log.Exception(ex, typeof(AsteroidSpawner), "Error in ValidateAsteroidTracking");
-            }
-        }
-
-        private void RemoveAsteroidBatch(List<AsteroidEntity> asteroidsToRemove) {
+            // Process removals in batches
             const int REMOVAL_BATCH_SIZE = 50;
             for (int i = 0; i < asteroidsToRemove.Count; i += REMOVAL_BATCH_SIZE) {
                 var batch = asteroidsToRemove.Skip(i).Take(REMOVAL_BATCH_SIZE);
                 foreach (var asteroid in batch) {
-                    try {
-                        RemoveAsteroid(asteroid);
-                    }
-                    catch (Exception ex) {
-                        Log.Exception(ex, typeof(AsteroidSpawner),
-                            $"Error removing asteroid {asteroid?.EntityId} in batch");
-                    }
+                    RemoveAsteroid(asteroid);
                 }
             }
-        }
 
-        private void CleanupInactiveZones() {
-            const int ZONE_INACTIVE_TIMEOUT_SECONDS = 30;
-            var currentTime = DateTime.UtcNow;
-
-            foreach (var zone in playerZones.Values.ToList()) {
-                if ((currentTime - zone.LastActiveTime).TotalSeconds > ZONE_INACTIVE_TIMEOUT_SECONDS) {
-                    zone.IsMarkedForRemoval = true;
-
-                    // Remove all asteroids unique to this zone
-                    var uniqueAsteroids = zone.ContainedAsteroids
-                        .Where(asteroidId => !playerZones.Values
-                            .Where(z => z != zone && !z.IsMarkedForRemoval)
-                            .Any(z => z.ContainedAsteroids.Contains(asteroidId)))
-                        .ToList();
-
-                    foreach (var asteroidId in uniqueAsteroids) {
-                        var asteroid = _asteroids.FirstOrDefault(a => a.EntityId == asteroidId);
-                        if (asteroid != null) {
-                            RemoveAsteroid(asteroid);
-                        }
+            // Clean up fully removed zones
+            foreach (var zone in zones.Where(z => z.IsMarkedForRemoval && z.CanBeRemoved())) {
+                foreach (var asteroidId in zone.TransferringAsteroids.ToList()) {
+                    var asteroid = _asteroids.FirstOrDefault(a => a.EntityId == asteroidId);
+                    if (asteroid != null) {
+                        RemoveAsteroid(asteroid);
                     }
-
-                    Log.Info($"Cleaned up inactive zone at {zone.Center} with {uniqueAsteroids.Count} unique asteroids");
                 }
+                zone.TransferringAsteroids.Clear();
             }
         }
 
