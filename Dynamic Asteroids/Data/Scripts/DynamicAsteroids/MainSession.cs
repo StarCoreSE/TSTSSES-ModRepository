@@ -1,5 +1,4 @@
 ﻿using DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities;
-using ProtoBuf;
 using RealGasGiants;
 using Sandbox.Definitions;
 using Sandbox.Game.Entities;
@@ -102,6 +101,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                                 Log.Exception(removeEx, typeof(MainSession), "Error removing asteroid during unload");
                             }
                         }
+
                         _spawner.Close();
                         _spawner = null;
                     }
@@ -126,9 +126,11 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 try {
                     Log.Exception(ex, typeof(MainSession), "Error in UnloadData");
                 }
-                catch { }
+                catch {
+                }
             }
         }
+
         private void OnMessageEntered(string messageText, ref bool sendToOthers) {
             IMyPlayer player = MyAPIGateway.Session.Player;
             if (player == null || !IsPlayerAdmin(player)) return;
@@ -143,6 +145,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                         CreateSpawnArea(radius);
                         sendToOthers = false;
                     }
+
                     break;
 
                 case "removespawnarea":
@@ -150,12 +153,14 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                         RemoveSpawnArea(args[2]);
                         sendToOthers = false;
                     }
+
                     break;
             }
         }
 
         private bool IsPlayerAdmin(IMyPlayer player) {
-            return MyAPIGateway.Session.OnlineMode == MyOnlineModeEnum.OFFLINE || MyAPIGateway.Session.IsUserAdmin(player.SteamUserId);
+            return MyAPIGateway.Session.OnlineMode == MyOnlineModeEnum.OFFLINE ||
+                   MyAPIGateway.Session.IsUserAdmin(player.SteamUserId);
         }
 
         private void CreateSpawnArea(double radius) {
@@ -165,18 +170,22 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             Vector3D position = player.GetPosition();
             var name = $"Area_{position.GetHashCode()}";
 
-            BoundingBoxD boundingBox = new BoundingBoxD(position - new Vector3D(radius), position + new Vector3D(radius));
+            BoundingBoxD boundingBox =
+                new BoundingBoxD(position - new Vector3D(radius), position + new Vector3D(radius));
             MyPlanet closestPlanet = MyGamePruningStructure.GetClosestPlanet(ref boundingBox);
 
             if (closestPlanet != null) {
-                Log.Info($"Cannot create spawn area '{name}' at {position} with radius {radius}: Intersects with a planet.");
-                MyAPIGateway.Utilities.ShowMessage("DynamicAsteroids", $"Cannot create spawn area '{name}' at {position} with radius {radius}: Intersects with a planet.");
+                Log.Info(
+                    $"Cannot create spawn area '{name}' at {position} with radius {radius}: Intersects with a planet.");
+                MyAPIGateway.Utilities.ShowMessage("DynamicAsteroids",
+                    $"Cannot create spawn area '{name}' at {position} with radius {radius}: Intersects with a planet.");
                 return;
             }
 
             AsteroidSettings.AddSpawnableArea(name, position, radius);
             Log.Info($"Created spawn area '{name}' at {position} with radius {radius}");
-            MyAPIGateway.Utilities.ShowMessage("DynamicAsteroids", $"Created spawn area '{name}' at {position} with radius {radius}");
+            MyAPIGateway.Utilities.ShowMessage("DynamicAsteroids",
+                $"Created spawn area '{name}' at {position} with radius {radius}");
         }
 
         private void RemoveSpawnArea(string name) {
@@ -276,8 +285,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
                     if (nearestAsteroid != null && AsteroidSettings.EnableLogging) {
                         Vector3D angularVelocity = nearestAsteroid.Physics.AngularVelocity;
-                        string rotationString = $"({angularVelocity.X:F2}, {angularVelocity.Y:F2}, {angularVelocity.Z:F2})";
-                        string message = $"Nearest Asteroid: {nearestAsteroid.EntityId} ({nearestAsteroid.Type})\nRotation: {rotationString}";
+                        string rotationString =
+                            $"({angularVelocity.X:F2}, {angularVelocity.Y:F2}, {angularVelocity.Z:F2})";
+                        string message =
+                            $"Nearest Asteroid: {nearestAsteroid.EntityId} ({nearestAsteroid.Type})\nRotation: {rotationString}";
                         MyAPIGateway.Utilities.ShowNotification(message, 1000 / 60);
                         nearestAsteroid.DrawDebugSphere();
                     }
@@ -290,7 +301,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                             int localAsteroidCount = entities.Count(e => e is AsteroidEntity);
 
                             if (AsteroidSettings.EnableLogging) {
-                                MyAPIGateway.Utilities.ShowNotification($"Client Asteroids: {localAsteroidCount}", 1000 / 60);
+                                MyAPIGateway.Utilities.ShowNotification($"Client Asteroids: {localAsteroidCount}",
+                                    1000 / 60);
                             }
                         }
                     }
@@ -360,7 +372,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 var basicInfo = RealGasGiantsApi.GetGasGiantConfig_BasicInfo_Base(nearestGasGiant);
                 if (basicInfo.Item1) // If operation was successful
                 {
-                    double distance = Vector3D.Distance(playerPosition, nearestGasGiant.PositionComp.GetPosition()) - basicInfo.Item2;
+                    double distance = Vector3D.Distance(playerPosition, nearestGasGiant.PositionComp.GetPosition()) -
+                                      basicInfo.Item2;
                     message = $"Nearest Gas Giant:\n" +
                               $"Distance: {distance:N0}m\n" +
                               $"Radius: {basicInfo.Item2:N0}m\n" +
@@ -382,7 +395,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         }
 
         private MyPlanet FindNearestGasGiant(Vector3D position) {
-            const double searchRadius = 1000000000;// 1 million km in meters
+            const double searchRadius = 1000000000; // 1 million km in meters
             MyPlanet nearestGasGiant = null;
             double nearestDistance = double.MaxValue;
 
@@ -391,7 +404,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
             foreach (MyPlanet gasGiant in gasGiants) {
                 var basicInfo = RealGasGiantsApi.GetGasGiantConfig_BasicInfo_Base(gasGiant);
-                if (!basicInfo.Item1) continue;// Skip if we couldn't get the info
+                if (!basicInfo.Item1) continue; // Skip if we couldn't get the info
 
                 float gasGiantRadius = basicInfo.Item2;
                 Vector3D gasGiantCenter = gasGiant.PositionComp.GetPosition();
@@ -429,12 +442,14 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
                 // Try to deserialize as container first
                 try {
-                    var container = MyAPIGateway.Utilities.SerializeFromBinary<AsteroidNetworkMessageContainer>(message);
+                    var container =
+                        MyAPIGateway.Utilities.SerializeFromBinary<AsteroidNetworkMessageContainer>(message);
                     if (container != null && container.Messages != null) {
                         Log.Info($"Received batch update with {container.Messages.Length} asteroids");
                         foreach (var asteroidMessage in container.Messages) {
                             ProcessClientMessage(asteroidMessage);
                         }
+
                         return;
                     }
                 }
@@ -534,7 +549,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                     message.Size,
                     message.GetVelocity(),
                     message.GetType(),
-                    message.GetRotation(),  // Use server's rotation
+                    message.GetRotation(), // Use server's rotation
                     message.EntityId
                 );
 
@@ -543,6 +558,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                         asteroid.Physics.LinearVelocity = message.GetVelocity();
                         asteroid.Physics.AngularVelocity = message.GetAngularVelocity();
                     }
+
                     Log.Info($"Client: Successfully created asteroid {message.EntityId} with server rotation");
                 }
                 else {
@@ -553,6 +569,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 Log.Exception(ex, typeof(MainSession), "Error creating asteroid on client");
             }
         }
+
         private void ProcessClientMessage(AsteroidNetworkMessage message) {
             try {
                 if (!NetworkMessageVerification.ValidateMessage(message)) {
@@ -571,6 +588,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                         Log.Warning($"Received creation message for existing asteroid {message.EntityId}");
                         return;
                     }
+
                     // On initial creation, don't generate random rotation, use server's
                     CreateNewAsteroidOnClient(message);
                 }
@@ -589,7 +607,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                         message.EntityId,
                         false,
                         true,
-                        message.GetRotation()  // Use server's rotation
+                        message.GetRotation() // Use server's rotation
                     ));
                 }
             }
@@ -678,60 +696,37 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             int randValue = Rand.Next(0, 2);
             return (AsteroidType)randValue;
         }
-
-        [ProtoContract]
-        public class ZoneNetworkMessage {
-            [ProtoMember(1)]
-            public List<ZoneData> Zones { get; set; } = new List<ZoneData>();
-
-            public ZoneNetworkMessage() { }
-        }
-
-        [ProtoContract]
-        public class ZoneData {
-            [ProtoMember(1)]
-            public Vector3D Center { get; set; }
-            [ProtoMember(2)]
-            public double Radius { get; set; }
-            [ProtoMember(3)]
-            public long PlayerId { get; set; }
-            [ProtoMember(4)]
-            public bool IsActive { get; set; }
-            [ProtoMember(5)]
-            public bool IsMerged { get; set; }
-            [ProtoMember(6)]
-            public double CurrentSpeed { get; set; }
-
-            public ZoneData() { }
-        }
-
-
+          
         private void ProcessZoneMessage(byte[] message) {
             try {
-                var zoneMessage = MyAPIGateway.Utilities.SerializeFromBinary<ZoneNetworkMessage>(message);
-                if (zoneMessage?.Zones == null)
+                var zonePacket = MyAPIGateway.Utilities.SerializeFromBinary<ZoneUpdatePacket>(message);
+                if (zonePacket?.Zones == null)
                     return;
 
-                // Track existing zones before updating
                 var previousZones = new Dictionary<long, AsteroidZone>(_clientZones);
-
                 _clientZones.Clear();
-                foreach (var zoneData in zoneMessage.Zones) {
-                    var newZone = new AsteroidZone(zoneData.Center, zoneData.Radius);
+
+                foreach (var zoneData in zonePacket.Zones) {
+                    var newZone = new AsteroidZone(zoneData.Center, zoneData.Radius) {
+                        IsMarkedForRemoval = !zoneData.IsActive,
+                        IsMerged = zoneData.IsMerged,
+                        CurrentSpeed = zoneData.CurrentSpeed
+                    };
+
                     _clientZones[zoneData.PlayerId] = newZone;
-                    previousZones.Remove(zoneData.PlayerId); // Remove from tracking if still exists
+                    previousZones.Remove(zoneData.PlayerId);
                 }
 
-                // Add remaining (removed) zones to history
+                // Handle removed zones
                 foreach (var removedZone in previousZones.Values) {
                     _lastRemovedZones.Enqueue(removedZone);
                     while (_lastRemovedZones.Count > 5)
                         _lastRemovedZones.Dequeue();
 
-                    // Clean up asteroids in removed zones
                     if (!MyAPIGateway.Session.IsServer) {
                         var entities = new HashSet<IMyEntity>();
                         MyAPIGateway.Entities.GetEntities(entities);
+
                         foreach (var entity in entities) {
                             var asteroid = entity as AsteroidEntity;
                             if (asteroid != null && removedZone.IsPointInZone(asteroid.PositionComp.GetPosition())) {
@@ -742,7 +737,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 }
             }
             catch (Exception ex) {
-                Log.Exception(ex, typeof(MainSession), "Error processing zone message");
+                Log.Exception(ex, typeof(MainSession), "Error processing zone packet");
             }
         }
     }
