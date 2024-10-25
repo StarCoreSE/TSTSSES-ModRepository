@@ -702,10 +702,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
                 SendPositionUpdates();
 
-
-                // Log the number of active asteroids (for debugging purposes)
-                if (AsteroidSettings.EnableLogging)
-                    MyAPIGateway.Utilities.ShowNotification($"Active Asteroids: {_asteroids.Count}", 1000 / 60);
             }
             catch (Exception ex)
             {

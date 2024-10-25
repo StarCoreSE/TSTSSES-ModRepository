@@ -316,6 +316,13 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                         MyAPIGateway.Utilities.ShowNotification(message, 1000 / 60);
                         nearestAsteroid.DrawDebugSphere(); // Debug visualization
                     }
+
+                    // Log the number of active asteroids (for debugging purposes)
+                    if (AsteroidSettings.EnableLogging)
+                    {
+                        int activeAsteroids = _spawner?.GetAsteroids().Count() ?? 0;
+                        MyAPIGateway.Utilities.ShowNotification($"Active Asteroids: {activeAsteroids}", 1000 / 60);
+                    }
                 }
 
                 // Shared updates
