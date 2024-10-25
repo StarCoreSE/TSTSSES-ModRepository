@@ -234,7 +234,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                         _networkMessageTimer--;
                     else
                     {
-                        _spawner?.SendNetworkMessages();
+                        _spawner?.SendPositionUpdates();
                         _networkMessageTimer = AsteroidSettings.NetworkMessageInterval;
                         Log.Info("Server: Sending network messages to clients.");
                     }
