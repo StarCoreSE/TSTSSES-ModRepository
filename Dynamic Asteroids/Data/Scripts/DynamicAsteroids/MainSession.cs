@@ -1,4 +1,5 @@
 ﻿using DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities;
+using ProtoBuf;
 using RealGasGiants;
 using Sandbox.Definitions;
 using Sandbox.Game.Entities;
@@ -31,6 +32,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
         private KeenRicochetMissileBSWorkaroundHandler _missileHandler;
         private Dictionary<long, Vector3D> _serverPositions = new Dictionary<long, Vector3D>();
         private Dictionary<long, Quaternion> _serverRotations = new Dictionary<long, Quaternion>();
+        private Dictionary<long, AsteroidZone> _clientZones = new Dictionary<long, AsteroidZone>();
 
 
         public override void LoadData()
@@ -60,6 +62,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 
             // Register network handlers for both client and server
             MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(32000, OnSecureMessageReceived);
+            MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(32001, OnSecureMessageReceived);
             MyAPIGateway.Utilities.MessageEntered += OnMessageEntered;
         }
 
@@ -117,6 +120,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 }
 
                 MyAPIGateway.Multiplayer.UnregisterSecureMessageHandler(32000, OnSecureMessageReceived);
+                MyAPIGateway.Multiplayer.UnregisterSecureMessageHandler(32001, OnSecureMessageReceived);
                 MyAPIGateway.Utilities.MessageEntered -= OnMessageEntered;
 
                 if (RealGasGiantsApi != null)
@@ -448,6 +452,12 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 if (message == null || message.Length == 0)
                 {
                     Log.Info("Received empty or null message, skipping processing.");
+                    return;
+                }
+
+                if (handlerId == 32001) // Zone updates
+                {
+                    ProcessZoneMessage(message);
                     return;
                 }
 
@@ -839,6 +849,20 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                             16);
                     }
                 }
+                foreach (var zone in _clientZones.Values)
+                {
+                    MatrixD worldMatrix = MatrixD.CreateTranslation(zone.Center);
+                    Color zoneColor = Color.Green;
+                    MySimpleObjectDraw.DrawTransparentSphere(
+                        ref worldMatrix,
+                        (float)zone.Radius,
+                        ref zoneColor,
+                        MySimpleObjectRasterizer.Wireframe,
+                        20,
+                        MyStringId.GetOrCompute("Square"),
+                        MyStringId.GetOrCompute("Square"),
+                        5f);
+                }
             }
             catch (Exception ex)
             {
@@ -850,6 +874,51 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
         {
             int randValue = Rand.Next(0, 2);
             return (AsteroidType)randValue;
+        }
+
+        [ProtoContract]
+        public class ZoneNetworkMessage
+        {
+            [ProtoMember(1)]
+            public List<ZoneData> Zones { get; set; }
+
+            public ZoneNetworkMessage()
+            {
+                Zones = new List<ZoneData>();
+            }
+        }
+
+        [ProtoContract]
+        public class ZoneData
+        {
+            [ProtoMember(1)]
+            public Vector3D Center { get; set; }
+
+            [ProtoMember(2)]
+            public double Radius { get; set; }
+
+            [ProtoMember(3)]
+            public long PlayerId { get; set; }
+        }
+
+        private void ProcessZoneMessage(byte[] message)
+        {
+            try
+            {
+                var zoneMessage = MyAPIGateway.Utilities.SerializeFromBinary<ZoneNetworkMessage>(message);
+                if (zoneMessage?.Zones == null) return;
+
+                _clientZones.Clear();
+                foreach (var zoneData in zoneMessage.Zones)
+                {
+                    _clientZones[zoneData.PlayerId] = new AsteroidZone(zoneData.Center, zoneData.Radius);
+                    Log.Info($"Received zone update for player {zoneData.PlayerId} at {zoneData.Center}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Exception(ex, typeof(MainSession), "Error processing zone message");
+            }
         }
 
     }

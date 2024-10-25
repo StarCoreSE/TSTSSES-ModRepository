@@ -10,6 +10,7 @@ using System.Linq;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
 using VRageMath;
+using static DynamicAsteroids.Data.Scripts.DynamicAsteroids.MainSession;
 
 
 namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
@@ -649,6 +650,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             AssignZonesToPlayers();
             MergeZones();
             UpdateZones();
+            SendZoneUpdates();
 
             try
             {
@@ -949,8 +951,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
         private void UpdatePlayerMovementData()
         {
-            const double SPEED_SMOOTHING_FACTOR = 0.3;
-            const double MIN_TIME_DELTA = 0.016; // Minimum time delta to prevent division by zero
+            const double SPEED_SMOOTHING_FACTOR = 1;
+            const double MIN_TIME_DELTA = 1; // Minimum time delta to prevent division by zero
 
             List<IMyPlayer> players = new List<IMyPlayer>();
             MyAPIGateway.Players.GetPlayers(players);
@@ -1224,6 +1226,25 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             double phi = Math.Acos(2.0 * rand.NextDouble() - 1.0);
             double sinPhi = Math.Sin(phi);
             return Math.Pow(rand.NextDouble(), 1 / 3d) * new Vector3D(sinPhi * Math.Cos(theta), sinPhi * Math.Sin(theta), Math.Cos(phi));
+        }
+
+        public void SendZoneUpdates()
+        {
+            if (!MyAPIGateway.Session.IsServer) return;
+
+            var zoneMessage = new ZoneNetworkMessage();
+            foreach (var kvp in playerZones)
+            {
+                zoneMessage.Zones.Add(new ZoneData
+                {
+                    Center = kvp.Value.Center,
+                    Radius = kvp.Value.Radius,
+                    PlayerId = kvp.Key
+                });
+            }
+
+            byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(zoneMessage);
+            MyAPIGateway.Multiplayer.SendMessageToOthers(32001, messageBytes); // Using different channel for zone updates
         }
     }
 }
