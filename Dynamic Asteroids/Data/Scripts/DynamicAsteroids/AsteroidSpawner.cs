@@ -791,6 +791,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
         public void SpawnAsteroids(List<AsteroidZone> zones)
         {
+            if (!MyAPIGateway.Session.IsServer) return; // Ensure only server handles spawning
+
             int totalSpawnAttempts = 0;
 
             if (AsteroidSettings.MaxAsteroidCount == 0)
@@ -1035,8 +1037,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
         public void SendNetworkMessages()
         {
-            if (!MyAPIGateway.Session.IsServer)
-                return;
+            if (!MyAPIGateway.Session.IsServer || !MyAPIGateway.Utilities.IsDedicated)
+                return; // Skip in single-player or client-hosted games
 
             try
             {
@@ -1067,7 +1069,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                         false,
                         asteroid.EntityId,
                         false,
-                        false,// This is an update, not initial creation
+                        false, // This is an update, not initial creation
                         Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix)
                     );
 
