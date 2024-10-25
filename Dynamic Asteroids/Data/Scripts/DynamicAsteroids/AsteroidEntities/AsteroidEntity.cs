@@ -88,10 +88,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public bool UseDamageSystem => true;
 
 
-        public static AsteroidEntity CreateAsteroid(Vector3D position, float size, Vector3D initialVelocity, AsteroidType type, Quaternion? rotation = null, long? entityId = null)
+        public static AsteroidEntity CreateAsteroid(Vector3D position, float size, Vector3D initialVelocity,
+            AsteroidType type, Quaternion? rotation = null, long? entityId = null)
         {
             var ent = new AsteroidEntity();
-
             try
             {
                 if (entityId.HasValue)
@@ -99,24 +99,21 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                     ent.EntityId = entityId.Value;
                 }
 
-                // Just set position directly, no matrix transforms
-                ent.PositionComp.SetPosition(position);
+                // Initialize physics and position
+                ent.Init(position, size, initialVelocity, type, rotation);
 
-                // Initialize other properties without any rotation
-                ent.Init(position, size, initialVelocity, type, null);
-
-                Log.Info($"Creating asteroid at exact position: {position}");
-                MyEntities.Add(ent);
-
-                // Verify position after creation
-                Vector3D finalPosition = ent.PositionComp.GetPosition();
-                Log.Info($"Final position after creation: {finalPosition}");
+                // Verify entity was created properly
+                if (ent.Physics == null || !ent.InScene)
+                {
+                    Log.Warning($"Failed to properly initialize asteroid {ent.EntityId}");
+                    return null;
+                }
 
                 return ent;
             }
             catch (Exception ex)
             {
-                Log.Exception(ex, typeof(AsteroidEntity), "Failed to initialize AsteroidEntity");
+                Log.Exception(ex, typeof(AsteroidEntity), "Failed to create asteroid");
                 return null;
             }
         }

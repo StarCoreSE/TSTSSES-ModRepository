@@ -580,17 +580,19 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 
         private void CreateNewAsteroidOnClient(AsteroidNetworkMessage message)
         {
-            Log.Info($"Client: Creating new asteroid at position {message.GetPosition()}");
             try
             {
                 Vector3D position = message.GetPosition();
                 Quaternion rotation = message.GetRotation();
 
-                // Create the initial world matrix properly
-                MatrixD worldMatrix = MatrixD.CreateFromQuaternion(rotation);
-                worldMatrix.Translation = position;
+                // First check if entity already exists
+                if (MyEntities.GetEntityById(message.EntityId) != null)
+                {
+                    Log.Warning($"Client: Attempted to create duplicate asteroid {message.EntityId}");
+                    return;
+                }
 
-                // Create the asteroid with proper initial position
+                // Create the asteroid with explicit entity ID
                 var asteroid = AsteroidEntity.CreateAsteroid(
                     position,
                     message.Size,
@@ -602,21 +604,14 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
 
                 if (asteroid != null)
                 {
-                    // Ensure everything is set correctly after creation
-                    asteroid.WorldMatrix = worldMatrix;
-                    asteroid.PositionComp.SetPosition(position);
+                    // Add to world
+                    MyEntities.Add(asteroid);
+
+                    // Set physics properties
                     asteroid.Physics.LinearVelocity = message.GetVelocity();
                     asteroid.Physics.AngularVelocity = message.GetAngularVelocity();
 
-                    // Verify position
-                    Vector3D finalPosition = asteroid.PositionComp.GetPosition();
-                    Log.Info($"Client: Created asteroid {message.EntityId}:" +
-                             $"\nRequested Position: {position}" +
-                             $"\nFinal Position: {finalPosition}" +
-                             $"\nMatrix Translation: {asteroid.WorldMatrix.Translation}");
-
-                    _serverPositions[message.EntityId] = position;
-                    _serverRotations[message.EntityId] = rotation;
+                    Log.Info($"Client: Successfully created asteroid {message.EntityId} at {position}");
                 }
                 else
                 {
@@ -625,7 +620,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             }
             catch (Exception ex)
             {
-                Log.Exception(ex, typeof(MainSession), $"Error creating new asteroid {message.EntityId} on client");
+                Log.Exception(ex, typeof(MainSession), "Error creating asteroid on client");
             }
         }
 
@@ -633,62 +628,58 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
         {
             try
             {
-                Log.Info($"Client processing message - ID: {message.EntityId}, IsInitial: {message.IsInitialCreation}, Position: {message.GetPosition()}");
-
-                // If this is a removal message, handle it first
-                if (message.IsRemoval)
+                if (!NetworkMessageVerification.ValidateMessage(message))
                 {
-                    RemoveAsteroidOnClient(message.EntityId);
-                    _serverPositions.Remove(message.EntityId);
+                    Log.Warning($"Client received invalid message - ID: {message.EntityId}");
                     return;
                 }
 
-                // Get existing asteroid if any
-                AsteroidEntity asteroid = MyEntities.GetEntityById(message.EntityId) as AsteroidEntity;
+                if (message.IsRemoval)
+                {
+                    RemoveAsteroidOnClient(message.EntityId);
+                    return;
+                }
 
-                // Handle initial creation
+                // Check if asteroid already exists
+                AsteroidEntity existingAsteroid = MyEntities.GetEntityById(message.EntityId) as AsteroidEntity;
+
                 if (message.IsInitialCreation)
                 {
-                    if (asteroid != null)
+                    if (existingAsteroid != null)
                     {
                         Log.Warning($"Received creation message for existing asteroid {message.EntityId}");
                         return;
                     }
 
-                    // Create new asteroid with correct initial position
-                    MatrixD worldMatrix = MatrixD.CreateFromQuaternion(message.GetRotation());
-                    worldMatrix.Translation = message.GetPosition();
-
-                    asteroid = AsteroidEntity.CreateAsteroid(
+                    // Ensure client-side creation
+                    CreateNewAsteroidOnClient(message);
+                }
+                else if (existingAsteroid != null)
+                {
+                    UpdateExistingAsteroidOnClient(existingAsteroid, message);
+                }
+                else
+                {
+                    // Handle missing asteroid that should exist
+                    Log.Warning($"Received update for non-existent asteroid {message.EntityId}");
+                    // Instead of requesting creation, we'll just create it
+                    CreateNewAsteroidOnClient(new AsteroidNetworkMessage(
                         message.GetPosition(),
                         message.Size,
                         message.GetVelocity(),
+                        message.GetAngularVelocity(),
                         message.GetType(),
-                        message.GetRotation(),
-                        message.EntityId
-                    );
-
-                    if (asteroid != null)
-                    {
-                        // Ensure proper initialization
-                        asteroid.WorldMatrix = worldMatrix;
-                        asteroid.Physics.LinearVelocity = message.GetVelocity();
-                        asteroid.Physics.AngularVelocity = message.GetAngularVelocity();
-                        _serverPositions[message.EntityId] = message.GetPosition();
-
-                        Log.Info($"Created new asteroid {message.EntityId} at {asteroid.PositionComp.GetPosition()}");
-                    }
-                }
-                // Handle position updates only for existing asteroids
-                else if (asteroid != null)
-                {
-                    _serverPositions[message.EntityId] = message.GetPosition();
-                    UpdateExistingAsteroidOnClient(asteroid, message);
+                        false,
+                        message.EntityId,
+                        false,
+                        true,
+                        message.GetRotation()
+                    ));
                 }
             }
             catch (Exception ex)
             {
-                Log.Exception(ex, typeof(MainSession), $"Error processing client message for asteroid {message.EntityId}");
+                Log.Exception(ex, typeof(MainSession), $"Error processing client message");
             }
         }
 
