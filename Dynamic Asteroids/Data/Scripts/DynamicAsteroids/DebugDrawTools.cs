@@ -17,22 +17,66 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         private HashSet<AsteroidEntity> _orphanedAsteroids = new HashSet<AsteroidEntity>();
         private int _orphanCheckTimer = 0;
         private const int ORPHAN_CHECK_INTERVAL = 60; // Update once per second at 60 fps
+        private const double HITBOX_DISPLAY_DISTANCE = 1000; // 1km
+
 
         public override void Draw() {
             try {
-                if (!AsteroidSettings.EnableLogging || MyAPIGateway.Session?.Player?.Character == null)
+                if (MyAPIGateway.Session?.Player?.Character == null)
                     return;
 
                 Vector3D characterPosition = MyAPIGateway.Session.Player.Character.PositionComp.GetPosition();
-                DrawPlayerZones(characterPosition);
-                DrawNearestAsteroidDebug(characterPosition);
-                DrawOrphanedAsteroids();
+
+                if (AsteroidSettings.EnableLogging) {
+                    DrawPlayerZones(characterPosition);
+                    DrawNearestAsteroidDebug(characterPosition);
+                    DrawOrphanedAsteroids();
+                }
+                else {
+                    // Always draw hitboxes in normal gameplay
+                    DrawNearbyAsteroidHitboxes(characterPosition);
+                }
             }
             catch (Exception ex) {
                 Log.Exception(ex, typeof(MainSession), "Error in Draw");
             }
         }
 
+        private void DrawNearbyAsteroidHitboxes(Vector3D characterPosition) {
+            // Skip if we're in debug mode (already showing debug spheres)
+            if (AsteroidSettings.EnableLogging)
+                return;
+
+            try {
+                var entities = new HashSet<IMyEntity>();
+                MyAPIGateway.Entities.GetEntities(entities, e => e is AsteroidEntity &&
+                                                                 Vector3D.DistanceSquared(e.GetPosition(), characterPosition) <= HITBOX_DISPLAY_DISTANCE * HITBOX_DISPLAY_DISTANCE);
+
+                foreach (AsteroidEntity asteroid in entities.Cast<AsteroidEntity>()) {
+                    if (asteroid == null || asteroid.MarkedForClose)
+                        continue;
+
+                    MatrixD worldMatrix = MatrixD.CreateTranslation(asteroid.PositionComp.GetPosition());
+
+                    // Very thin white wireframe
+                    Color hitboxColor = new Color(255, 255, 255, 15); // Almost transparent white
+
+                    MySimpleObjectDraw.DrawTransparentSphere(
+                        ref worldMatrix,
+                        asteroid.Properties.Radius,
+                        ref hitboxColor,
+                        MySimpleObjectRasterizer.Wireframe,
+                        32, // More segments for smoother sphere
+                        null,
+                        MyStringId.GetOrCompute("Square"),
+                        0.5f // Thin lines
+                    );
+                }
+            }
+            catch (Exception ex) {
+                Log.Exception(ex, typeof(MainSession), "Error drawing hitbox spheres");
+            }
+        }
 
         private void DrawPlayerZones(Vector3D characterPosition) {
             // Draw active zones first
@@ -136,7 +180,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 }
             }
         }
-       
+
         private void DrawNearestAsteroidDebug(Vector3D characterPosition) {
             AsteroidEntity nearestAsteroid = FindNearestAsteroid(characterPosition);
             if (nearestAsteroid == null) return;
@@ -156,7 +200,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 MySimpleObjectRasterizer.Wireframe,
                 20);
         }
-
+        //TODO: this doesnt work lmao gotta send a packet from server where it thinks the roid is
         private void DrawAsteroidServerComparison(AsteroidEntity asteroid) {
             Vector3D serverPosition;
             Quaternion serverRotation;
