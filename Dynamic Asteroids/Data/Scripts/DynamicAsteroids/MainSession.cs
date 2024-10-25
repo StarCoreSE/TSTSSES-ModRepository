@@ -566,19 +566,16 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 }
 
                 AsteroidEntity existingAsteroid = MyEntities.GetEntityById(message.EntityId) as AsteroidEntity;
-
                 if (message.IsInitialCreation) {
                     if (existingAsteroid != null) {
                         Log.Warning($"Received creation message for existing asteroid {message.EntityId}");
                         return;
                     }
+                    // On initial creation, don't generate random rotation, use server's
                     CreateNewAsteroidOnClient(message);
                 }
                 else if (existingAsteroid != null) {
-                    if (!MyAPIGateway.Session.IsServer) // Only override client physics if we're not the server
-                    {
-                        UpdateExistingAsteroidOnClient(existingAsteroid, message);
-                    }
+                    UpdateExistingAsteroidOnClient(existingAsteroid, message);
                 }
                 else {
                     Log.Warning($"Received update for non-existent asteroid {message.EntityId}");
@@ -592,7 +589,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                         message.EntityId,
                         false,
                         true,
-                        message.GetRotation()
+                        message.GetRotation()  // Use server's rotation
                     ));
                 }
             }
@@ -624,26 +621,28 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 Quaternion newRotation = message.GetRotation();
                 Vector3D newAngularVelocity = message.GetAngularVelocity();
 
-                // Store server state for visualization
                 _serverPositions[asteroid.EntityId] = newPosition;
                 _serverRotations[asteroid.EntityId] = newRotation;
 
-                // Create a proper world matrix that combines both position and rotation
+                // Create and set the new world matrix directly from server data
                 MatrixD newWorldMatrix = MatrixD.CreateFromQuaternion(newRotation);
-                newWorldMatrix.Translation = newPosition; // Set the position after creating rotation matrix
-
-                // Set everything in the correct order
+                newWorldMatrix.Translation = newPosition;
                 asteroid.WorldMatrix = newWorldMatrix;
-                asteroid.PositionComp.SetPosition(newPosition); // Ensure position is set after WorldMatrix
-                asteroid.Physics.LinearVelocity = newVelocity;
-                asteroid.Physics.AngularVelocity = newAngularVelocity;
 
-                // Log the actual position after update
+                asteroid.PositionComp.SetPosition(newPosition);
+
+                // Only update physics if we have it
+                if (asteroid.Physics != null) {
+                    asteroid.Physics.LinearVelocity = newVelocity;
+                    asteroid.Physics.AngularVelocity = newAngularVelocity;
+                }
+
                 Vector3D finalPosition = asteroid.PositionComp.GetPosition();
                 Log.Info($"Client asteroid {asteroid.EntityId} update:" +
                          $"\nRequested Position: {newPosition}" +
                          $"\nFinal Position: {finalPosition}" +
                          $"\nMatrix Translation: {asteroid.WorldMatrix.Translation}" +
+                         $"\nRotation: {newRotation}" +
                          $"\nAngular Velocity: {newAngularVelocity.Length():F3} rad/s");
             }
             catch (Exception ex) {

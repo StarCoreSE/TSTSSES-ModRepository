@@ -90,11 +90,15 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
                 if (entityId.HasValue)
                     ent.EntityId = entityId.Value;
 
-                // If no rotation specified, create a random one
-                if (!rotation.HasValue) {
-                    Vector3D randomAxis = RandVector(); // Use the existing RandVector
-                    float randomAngle = (float)(MainSession.I.Rand.NextDouble() * Math.PI * 2); // Random angle between 0 and 2π
+                // Only generate random rotation on server if none provided
+                if (!rotation.HasValue && MyAPIGateway.Session.IsServer) {
+                    Vector3D randomAxis = RandVector();
+                    float randomAngle = (float)(MainSession.I.Rand.NextDouble() * Math.PI * 2);
                     rotation = Quaternion.CreateFromAxisAngle(randomAxis, randomAngle);
+                }
+                else if (!rotation.HasValue) {
+                    // On client, use identity rotation until server update arrives
+                    rotation = Quaternion.Identity;
                 }
 
                 ent.Init(position, size, initialVelocity, type, rotation);
