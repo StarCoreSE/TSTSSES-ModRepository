@@ -48,8 +48,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
 
             return true;
         }
-        //TODO: something here breaks serializing the world, something with myobjectbuilder. maybe use MVSP.spawnitem
-        // digi: "try MyObjectBuilderSerializer if you've not (only works in paths in appdata and game folder, not in published mods' folder 🙄 )
 
         public void SpawnDebrisAtImpact(AsteroidEntity asteroid, Vector3D impactPosition, float massLost) {
             MyPhysicalItemDefinition itemDefinition = MyDefinitionManager.Static.GetPhysicalItemDefinition(

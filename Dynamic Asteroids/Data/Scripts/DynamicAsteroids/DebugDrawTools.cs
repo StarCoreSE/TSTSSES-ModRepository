@@ -50,21 +50,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             }
         }
 
-        private void DrawRemovedZone(AsteroidZone zone) {
-            MatrixD worldMatrix = MatrixD.CreateTranslation(zone.Center);
-            Color redFaded = new Color(255, 0, 0, 128); // Semi-transparent red
-            MySimpleObjectDraw.DrawTransparentSphere(
-                ref worldMatrix,
-                (float)zone.Radius,
-                ref redFaded,
-                MySimpleObjectRasterizer.Wireframe,
-                20,
-                null,
-                MyStringId.GetOrCompute("Square"),
-                5f
-            );
-        }
-
         private void DrawZone(long playerId, AsteroidZone zone, Vector3D characterPosition) {
             bool isLocalPlayer = playerId == MyAPIGateway.Session.Player.IdentityId;
             bool playerInZone = zone.IsPointInZone(characterPosition);
@@ -151,9 +136,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 }
             }
         }
-
-
-
+       
         private void DrawNearestAsteroidDebug(Vector3D characterPosition) {
             AsteroidEntity nearestAsteroid = FindNearestAsteroid(characterPosition);
             if (nearestAsteroid == null) return;

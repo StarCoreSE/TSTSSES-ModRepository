@@ -1265,50 +1265,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             MyAPIGateway.Multiplayer.SendMessageToOthers(32001, messageBytes);
         }
 
-        private void CleanupZones() {
-            try {
-                List<long> zonesToRemove = new List<long>();
-                List<IMyPlayer> players = new List<IMyPlayer>();
-                MyAPIGateway.Players.GetPlayers(players);
-
-                foreach (var kvp in playerZones) {
-                    if (!players.Any(p => p.IdentityId == kvp.Key)) {
-                        zonesToRemove.Add(kvp.Key);
-                        Log.Info($"Marking zone for player {kvp.Key} for removal due to player disconnect");
-                    }
-                }
-
-                foreach (long zoneId in zonesToRemove) {
-                    AsteroidZone zone;
-                    if (playerZones.TryRemove(zoneId, out zone)) {
-                        // Clean up any asteroids in this zone that aren't in other active zones
-                        var asteroidsInZone = _asteroids.Where(a =>
-                            zone.IsPointInZone(a.PositionComp.GetPosition())).ToList();
-
-                        foreach (var asteroid in asteroidsInZone) {
-                            bool inOtherZone = false;
-                            foreach (var otherZone in playerZones.Values) {
-                                if (otherZone != zone &&
-                                    otherZone.IsPointInZone(asteroid.PositionComp.GetPosition())) {
-                                    inOtherZone = true;
-                                    break;
-                                }
-                            }
-
-                            if (!inOtherZone) {
-                                RemoveAsteroid(asteroid);
-                            }
-                        }
-
-                        Log.Info($"Removed zone and cleaned up orphaned asteroids for disconnected player {zoneId}");
-                    }
-                }
-            }
-            catch (Exception ex) {
-                Log.Exception(ex, typeof(AsteroidSpawner), "Error in CleanupZones");
-            }
-        }
-
         private void CleanupOrphanedAsteroids() {
             try {
                 var currentZones = playerZones.Values.ToList();
