@@ -10,15 +10,11 @@ using VRage.Utils;
 using VRageMath;
 using VRageRender;
 
-namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
-{
-    public partial class MainSession
-    {
+namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
+    public partial class MainSession {
 
-        public override void Draw()
-        {
-            try
-            {
+        public override void Draw() {
+            try {
                 if (!AsteroidSettings.EnableLogging || MyAPIGateway.Session?.Player?.Character == null)
                     return;
 
@@ -26,26 +22,21 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 DrawPlayerZones(characterPosition);
                 DrawNearestAsteroidDebug(characterPosition);
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 Log.Exception(ex, typeof(MainSession), "Error in Draw");
             }
         }
 
-        private void DrawPlayerZones(Vector3D characterPosition)
-        {
-            foreach (var kvp in _clientZones)
-            {
+        private void DrawPlayerZones(Vector3D characterPosition) {
+            foreach (var kvp in _clientZones) {
                 DrawZone(kvp.Key, kvp.Value, characterPosition);
-                if (kvp.Value.IsMerged)
-                {
+                if (kvp.Value.IsMerged) {
                     DrawZoneMergeConnections(kvp.Value);
                 }
             }
         }
 
-        private void DrawZone(long playerId, AsteroidZone zone, Vector3D characterPosition)
-        {
+        private void DrawZone(long playerId, AsteroidZone zone, Vector3D characterPosition) {
             bool isLocalPlayer = playerId == MyAPIGateway.Session.Player.IdentityId;
             bool playerInZone = zone.IsPointInZone(characterPosition);
 
@@ -55,15 +46,13 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             DrawZoneInfo(zone, isLocalPlayer, playerInZone);
         }
 
-        private Color DetermineZoneColor(bool isLocalPlayer, bool playerInZone, bool isMerged)
-        {
+        private Color DetermineZoneColor(bool isLocalPlayer, bool playerInZone, bool isMerged) {
             if (isLocalPlayer)
                 return playerInZone ? Color.Green : Color.Yellow;
             return isMerged ? Color.Purple : Color.Blue;
         }
 
-        private void DrawZoneSphere(AsteroidZone zone, Color color)
-        {
+        private void DrawZoneSphere(AsteroidZone zone, Color color) {
             MatrixD worldMatrix = MatrixD.CreateTranslation(zone.Center);
 
             // Draw wireframe
@@ -90,15 +79,11 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 5f);
         }
 
-        private void DrawZoneMergeConnections(AsteroidZone sourceZone)
-        {
-            foreach (var targetZone in _clientZones.Values)
-            {
-                if (targetZone.IsMerged && targetZone != sourceZone)
-                {
+        private void DrawZoneMergeConnections(AsteroidZone sourceZone) {
+            foreach (var targetZone in _clientZones.Values) {
+                if (targetZone.IsMerged && targetZone != sourceZone) {
                     double distance = Vector3D.Distance(sourceZone.Center, targetZone.Center);
-                    if (distance <= sourceZone.Radius + targetZone.Radius)
-                    {
+                    if (distance <= sourceZone.Radius + targetZone.Radius) {
                         Vector4 mergeLineColor = Color.Purple.ToVector4();
                         MySimpleObjectDraw.DrawLine(
                             sourceZone.Center,
@@ -111,8 +96,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             }
         }
 
-        private void DrawZoneInfo(AsteroidZone zone, bool isLocalPlayer, bool playerInZone)
-        {
+        private void DrawZoneInfo(AsteroidZone zone, bool isLocalPlayer, bool playerInZone) {
             Vector3D textPosition = zone.Center + new Vector3D(0, zone.Radius + 100, 0);
 
             // Fix the billboard drawing
@@ -136,8 +120,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             //}
         }
 
-        private void DrawNearestAsteroidDebug(Vector3D characterPosition)
-        {
+        private void DrawNearestAsteroidDebug(Vector3D characterPosition) {
             AsteroidEntity nearestAsteroid = FindNearestAsteroid(characterPosition);
             if (nearestAsteroid == null) return;
 
@@ -145,8 +128,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             DrawAsteroidServerComparison(nearestAsteroid);
         }
 
-        private void DrawAsteroidClientPosition(AsteroidEntity asteroid)
-        {
+        private void DrawAsteroidClientPosition(AsteroidEntity asteroid) {
             Vector3D clientPosition = asteroid.PositionComp.GetPosition();
             MatrixD clientWorldMatrix = MatrixD.CreateTranslation(clientPosition);
             Color clientColor = Color.Red;
@@ -158,8 +140,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 20);
         }
 
-        private void DrawAsteroidServerComparison(AsteroidEntity asteroid)
-        {
+        private void DrawAsteroidServerComparison(AsteroidEntity asteroid) {
             Vector3D serverPosition;
             Quaternion serverRotation;
 
@@ -173,8 +154,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
             DisplayAsteroidDebugInfo(asteroid, serverPosition, serverRotation);
         }
 
-        private void DrawServerPositionSphere(AsteroidEntity asteroid, Vector3D serverPosition)
-        {
+        private void DrawServerPositionSphere(AsteroidEntity asteroid, Vector3D serverPosition) {
             MatrixD serverWorldMatrix = MatrixD.CreateTranslation(serverPosition);
             Color serverColor = Color.Blue;
             MySimpleObjectDraw.DrawTransparentSphere(
@@ -185,8 +165,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 20);
         }
 
-        private void DrawPositionComparisonLine(Vector3D clientPosition, Vector3D serverPosition)
-        {
+        private void DrawPositionComparisonLine(Vector3D clientPosition, Vector3D serverPosition) {
             Vector4 lineColor = Color.Yellow.ToVector4();
             MySimpleObjectDraw.DrawLine(
                 clientPosition,
@@ -196,8 +175,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 0.1f);
         }
 
-        private void DrawRotationComparison(AsteroidEntity asteroid, Vector3D serverPosition, Quaternion serverRotation)
-        {
+        private void DrawRotationComparison(AsteroidEntity asteroid, Vector3D serverPosition, Quaternion serverRotation) {
             Vector3D clientForward = asteroid.WorldMatrix.Forward;
             Vector3D serverForward = MatrixD.CreateFromQuaternion(serverRotation).Forward;
             Vector3D clientPosition = asteroid.PositionComp.GetPosition();
@@ -220,8 +198,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
                 0.1f);
         }
 
-        private void DisplayAsteroidDebugInfo(AsteroidEntity asteroid, Vector3D serverPosition, Quaternion serverRotation)
-        {
+        private void DisplayAsteroidDebugInfo(AsteroidEntity asteroid, Vector3D serverPosition, Quaternion serverRotation) {
             float angleDifference = GetQuaternionAngleDifference(
                 Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix),
                 serverRotation);

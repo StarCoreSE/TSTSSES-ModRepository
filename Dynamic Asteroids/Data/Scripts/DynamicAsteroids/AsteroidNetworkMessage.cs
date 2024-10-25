@@ -2,26 +2,22 @@
 using ProtoBuf;
 using VRageMath;
 
-namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
-{
+namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
     [ProtoContract]
-    public class AsteroidNetworkMessageContainer
-    {
+    public class AsteroidNetworkMessageContainer {
 
         [ProtoMember(2)]
         public AsteroidNetworkMessage[] Messages { get; set; }
 
         public AsteroidNetworkMessageContainer() { }
 
-        public AsteroidNetworkMessageContainer(AsteroidNetworkMessage[] messages)
-        {
+        public AsteroidNetworkMessageContainer(AsteroidNetworkMessage[] messages) {
             Messages = messages;
         }
     }
 
     [ProtoContract]
-    public class AsteroidNetworkMessage
-    {
+    public class AsteroidNetworkMessage {
         [ProtoMember(1)]
         public double PosX;
         [ProtoMember(2)]
@@ -62,8 +58,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids
         // Parameterless constructor required by Protobuf
         public AsteroidNetworkMessage() { }
 
-        public AsteroidNetworkMessage(Vector3D position, float size, Vector3D initialVelocity, Vector3D angularVelocity, AsteroidType type, bool isSubChunk, long entityId, bool isRemoval, bool isInitialCreation, Quaternion rotation)
-        {
+        public AsteroidNetworkMessage(Vector3D position, float size, Vector3D initialVelocity, Vector3D angularVelocity, AsteroidType type, bool isSubChunk, long entityId, bool isRemoval, bool isInitialCreation, Quaternion rotation) {
             PosX = position.X;
             PosY = position.Y;
             PosZ = position.Z;
