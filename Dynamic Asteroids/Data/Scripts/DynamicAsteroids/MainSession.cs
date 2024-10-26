@@ -61,11 +61,11 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(32001, OnSecureMessageReceived);
             MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(32002, OnSettingsSyncReceived);
             MyAPIGateway.Utilities.MessageEntered += OnMessageEntered;
-            MyVisualScriptLogicProvider.PlayerConnected += OnPlayerConnected;
         }
 
         public override void BeforeStart() {
-            // Simple IsReady check
+           
+            MyVisualScriptLogicProvider.PlayerConnected += OnPlayerConnected;
             Log.Info($"RealGasGiants API IsReady: {RealGasGiantsApi.IsReady}");
             //MyAPIGateway.Session.DamageSystem.RegisterBeforeDamageHandler(1000, DamageHandler);
 
@@ -811,27 +811,31 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             }
         }
 
-        private void OnPlayerConnected(long playerId) {
-            var player = GetPlayerBySteamId(playerId);
-            if (player != null) {
-                HandleClientJoined(player.SteamUserId);
-            }
+        private void OnPlayerConnected(long identityId) {
+            MyAPIGateway.Utilities.InvokeOnGameThread(() => {
+                List<IMyPlayer> players = new List<IMyPlayer>();
+                MyAPIGateway.Players.GetPlayers(players);
+                var player = players.FirstOrDefault(p => p.IdentityId == identityId);
+
+                if (player != null) {
+                    Log.Info($"Syncing settings to player {player.DisplayName}");
+                    SendSettingsToClient(player.SteamUserId);
+                }
+            }, "SyncSettings");
         }
 
-        private IMyPlayer GetPlayerBySteamId(long playerId) {
-            List<IMyPlayer> players = new List<IMyPlayer>();
-            MyAPIGateway.Players.GetPlayers(players);
-            return players.FirstOrDefault(p => p.IdentityId == playerId);
-        }
-
-        private void HandleClientJoined(ulong clientId) {
-            if (MyAPIGateway.Session.IsServer) {
+        private void SendSettingsToClient(ulong steamId) {
+            try {
                 var settings = new SettingsSyncMessage {
                     EnableLogging = AsteroidSettings.EnableLogging
                 };
 
                 byte[] data = MyAPIGateway.Utilities.SerializeToBinary(settings);
-                MyAPIGateway.Multiplayer.SendMessageTo(32002, data, clientId);
+                MyAPIGateway.Multiplayer.SendMessageTo(32002, data, steamId);
+                Log.Info($"Sent settings to client {steamId}");
+            }
+            catch (Exception ex) {
+                Log.Exception(ex, typeof(MainSession), "Error sending settings to client");
             }
         }
     }
