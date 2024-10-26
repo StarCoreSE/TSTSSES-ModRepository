@@ -1,4 +1,5 @@
-﻿using Sandbox.ModAPI;
+﻿using RealGasGiants;
+using Sandbox.ModAPI;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -6,15 +7,17 @@ using System.Linq;
 using VRageMath;
 
 
-namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
-    public static class AsteroidSettings {
+namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
+{
+    public static class AsteroidSettings
+    {
         public static bool EnableLogging = false;
         public static bool EnableMiddleMouseAsteroidSpawn = false;
         public static bool EnableVanillaAsteroidSpawnLatching = false;
         public static bool EnableGasGiantRingSpawning = false;
         public static float MinimumRingInfluenceForSpawn = 0.1f;
-        public static double RingAsteroidVelocityBase = 50.0;// Adjust as needed
-        public static float MaxRingAsteroidDensityMultiplier = 1f;// Adjust this value as needed
+        public static double RingAsteroidVelocityBase = 50.0; // Adjust as needed
+        public static float MaxRingAsteroidDensityMultiplier = 1f; // Adjust this value as needed
         public static double VanillaAsteroidSpawnLatchingRadius = 10000;
         public static bool DisableZoneWhileMovingFast = true;
         public static double ZoneSpeedThreshold = 2000.0;
@@ -51,46 +54,54 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
         public static float InstabilityThresholdPercent = 0.8f;
         public static float InstabilityDecayRate = 0.1f;
         public static float InstabilityFromDamage = 1.0f;
-        public static float KgLossPerDamage = 0.01f;// 1 damage = 1 kg lost
+        public static float KgLossPerDamage = 0.01f; // 1 damage = 1 kg lost
         public static int MaxPlayersPerZone = 64; // splits zones if more than this number is in same zone. YMMV
-        public static float ChunkMassPercent = 0.1f;// 10% of mass per chunk
-        public static float ChunkEjectionVelocity = 5.0f;// Base velocity for ejected chunks
-        public static float ChunkVelocityRandomization = 2.0f;// Random velocity added to chunks
-        public static float InstabilityPerDamage = 0.1f;// How much instability is added per damage point
+        public static float ChunkMassPercent = 0.1f; // 10% of mass per chunk
+        public static float ChunkEjectionVelocity = 5.0f; // Base velocity for ejected chunks
+        public static float ChunkVelocityRandomization = 2.0f; // Random velocity added to chunks
+        public static float InstabilityPerDamage = 0.1f; // How much instability is added per damage point
 
-        public struct MassRange {
+        public struct MassRange
+        {
             public float MinMass;
             public float MaxMass;
 
-            public MassRange(float minMass, float maxMass) {
+            public MassRange(float minMass, float maxMass)
+            {
                 MinMass = minMass;
                 MaxMass = maxMass;
             }
         }
 
-        public static readonly Dictionary<AsteroidType, MassRange> MinMaxMassByType = new Dictionary<AsteroidType, MassRange> {//TODO: put thse into confings, gradient toward gasgiant in ring for bigger roids
-            { AsteroidType.Ice, new MassRange(100000f, 500000f) },
-            { AsteroidType.Stone, new MassRange(80000f, 400000f) },
-            { AsteroidType.Iron, new MassRange(50000f, 300000f) },
-            { AsteroidType.Nickel, new MassRange(40000f, 250000f) },
-            { AsteroidType.Cobalt, new MassRange(30000f, 200000f) },
-            { AsteroidType.Magnesium, new MassRange(20000f, 150000f) },
-            { AsteroidType.Silicon, new MassRange(50000f, 350000f) },
-            { AsteroidType.Silver, new MassRange(20000f, 100000f) },
-            { AsteroidType.Gold, new MassRange(10000f, 80000f) },
-            { AsteroidType.Platinum, new MassRange(5000f, 50000f) },
-            { AsteroidType.Uraninite, new MassRange(3000f, 20000f) }
-        };
+        public static readonly Dictionary<AsteroidType, MassRange> MinMaxMassByType =
+            new Dictionary<AsteroidType, MassRange>
+            {
+                //TODO: put thse into confings, gradient toward gasgiant in ring for bigger roids
+                { AsteroidType.Ice, new MassRange(10000f, 5000000f) },
+                { AsteroidType.Stone, new MassRange(8000f, 4000000f) },
+                { AsteroidType.Iron, new MassRange(5000f, 3000000f) },
+                { AsteroidType.Nickel, new MassRange(4000f, 2500000f) },
+                { AsteroidType.Cobalt, new MassRange(3000f, 2000000f) },
+                { AsteroidType.Magnesium, new MassRange(2000f, 1500000f) },
+                { AsteroidType.Silicon, new MassRange(5000f, 3500000f) },
+                { AsteroidType.Silver, new MassRange(2000f, 1000000f) },
+                { AsteroidType.Gold, new MassRange(1000f, 800000f) },
+                { AsteroidType.Platinum, new MassRange(500f, 500000f) },
+                { AsteroidType.Uraninite, new MassRange(300f, 200000f) }
+            };
 
         public static List<SpawnableArea> ValidSpawnLocations = new List<SpawnableArea>();
 
-        public static bool CanSpawnAsteroidAtPoint(Vector3D point, out Vector3D velocity, bool isInRing = false) {
-            if (isInRing) {
-                velocity = Vector3D.Zero;// You might want to calculate an appropriate orbital velocity here
+        public static bool CanSpawnAsteroidAtPoint(Vector3D point, out Vector3D velocity, bool isInRing = false)
+        {
+            if (isInRing)
+            {
+                velocity = Vector3D.Zero; // You might want to calculate an appropriate orbital velocity here
                 return true;
             }
 
-            foreach (SpawnableArea area in ValidSpawnLocations) {
+            foreach (SpawnableArea area in ValidSpawnLocations)
+            {
                 if (!area.ContainsPoint(point)) continue;
                 velocity = area.VelocityAtPoint(point);
                 return true;
@@ -104,8 +115,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
 
         //  public static int MaxPlayersPerZone { get; internal set; }
 
-        public static AsteroidType GetAsteroidType(Vector3D position) {
-            double totalWeight = IceWeight + StoneWeight + IronWeight + NickelWeight + CobaltWeight + MagnesiumWeight + SiliconWeight + SilverWeight + GoldWeight + PlatinumWeight + UraniniteWeight;
+        public static AsteroidType GetAsteroidType(Vector3D position)
+        {
+            double totalWeight = IceWeight + StoneWeight + IronWeight + NickelWeight + CobaltWeight + MagnesiumWeight +
+                                 SiliconWeight + SilverWeight + GoldWeight + PlatinumWeight + UraniniteWeight;
             double randomValue = rand.NextDouble() * totalWeight;
             if (randomValue < IceWeight) return AsteroidType.Ice;
             randomValue -= IceWeight;
@@ -129,18 +142,24 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
             return AsteroidType.Uraninite;
         }
 
-        public static float GetAsteroidSize(Vector3D position) {
+        public static float GetAsteroidSize(Vector3D position)
+        {
             Random rand = new Random(Seed + position.GetHashCode());
             return MinAsteroidSize + (float)rand.NextDouble() * (MaxAsteroidSize - MinAsteroidSize);
         }
 
-        public static double GetRandomAngularVelocity(Random rand) {
+        public static double GetRandomAngularVelocity(Random rand)
+        {
             return AngularVelocityVariability * rand.NextDouble();
         }
 
-        public static void SaveSettings() {
-            try {
-                using (TextWriter writer = MyAPIGateway.Utilities.WriteFileInWorldStorage("AsteroidSettings.cfg", typeof(AsteroidSettings))) {
+        public static void SaveSettings()
+        {
+            try
+            {
+                using (TextWriter writer =
+                       MyAPIGateway.Utilities.WriteFileInWorldStorage("AsteroidSettings.cfg", typeof(AsteroidSettings)))
+                {
                     writer.WriteLine("[General]");
                     writer.WriteLine($"EnableLogging={EnableLogging}");
                     writer.WriteLine($"EnableMiddleMouseAsteroidSpawn={EnableMiddleMouseAsteroidSpawn}");
@@ -191,25 +210,35 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
                     writer.WriteLine($"KgLossPerDamage={KgLossPerDamage}");
 
                     writer.WriteLine("[SpawnableAreas]");
-                    foreach (SpawnableArea area in ValidSpawnLocations) {
+                    foreach (SpawnableArea area in ValidSpawnLocations)
+                    {
                         writer.WriteLine($"Name={area.Name}");
-                        writer.WriteLine($"CenterPosition={area.CenterPosition.X},{area.CenterPosition.Y},{area.CenterPosition.Z}");
+                        writer.WriteLine(
+                            $"CenterPosition={area.CenterPosition.X},{area.CenterPosition.Y},{area.CenterPosition.Z}");
                         writer.WriteLine($"Radius={area.Radius}");
                     }
                 }
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 Log.Exception(ex, typeof(AsteroidSettings), "Failed to save asteroid settings");
             }
         }
 
-        public static void LoadSettings() {
-            try {
-                if (MyAPIGateway.Utilities.FileExistsInWorldStorage("AsteroidSettings.cfg", typeof(AsteroidSettings))) {
-                    using (TextReader reader = MyAPIGateway.Utilities.ReadFileInWorldStorage("AsteroidSettings.cfg", typeof(AsteroidSettings))) {
+        public static void LoadSettings()
+        {
+            try
+            {
+                if (MyAPIGateway.Utilities.FileExistsInWorldStorage("AsteroidSettings.cfg", typeof(AsteroidSettings)))
+                {
+                    using (TextReader reader =
+                           MyAPIGateway.Utilities.ReadFileInWorldStorage("AsteroidSettings.cfg",
+                               typeof(AsteroidSettings)))
+                    {
                         string line;
                         SpawnableArea currentArea = null;
-                        while ((line = reader.ReadLine()) != null) {
+                        while ((line = reader.ReadLine()) != null)
+                        {
                             if (line.StartsWith("[") || string.IsNullOrWhiteSpace(line))
                                 continue;
 
@@ -220,7 +249,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
                             var key = parts[0].Trim();
                             var value = parts[1].Trim();
 
-                            switch (key) {
+                            switch (key)
+                            {
                                 case "EnableLogging":
                                     EnableLogging = bool.Parse(value);
                                     break;
@@ -332,7 +362,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
                                     break;
                                 case "CenterPosition":
                                     var coords = value.Split(',');
-                                    currentArea.CenterPosition = new Vector3D(double.Parse(coords[0]), double.Parse(coords[1]), double.Parse(coords[2]));
+                                    currentArea.CenterPosition = new Vector3D(double.Parse(coords[0]),
+                                        double.Parse(coords[1]), double.Parse(coords[2]));
                                     break;
                                 case "Radius":
                                     currentArea.Radius = double.Parse(value);
@@ -354,12 +385,15 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
                                     break;
                             }
                         }
+
                         if (currentArea != null) ValidSpawnLocations.Add(currentArea);
                     }
                 }
-                else {
+                else
+                {
                     // Create default configuration if it doesn't exist
-                    ValidSpawnLocations.Add(new SpawnableArea {
+                    ValidSpawnLocations.Add(new SpawnableArea
+                    {
                         Name = "DefaultArea",
                         CenterPosition = new Vector3D(0.0, 0.0, 0.0),
                         Radius = 0
@@ -367,26 +401,33 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
                     SaveSettings();
                 }
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 Log.Exception(ex, typeof(AsteroidSettings), "Failed to load asteroid settings");
             }
         }
 
-        private static void WriteIntArray(TextWriter writer, string key, int[] array) {
+        private static void WriteIntArray(TextWriter writer, string key, int[] array)
+        {
             writer.WriteLine($"{key}={string.Join(",", array)}");
         }
 
-        private static int[] ReadIntArray(string value) {
+        private static int[] ReadIntArray(string value)
+        {
             var parts = value.Split(',');
             var array = new int[parts.Length];
-            for (int i = 0; i < parts.Length; i++) {
+            for (int i = 0; i < parts.Length; i++)
+            {
                 array[i] = int.Parse(parts[i]);
             }
+
             return array;
         }
 
-        public static void AddSpawnableArea(string name, Vector3D center, double radius) {
-            ValidSpawnLocations.Add(new SpawnableArea {
+        public static void AddSpawnableArea(string name, Vector3D center, double radius)
+        {
+            ValidSpawnLocations.Add(new SpawnableArea
+            {
                 Name = name,
                 CenterPosition = center,
                 Radius = radius
@@ -394,28 +435,101 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
             SaveSettings();
         }
 
-        public static void RemoveSpawnableArea(string name) {
-            SpawnableArea area = ValidSpawnLocations.FirstOrDefault(a => a.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        public static void RemoveSpawnableArea(string name)
+        {
+            SpawnableArea area =
+                ValidSpawnLocations.FirstOrDefault(a => a.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
             if (area == null) return;
             ValidSpawnLocations.Remove(area);
             SaveSettings();
         }
 
-    }
+        public static float CalculateMassScaleByDistance(Vector3D position, RealGasGiantsApi gasGiantsApi, out string debugInfo) {
+            // TODO: This tolerance is a workaround because the RealGasGiants API reports rings ending sooner than they should and there's little bands of the outer edge i want
+            const float SPAWN_TOLERANCE = 1.25f; // Allow spawning up to 25% beyond configured ring
 
-    public class SpawnableArea {
-        public string Name { get; set; }
-        public Vector3D CenterPosition { get; set; }
-        public double Radius { get; set; }
+            debugInfo = "";
+            if (gasGiantsApi == null || !gasGiantsApi.IsReady) {
+                debugInfo = "GasGiants API not ready";
+                return 0f;
+            }
 
-        public bool ContainsPoint(Vector3D point) {
-            double distanceSquared = (point - CenterPosition).LengthSquared();
-            return distanceSquared <= Radius * Radius;
+            var gasGiants = gasGiantsApi.GetAtmoGasGiantsAtPosition(Vector3D.Zero);
+
+            if (!gasGiants.Any()) {
+                debugInfo = "No gas giants found at origin";
+                return 0f;
+            }
+
+            var nearestGasGiant = gasGiants.First();
+            var basicInfo = gasGiantsApi.GetGasGiantConfig_BasicInfo_Base(nearestGasGiant);
+            if (!basicInfo.Item1) {
+                debugInfo = "Failed to get gas giant info";
+                return 0f;
+            }
+
+            float gasGiantRadiusMeters = basicInfo.Item2 * 1000f;
+            var gasGiantCenter = nearestGasGiant.PositionComp.GetPosition();
+
+            var ringInfo = gasGiantsApi.GetGasGiantConfig_RingInfo_Size(nearestGasGiant);
+            if (!ringInfo.Item1) {
+                debugInfo = "Failed to get ring info";
+                return 0f;
+            }
+
+            float innerRingRadiusMeters = gasGiantRadiusMeters * ringInfo.Item3;
+            float outerRingRadiusMeters = gasGiantRadiusMeters * ringInfo.Item4;
+            float extendedSpawnRadiusMeters = outerRingRadiusMeters * SPAWN_TOLERANCE;
+
+            double distanceFromCenterMeters = Vector3D.Distance(position, gasGiantCenter);
+
+            debugInfo = $"Ring metrics:" +
+                        $"\n - Gas Giant: {basicInfo.Item4} at {gasGiantCenter}" +
+                        $"\n - Gas Giant Radius: {gasGiantRadiusMeters / 1000f:N0}km" +
+                        $"\n - Inner Ring: {innerRingRadiusMeters / 1000f:N0}km" +
+                        $"\n - Outer Ring: {outerRingRadiusMeters / 1000f:N0}km" +
+                        $"\n - Extended Spawn Range: {extendedSpawnRadiusMeters / 1000f:N0}km" +
+                        $"\n - Distance: {distanceFromCenterMeters / 1000f:N0}km";
+
+            // Allow spawning up to the extended range
+            if (distanceFromCenterMeters >= extendedSpawnRadiusMeters || distanceFromCenterMeters <= gasGiantRadiusMeters) {
+                debugInfo += "\n - Outside valid spawn range";
+                return 0f;
+            }
+
+            // But scale mass only within the configured ring dimensions
+            if (distanceFromCenterMeters <= outerRingRadiusMeters) {
+                float scale = MathHelper.Lerp(
+                    1.0f, // Inner ring = maximum mass
+                    0.0f, // Outer ring = minimum mass
+                    (float)((distanceFromCenterMeters - innerRingRadiusMeters) / (outerRingRadiusMeters - innerRingRadiusMeters))
+                );
+                debugInfo += $"\n - Scale Factor: {scale:F3}";
+                return scale;
+            }
+
+            // Beyond configured ring but within spawn tolerance - minimum mass
+            debugInfo += "\n - Scale Factor: 0.000 (Extended region)";
+            return 0f;
         }
 
-        public Vector3D VelocityAtPoint(Vector3D point) {
-            return (point - CenterPosition).Normalized() * AsteroidSettings.AsteroidVelocityBase;
-        }
-    }
+        public class SpawnableArea
+        {
+            public string Name { get; set; }
+            public Vector3D CenterPosition { get; set; }
+            public double Radius { get; set; }
 
+            public bool ContainsPoint(Vector3D point)
+            {
+                double distanceSquared = (point - CenterPosition).LengthSquared();
+                return distanceSquared <= Radius * Radius;
+            }
+
+            public Vector3D VelocityAtPoint(Vector3D point)
+            {
+                return (point - CenterPosition).Normalized() * AsteroidSettings.AsteroidVelocityBase;
+            }
+        }
+
+    }
 }
