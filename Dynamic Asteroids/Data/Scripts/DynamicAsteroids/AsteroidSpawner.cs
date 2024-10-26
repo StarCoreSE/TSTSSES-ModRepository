@@ -522,9 +522,19 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         }
 
         private void CleanupZone(AsteroidZone zone) {
-            // Handle asteroid cleanup for the zone
-            foreach (AsteroidEntity asteroid in _asteroids.Where(a => Vector3D.Distance(a.PositionComp.GetPosition(), zone.Center) <= zone.Radius)) {
-                RemoveAsteroid(asteroid);
+            if (zone == null) return;
+
+            var asteroidsToRemove = _asteroids.Where(a =>
+                a != null &&
+                !a.MarkedForClose &&
+                zone.IsPointInZone(a.PositionComp.GetPosition())
+            ).ToList();
+
+            if (asteroidsToRemove.Count > 0) {
+                Log.Info($"Cleaning up {asteroidsToRemove.Count} asteroids from abandoned zone at {zone.Center}");
+                foreach (var asteroid in asteroidsToRemove) {
+                    RemoveAsteroid(asteroid);
+                }
             }
         }
         private void AssignZonesToPlayers() {  //TODO: all zone stuff in one class and asteroid in another, break the monolith of asteroidspawner.cs
@@ -619,6 +629,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             List<IMyPlayer> players = new List<IMyPlayer>();
             MyAPIGateway.Players.GetPlayers(players);
             Dictionary<long, AsteroidZone> updatedZones = new Dictionary<long, AsteroidZone>();
+            HashSet<AsteroidZone> oldZones = new HashSet<AsteroidZone>(playerZones.Values);
 
             foreach (IMyPlayer player in players) {
                 Vector3D playerPosition = player.GetPosition();
@@ -630,12 +641,15 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                     }
                 }
 
+                // Check if player is in any existing zone
                 bool playerInZone = false;
                 foreach (AsteroidZone zone in playerZones.Values) {
-                    if (!zone.IsPointInZone(playerPosition))
-                        continue;
-                    playerInZone = true;
-                    break;
+                    if (zone.IsPointInZone(playerPosition)) {
+                        playerInZone = true;
+                        oldZones.Remove(zone); // Remove from oldZones as it's still active
+                        updatedZones[player.IdentityId] = zone;
+                        break;
+                    }
                 }
 
                 if (!playerInZone) {
@@ -644,10 +658,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 }
             }
 
-            foreach (KeyValuePair<long, AsteroidZone> kvp in playerZones) {
-                if (players.Any(p => kvp.Value.IsPointInZone(p.GetPosition()))) {
-                    updatedZones[kvp.Key] = kvp.Value;
-                }
+            // Clean up asteroids in zones that are no longer active
+            foreach (var oldZone in oldZones) {
+                Log.Info($"Zone at {oldZone.Center} is no longer active, cleaning up asteroids");
+                CleanupZone(oldZone);
             }
 
             playerZones = new ConcurrentDictionary<long, AsteroidZone>(updatedZones);
@@ -656,7 +670,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 MainSession.I.UpdateClientZones(playerZones.ToDictionary(kvp => kvp.Key, kvp => kvp.Value));
             }
         }
-
         private AsteroidZone GetCachedZone(long playerId, Vector3D playerPosition) {
             ZoneCache cache;
             if (_zoneCache.TryGetValue(playerId, out cache) && !cache.IsExpired()) {
@@ -1140,7 +1153,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
                 AsteroidEntity removedAsteroid;
                 if (_asteroids.TryTake(out removedAsteroid)) {
-                    // Always send removal message, not just for dedicated servers
+                    // Send removal message for any server (dedicated or not)
                     if (MyAPIGateway.Session.IsServer) {
                         var message = new AsteroidNetworkMessage(
                             asteroid.PositionComp.GetPosition(),
@@ -1156,6 +1169,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                         );
                         byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(message);
                         MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
+                        Log.Info($"Sent removal message for asteroid {asteroid.EntityId}");
                     }
 
                     MyEntities.Remove(asteroid);
