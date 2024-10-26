@@ -593,28 +593,46 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             }
         }
 
-        public void MergeZones() {
+        public void MergeZones(HashSet<long> mergedZoneIds)
+        {
             List<AsteroidZone> mergedZones = new List<AsteroidZone>();
-            foreach (AsteroidZone zone in playerZones.Values) {
+
+            foreach (AsteroidZone zone in playerZones.Values)
+            {
                 bool merged = false;
-                foreach (AsteroidZone mergedZone in mergedZones) {
+                foreach (AsteroidZone mergedZone in mergedZones)
+                {
                     double distance = Vector3D.Distance(zone.Center, mergedZone.Center);
                     double combinedRadius = zone.Radius + mergedZone.Radius;
-                    if (!(distance <= combinedRadius)) continue;
-                    Vector3D newCenter = (zone.Center + mergedZone.Center) / 2;
-                    double newRadius = Math.Max(zone.Radius, mergedZone.Radius) + distance / 2;
-                    mergedZone.Center = newCenter;
-                    mergedZone.Radius = newRadius;
-                    mergedZone.AsteroidCount += zone.AsteroidCount;
-                    merged = true;
-                    break;
+
+                    if (distance <= combinedRadius)
+                    {
+                        // Merge zones by averaging center and expanding radius
+                        Vector3D newCenter = (zone.Center + mergedZone.Center) / 2;
+                        double newRadius = Math.Max(zone.Radius, mergedZone.Radius) + distance / 2;
+                        mergedZone.Center = newCenter;
+                        mergedZone.Radius = newRadius;
+                        mergedZone.AsteroidCount += zone.AsteroidCount;
+
+                        // Track merged zone IDs
+                        mergedZoneIds.Add(zone.EntityId);
+                        mergedZoneIds.Add(mergedZone.EntityId);
+
+                        merged = true;
+                        break;
+                    }
                 }
-                if (!merged) {
+
+                if (!merged)
+                {
+                    // If no merge occurred, add the zone as-is
                     mergedZones.Add(new AsteroidZone(zone.Center, zone.Radius) { AsteroidCount = zone.AsteroidCount });
                 }
             }
+
             AssignMergedZonesToPlayers(mergedZones);
         }
+
         public void UpdateZones() {
             List<IMyPlayer> players = new List<IMyPlayer>();
             MyAPIGateway.Players.GetPlayers(players);
@@ -671,12 +689,14 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         public void UpdateTick() {
             if (!MyAPIGateway.Session.IsServer)
                 return;
+            // Track merged zones
+            var mergedZoneIds = new HashSet<long>();
 
             // Do normal operations first
             AssignZonesToPlayers();
-            MergeZones();
+            MergeZones(mergedZoneIds); // Pass mergedZoneIds to track merges
             UpdateZones();
-            SendZoneUpdates();
+            SendZoneUpdates(mergedZoneIds); // Pass mergedZoneIds for accurate IsMerged flagging
 
             try {
                 List<IMyPlayer> players = new List<IMyPlayer>();
@@ -1063,15 +1083,13 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             }
 
             // Check zones and their asteroid counts
-            foreach (AsteroidZone zone in zones) {
-                if (zone.IsPointInZone(position)) {
-                    // Don't spawn if zone is at or over limit
-                    if (zone.TotalAsteroidCount >= AsteroidSettings.MaxAsteroidsPerZone) {
-                        Log.Info($"Zone at {zone.Center} is at capacity ({zone.TotalAsteroidCount} asteroids)");
-                        return false;
-                    }
-                    return true;
-                }
+            foreach (AsteroidZone zone in zones)
+            {
+                if (!zone.IsPointInZone(position)) continue;
+                // Don't spawn if zone is at or over limit
+                if (zone.TotalAsteroidCount < AsteroidSettings.MaxAsteroidsPerZone) return true;
+                Log.Info($"Zone at {zone.Center} is at capacity ({zone.TotalAsteroidCount} asteroids)");
+                return false;
             }
 
             return false;
@@ -1187,10 +1205,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
                     foreach (IMyPlayer player in players) {
                         double distSquared = Vector3D.DistanceSquared(player.GetPosition(), asteroidPos);
-                        if (distSquared <= AsteroidSettings.ZoneRadius * AsteroidSettings.ZoneRadius) {
-                            isNearPlayer = true;
-                            break;
-                        }
+                        if (!(distSquared <= AsteroidSettings.ZoneRadius * AsteroidSettings.ZoneRadius)) continue;
+                        isNearPlayer = true;
+                        break;
                     }
 
                     if (!isNearPlayer)
@@ -1237,12 +1254,12 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             return Math.Pow(rand.NextDouble(), 1 / 3d) * new Vector3D(sinPhi * Math.Cos(theta), sinPhi * Math.Sin(theta), Math.Cos(phi));
         }
 
-        public void SendZoneUpdates()
+        public void SendZoneUpdates(HashSet<long> mergedZoneIds)
         {
-            if (!MyAPIGateway.Session.IsServer) return;
+            if (!MyAPIGateway.Session.IsServer)
+                return;
 
             ZoneUpdatePacket zonePacket = new ZoneUpdatePacket();
-            var mergedZoneIds = new HashSet<long>();
 
             foreach (AsteroidZone zone in playerZones.Values)
             {
@@ -1256,6 +1273,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                     CurrentSpeed = zone.CurrentSpeed
                 });
             }
+
             NetworkHandler.QueueZoneUpdate(zonePacket);
         }
 
