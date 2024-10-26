@@ -210,57 +210,37 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
         private class NetworkMessageCache {
             private ConcurrentDictionary<long, AsteroidNetworkMessage> _messageCache = new ConcurrentDictionary<long, AsteroidNetworkMessage>();
-            private ConcurrentQueue<AsteroidNetworkMessage> _physicsUpdateQueue = new ConcurrentQueue<AsteroidNetworkMessage>();
-            private ConcurrentQueue<AsteroidNetworkMessage> _spawnQueue = new ConcurrentQueue<AsteroidNetworkMessage>();
-            private ConcurrentQueue<AsteroidNetworkMessage> _removalQueue = new ConcurrentQueue<AsteroidNetworkMessage>();
+            private ConcurrentQueue<AsteroidNetworkMessage> _messageQueue = new ConcurrentQueue<AsteroidNetworkMessage>();
 
-            private const int PhysicsMessageBatchSize = 100;
-            private const int SpawnMessageBatchSize = 10;
-            private const int RemovalMessageBatchSize = 20;
+            public void Clear() {
+                _messageCache.Clear();
+                AsteroidNetworkMessage message;
+                while (_messageQueue.TryDequeue(out message)) { }
+            }
 
             public void AddMessage(AsteroidNetworkMessage message) {
+                // Only add if we haven't sent this one recently
                 if (_messageCache.TryAdd(message.EntityId, message)) {
-                    if (message.IsInitialCreation) {
-                        _spawnQueue.Enqueue(message);
-                    }
-                    else if (message.IsRemoval) {
-                        _removalQueue.Enqueue(message);
-                    }
-                    else {
-                        _physicsUpdateQueue.Enqueue(message);
-                    }
+                    _messageQueue.Enqueue(message);
                 }
             }
 
             public void ProcessMessages(Action<AsteroidNetworkMessage> sendAction) {
-                // Process spawns first
-                ProcessQueue(_spawnQueue, SpawnMessageBatchSize, sendAction);
-
-                // Process removals next
-                ProcessQueue(_removalQueue, RemovalMessageBatchSize, sendAction);
-
-                // Process physics updates last
-                ProcessQueue(_physicsUpdateQueue, PhysicsMessageBatchSize, sendAction);
-            }
-
-            private void ProcessQueue(ConcurrentQueue<AsteroidNetworkMessage> queue,
-                int batchSize,
-                Action<AsteroidNetworkMessage> sendAction) {
                 int processedCount = 0;
-                AsteroidNetworkMessage message;
+                const int MAX_MESSAGES_PER_UPDATE = 50;
 
-                while (processedCount < batchSize && queue.TryDequeue(out message)) {
-                    try {
-                        sendAction(message);
-                        AsteroidNetworkMessage removedMessage;
-                        _messageCache.TryRemove(message.EntityId, out removedMessage);
-                        processedCount++;
-                    }
-                    catch (Exception ex) {
-                        Log.Exception(ex, typeof(NetworkMessageCache),
-                            "Failed to process network message");
-                        queue.Enqueue(message);
-                    }
+                AsteroidNetworkMessage message;
+                while (processedCount < MAX_MESSAGES_PER_UPDATE && _messageQueue.TryDequeue(out message)) {
+                    // Remove from cache when processing
+                    AsteroidNetworkMessage removed;
+                    _messageCache.TryRemove(message.EntityId, out removed);
+                    sendAction(message);
+                    processedCount++;
+                }
+
+                if (_messageQueue.Count > MAX_MESSAGES_PER_UPDATE * 2) {
+                    Log.Info($"Clearing {_messageQueue.Count} pending messages due to backup");
+                    Clear();
                 }
             }
         }
@@ -887,8 +867,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                     if (!zone.IsPointInZone(playerPosition)) continue;
                     PlayerMovementData data;
                     if (!playerMovementData.TryGetValue(player.IdentityId, out data)) continue;
-                    if (!(data.Speed > 1000)) continue;
-                    Log.Info($"Skipping asteroid spawning for player {player.DisplayName} due to high speed: {data.Speed} m/s.");
+                    if (!(data.Speed > AsteroidSettings.ZoneSpeedThreshold)) continue;  // Use the setting instead of hardcoded value
+                    Log.Info($"Skipping asteroid spawning for player {player.DisplayName} due to high speed: {data.Speed:F2} m/s > {AsteroidSettings.ZoneSpeedThreshold} m/s");
                     skipSpawning = true;
                     break;
                 }
@@ -1002,9 +982,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         }
 
         private void UpdatePlayerMovementData() {
-            const double SPEED_SMOOTHING_FACTOR = 1;
-            const double MIN_TIME_DELTA = 1; // Minimum time delta to prevent division by zero
-
             List<IMyPlayer> players = new List<IMyPlayer>();
             MyAPIGateway.Players.GetPlayers(players);
 
@@ -1023,17 +1000,20 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                     continue;
                 }
 
-                double timeElapsed = Math.Max((currentTime - data.LastUpdateTime).TotalSeconds, MIN_TIME_DELTA);
+                double timeElapsed = Math.Max((currentTime - data.LastUpdateTime).TotalSeconds, 1.0);
                 double distance = Vector3D.Distance(currentPosition, data.LastPosition);
                 double instantaneousSpeed = distance / timeElapsed;
+                double oldSpeed = data.Speed;
 
-                // Smooth speed calculation
-                data.Speed = (data.Speed * (1 - SPEED_SMOOTHING_FACTOR)) + (instantaneousSpeed * SPEED_SMOOTHING_FACTOR);
+                data.Speed = instantaneousSpeed; // Remove smoothing to be more responsive
                 data.LastPosition = currentPosition;
                 data.LastUpdateTime = currentTime;
 
-                if (data.Speed > AsteroidSettings.ZoneSpeedThreshold) {
-                    Log.Info($"Player {player.DisplayName} moving at high speed: {data.Speed:F2} m/s");
+                bool wasMovingFast = oldSpeed > AsteroidSettings.ZoneSpeedThreshold;
+                bool isMovingFast = data.Speed > AsteroidSettings.ZoneSpeedThreshold;
+
+                if (wasMovingFast && !isMovingFast) {
+                    Log.Info($"Player {player.DisplayName} slowed down: {data.Speed:F2} m/s");
                 }
             }
         }
@@ -1143,6 +1123,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 if (existingEntity == null || existingEntity.MarkedForClose) {
                     AsteroidEntity removedFromBag;
                     _asteroids.TryTake(out removedFromBag);
+                    _messageCache.Clear(); // Clear pending messages
                     return;
                 }
 
@@ -1174,6 +1155,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
                     MyEntities.Remove(asteroid);
                     asteroid.Close();
+                    _messageCache.Clear(); // Clear pending messages after removal
                     Log.Info($"Successfully removed asteroid {asteroid.EntityId} from world");
                 }
             }
@@ -1385,6 +1367,18 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 Log.Exception(ex, typeof(AsteroidSpawner), "Error in asteroid validation");
                 _lastValidatedIndex = 0; // Reset on error
             }
+        }
+
+        private bool IsPlayerMovingTooFast(IMyPlayer player) {
+            PlayerMovementData data;
+            if (!playerMovementData.TryGetValue(player.IdentityId, out data))
+                return false;
+
+            bool isTooFast = data.Speed > AsteroidSettings.ZoneSpeedThreshold;
+            if (isTooFast) {
+                Log.Info($"Player {player.DisplayName} moving too fast: {data.Speed:F2} m/s");
+            }
+            return isTooFast;
         }
     }
 }
