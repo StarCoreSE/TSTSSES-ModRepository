@@ -1,4 +1,5 @@
 ﻿using DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities;
+using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using System;
 using System.Collections.Generic;
@@ -272,23 +273,16 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         }
 
         private void UpdateOrphanedAsteroidsList() {
-            // Only run orphan checks on server thread
-            if (!MyAPIGateway.Session.IsServer)
-                return;
-
             try {
                 _orphanedAsteroids.Clear();
                 var entities = new HashSet<IMyEntity>();
                 MyAPIGateway.Entities.GetEntities(entities);
-
                 foreach (var entity in entities) {
                     var asteroid = entity as AsteroidEntity;
-                    if (asteroid == null)
-                        continue;
+                    if (asteroid == null) continue;
 
                     Vector3D asteroidPosition = asteroid.PositionComp.GetPosition();
                     bool isInAnyZone = false;
-
                     foreach (var zoneKvp in _clientZones) {
                         if (zoneKvp.Value.IsPointInZone(asteroidPosition)) {
                             isInAnyZone = true;
@@ -298,6 +292,29 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
                     if (!isInAnyZone) {
                         _orphanedAsteroids.Add(asteroid);
+                        if (MyAPIGateway.Session.IsServer) {
+                            // Create and send removal message to all clients
+                            var removalMessage = new AsteroidNetworkMessage(
+                                asteroid.PositionComp.GetPosition(),
+                                asteroid.Properties.Diameter,
+                                Vector3D.Zero,
+                                Vector3D.Zero,
+                                asteroid.Type,
+                                false,
+                                asteroid.EntityId,
+                                true,  // isRemoval flag
+                                false,
+                                Quaternion.Identity
+                            );
+
+                            // Send to all clients regardless of dedicated/non-dedicated
+                            var messageBytes = MyAPIGateway.Utilities.SerializeToBinary(removalMessage);
+                            MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
+
+                            // Remove on server
+                            MyEntities.Remove(asteroid);
+                            asteroid.Close();
+                        }
                     }
                 }
             }
@@ -320,10 +337,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                         asteroid.Properties.Radius * 1.5f,
                         ref orphanColor,
                         MySimpleObjectRasterizer.Wireframe,
-                        20,
+                        4,
                         null,
                         MyStringId.GetOrCompute("Square"),
-                        5f
+                        2f
                     );
 
                     Vector3D textPosition = asteroidPosition + new Vector3D(0, asteroid.Properties.Radius * 2, 0);

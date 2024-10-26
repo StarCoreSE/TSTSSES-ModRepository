@@ -247,10 +247,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
                 Quaternion.Identity
             );
 
-            if (MyAPIGateway.Utilities.IsDedicated) {
-                var finalRemovalMessageBytes = MyAPIGateway.Utilities.SerializeToBinary(finalRemovalMessage);
-                MyAPIGateway.Multiplayer.SendMessageToOthers(32000, finalRemovalMessageBytes);
-            }
+            var finalRemovalMessageBytes = MyAPIGateway.Utilities.SerializeToBinary(finalRemovalMessage);
+            MyAPIGateway.Multiplayer.SendMessageToOthers(32000, finalRemovalMessageBytes);
 
             // Remove from spawner and entities
             if (MainSession.I?._spawner != null) {
