@@ -42,9 +42,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 Log.Exception(ex, typeof(MainSession), "Error in Draw");
             }
         }
-
+        //TODO: a file where we store client settings and commands they can do using GetFileInLocalStorage. see ModularAssemblies for a command creator factory thing
         private void DrawNearbyAsteroidHitboxes(Vector3D characterPosition) {
-            // Skip if we're in debug mode (already showing debug spheres)
+            // Skip if we're in debug mode (already showing debug spheres), this is for live gameplay
             if (AsteroidSettings.EnableLogging)
                 return;
 
@@ -67,10 +67,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                         asteroid.Properties.Radius,
                         ref hitboxColor,
                         MySimpleObjectRasterizer.Wireframe,
-                        32, // More segments for smoother sphere
+                        8, // More segments for smoother sphere
                         null,
                         MyStringId.GetOrCompute("Square"),
-                        0.5f // Thin lines
+                        0.1f // Thin lines
                     );
                 }
             }
