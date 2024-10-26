@@ -91,7 +91,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
                     ent.EntityId = entityId.Value;
 
                 var massRange = AsteroidSettings.MinMaxMassByType[type];
-
                 string ringDebugInfo;
                 float distanceScale = AsteroidSettings.CalculateMassScaleByDistance(position, MainSession.I.RealGasGiantsApi, out ringDebugInfo);
 
@@ -99,6 +98,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
                 float finalMass = MathHelper.Lerp(massRange.MinMass, massRange.MaxMass, distanceScale + randomFactor);
                 finalMass = MathHelper.Clamp(finalMass, massRange.MinMass, massRange.MaxMass);
 
+                // Create physical properties first
                 ent.Properties = AsteroidPhysicalProperties.CreateFromMass(finalMass, AsteroidPhysicalProperties.DEFAULT_DENSITY, ent);
 
                 if (!rotation.HasValue && MyAPIGateway.Session.IsServer) {
@@ -110,7 +110,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
                     rotation = Quaternion.Identity;
                 }
 
-                ent.Init(position, size, initialVelocity, type, rotation);
+                // Pass the calculated diameter instead of the input size
+                ent.Init(position, ent.Properties.Diameter, initialVelocity, type, rotation);
                 MyEntities.Add(ent);
 
                 if (!MyEntities.EntityExists(ent.EntityId)) {
@@ -118,11 +119,11 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
                     return null;
                 }
 
-                // Detailed spawn logging
                 Log.Info($"Spawned ring asteroid {ent.EntityId}:" +
                          $"\nType: {type}" +
                          $"\nMass Range: {massRange.MinMass:N0}kg - {massRange.MaxMass:N0}kg" +
                          $"\nFinal Mass: {finalMass:N0}kg" +
+                         $"\nFinal Diameter: {ent.Properties.Diameter:F2}m" +
                          $"\nRandom Factor: {randomFactor:F3}" +
                          $"\nPosition: {position}" +
                          $"\nVelocity: {initialVelocity.Length():F1}m/s" +
@@ -135,15 +136,18 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
                 return null;
             }
         }
+
         private void Init(Vector3D position, float size, Vector3D initialVelocity, AsteroidType type, Quaternion? rotation) {
             try {
                 Type = type;
                 ModelString = SelectModelForAsteroidType(type);
-                Properties = new AsteroidPhysicalProperties(size, AsteroidPhysicalProperties.DEFAULT_DENSITY, this);
 
+                // Don't create new Properties here, use the one created in CreateAsteroid
                 Log.Info($"Initializing asteroid at {position} with size {size} and type {type}");
 
-                Init(null, ModelString, null, Properties.Diameter);
+                // Set up the model with the proper scale
+                float modelScale = size; // dividing by 2 is a bit too small when compared to the hitbox but would make an ok bounding sphere
+                Init(null, ModelString, null, modelScale);
 
                 if (string.IsNullOrEmpty(ModelString)) {
                     Log.Warning($"Failed to assign model for asteroid type {type}");
@@ -151,7 +155,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
 
                 PositionComp.SetPosition(position);
 
-                // Apply the rotation to the world matrix
                 if (rotation.HasValue) {
                     MatrixD worldMatrix = MatrixD.CreateFromQuaternion(rotation.Value);
                     worldMatrix.Translation = position;
@@ -170,7 +173,11 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
                     SyncFlag = true;
                 }
 
-                Log.Info($"Asteroid {EntityId} initialized with position {PositionComp.GetPosition()} and velocity {initialVelocity}");
+                Log.Info($"Asteroid {EntityId} initialized:" +
+                         $"\n - Position: {PositionComp.GetPosition()}" +
+                         $"\n - Velocity: {initialVelocity}" +
+                         $"\n - Model Scale: {modelScale}" +
+                         $"\n - Physics Radius: {Properties.Radius}");
             }
             catch (Exception ex) {
                 Log.Exception(ex, typeof(AsteroidEntity), "Failed to initialize AsteroidEntity");
@@ -296,13 +303,17 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
                     Physics = null;
                 }
 
-                // Reduced angular dampening to allow more natural rotation
+                Log.Info($"Creating physics for asteroid {EntityId}:" +
+                         $"\n - Mass: {Properties.Mass:N0}kg" +
+                         $"\n - Volume: {Properties.Volume:N0}m³" +
+                         $"\n - Radius: {Properties.Radius:F2}m");
+
                 PhysicsSettings settings = MyAPIGateway.Physics.CreateSettingsForPhysics(
                     this,
                     MatrixD.CreateTranslation(this.PositionComp.GetPosition()),
                     Vector3.Zero,
                     linearDamping: 0f,
-                    angularDamping: 0.01f, // Very light dampening just to prevent extreme cases
+                    angularDamping: 0.01f,
                     rigidBodyFlags: RigidBodyFlag.RBF_DEFAULT,
                     collisionLayer: CollisionLayers.NoVoxelCollisionLayer,
                     isPhantom: false,
@@ -312,21 +323,17 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
 
                 MyAPIGateway.Physics.CreateSpherePhysics(settings, Properties.Radius);
 
-                // Give it an initial spin if we're on the server
                 if (MyAPIGateway.Session.IsServer) {
-                    const float initialMaxSpin = 0.2f; // radians per second
+                    const float initialMaxSpin = 0.2f;
                     Vector3D randomSpin = RandVector() * initialMaxSpin;
                     this.Physics.AngularVelocity = randomSpin;
                     Log.Info($"Server: Set initial spin for asteroid {EntityId}: {randomSpin}");
                 }
-
-                Log.Info($"Created physics for asteroid {EntityId} at position {this.PositionComp.GetPosition()}");
             }
             catch (Exception ex) {
                 Log.Exception(ex, typeof(AsteroidEntity), $"Error creating physics for asteroid {EntityId}");
             }
         }
-
         private static Vector3D RandVector() {
             var theta = MainSession.I.Rand.NextDouble() * 2.0 * Math.PI;
             var phi = Math.Acos(2.0 * MainSession.I.Rand.NextDouble() - 1.0);

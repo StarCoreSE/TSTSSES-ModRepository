@@ -76,18 +76,18 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public static readonly Dictionary<AsteroidType, MassRange> MinMaxMassByType =
             new Dictionary<AsteroidType, MassRange>
             {
-                //TODO: put thse into confings, gradient toward gasgiant in ring for bigger roids
-                { AsteroidType.Ice, new MassRange(10000f, 5000000f) },
-                { AsteroidType.Stone, new MassRange(8000f, 4000000f) },
-                { AsteroidType.Iron, new MassRange(5000f, 3000000f) },
-                { AsteroidType.Nickel, new MassRange(4000f, 2500000f) },
-                { AsteroidType.Cobalt, new MassRange(3000f, 2000000f) },
-                { AsteroidType.Magnesium, new MassRange(2000f, 1500000f) },
-                { AsteroidType.Silicon, new MassRange(5000f, 3500000f) },
-                { AsteroidType.Silver, new MassRange(2000f, 1000000f) },
-                { AsteroidType.Gold, new MassRange(1000f, 800000f) },
-                { AsteroidType.Platinum, new MassRange(500f, 500000f) },
-                { AsteroidType.Uraninite, new MassRange(300f, 200000f) }
+                //TODO: think about how you'd make clusters of this stuff. maybe conglomerate rocks first
+                { AsteroidType.Ice, new MassRange(10000f, 5000000000f) },
+                { AsteroidType.Stone, new MassRange(8000f, 4000000000f) },
+                { AsteroidType.Iron, new MassRange(5000f, 3000000000f) },
+                { AsteroidType.Nickel, new MassRange(4000f, 2500000000f) },
+                { AsteroidType.Cobalt, new MassRange(3000f, 2000000000f) },
+                { AsteroidType.Magnesium, new MassRange(2000f, 1500000000f) },
+                { AsteroidType.Silicon, new MassRange(5000f, 3500000000f) },
+                { AsteroidType.Silver, new MassRange(2000f, 1000000000f) },
+                { AsteroidType.Gold, new MassRange(1000f, 800000000f) },
+                { AsteroidType.Platinum, new MassRange(500f, 500000000f) },
+                { AsteroidType.Uraninite, new MassRange(300f, 200000000f) }
             };
 
         public static List<SpawnableArea> ValidSpawnLocations = new List<SpawnableArea>();

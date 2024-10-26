@@ -33,12 +33,18 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
             Radius = diameter / 2.0f;
             Density = density;
 
+            // Calculate volume and mass from diameter
             Volume = (4.0f / 3.0f) * MathHelper.Pi * (float)Math.Pow(Radius, 3);
             Mass = Volume * Density;
 
             MaxInstability = Mass * AsteroidSettings.InstabilityPerMass;
             InstabilityThreshold = MaxInstability * AsteroidSettings.InstabilityThresholdPercent;
             CurrentInstability = 0;
+
+            Log.Info($"Created asteroid with:" +
+                     $"\n - Diameter: {Diameter:F2}m" +
+                     $"\n - Mass: {Mass:N0}kg" +
+                     $"\n - Volume: {Volume:N0}m³");
         }
 
         public void AddInstability(float amount) {
@@ -67,9 +73,21 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
         }
 
         public static AsteroidPhysicalProperties CreateFromMass(float targetMass, float density = DEFAULT_DENSITY, AsteroidEntity parentEntity = null) {
+            // Calculate volume from mass and density
             float volume = targetMass / density;
+
+            // Calculate radius from volume (V = 4/3 * π * r³)
             float radius = (float)Math.Pow((3.0f * volume) / (4.0f * MathHelper.Pi), 1.0f / 3.0f);
-            return new AsteroidPhysicalProperties(radius * 2.0f, density, parentEntity);
+
+            // Create new properties with calculated diameter
+            float diameter = radius * 2.0f;
+
+            Log.Info($"Creating asteroid from mass:" +
+                     $"\n - Target Mass: {targetMass:N0}kg" +
+                     $"\n - Calculated Diameter: {diameter:F2}m" +
+                     $"\n - Calculated Volume: {volume:N0}m³");
+
+            return new AsteroidPhysicalProperties(diameter, density, parentEntity);
         }
 
         public bool ShouldSpawnChunk() {
