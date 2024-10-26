@@ -730,12 +730,29 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             int randValue = Rand.Next(0, 2);
             return (AsteroidType)randValue;
         }
-          
+
+        public void UpdateClientZones(Dictionary<long, AsteroidZone> serverZones) {
+            if (!MyAPIGateway.Utilities.IsDedicated) {
+                _clientZones.Clear();
+                foreach (var kvp in serverZones) {
+                    _clientZones[kvp.Key] = kvp.Value;
+                }
+            }
+        }
+
         private void ProcessZoneMessage(byte[] message) {
             try {
                 var zonePacket = MyAPIGateway.Utilities.SerializeFromBinary<ZoneUpdatePacket>(message);
                 if (zonePacket?.Zones == null)
                     return;
+
+                // In singleplayer, we should get zones directly from the spawner
+                if (MyAPIGateway.Session.IsServer && !MyAPIGateway.Utilities.IsDedicated) {
+                    if (_spawner != null) {
+                        UpdateClientZones(_spawner.playerZones.ToDictionary(kvp => kvp.Key, kvp => kvp.Value));
+                    }
+                    return;
+                }
 
                 var previousZones = new Dictionary<long, AsteroidZone>(_clientZones);
                 _clientZones.Clear();
@@ -746,7 +763,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                         IsMerged = zoneData.IsMerged,
                         CurrentSpeed = zoneData.CurrentSpeed
                     };
-
                     _clientZones[zoneData.PlayerId] = newZone;
                     previousZones.Remove(zoneData.PlayerId);
                 }

@@ -27,13 +27,13 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
                 Vector3D characterPosition = MyAPIGateway.Session.Player.Character.PositionComp.GetPosition();
 
+                // Remove server check since we want drawing in both MP client and singleplayer
                 if (AsteroidSettings.EnableLogging) {
                     DrawPlayerZones(characterPosition);
                     DrawNearestAsteroidDebug(characterPosition);
                     DrawOrphanedAsteroids();
                 }
                 else {
-                    // Always draw hitboxes in normal gameplay
                     DrawNearbyAsteroidHitboxes(characterPosition);
                 }
             }
@@ -272,6 +272,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         }
 
         private void UpdateOrphanedAsteroidsList() {
+            // Only run orphan checks on server thread
+            if (!MyAPIGateway.Session.IsServer)
+                return;
+
             try {
                 _orphanedAsteroids.Clear();
                 var entities = new HashSet<IMyEntity>();
@@ -301,7 +305,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 Log.Exception(ex, typeof(MainSession), "Error updating orphaned asteroids list");
             }
         }
-
         private void DrawOrphanedAsteroids() {
             foreach (var asteroid in _orphanedAsteroids) {
                 if (asteroid == null || asteroid.MarkedForClose)
