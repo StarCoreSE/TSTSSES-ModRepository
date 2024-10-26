@@ -256,7 +256,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         private class PlayerMovementData {
             public Vector3D LastPosition { get; set; }
             public DateTime LastUpdateTime { get; set; }
-            public double Speed { get; set; }
+            public double Speed { get; set; } //TODO: this isnt 2000m/s like the default dunno why but whatever
         }
 
         public void Init(int seed) {
