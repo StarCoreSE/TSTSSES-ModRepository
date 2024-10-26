@@ -445,13 +445,15 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         }
 
         public static float CalculateMassScaleByDistance(Vector3D position, RealGasGiantsApi gasGiantsApi, out string debugInfo) {
+            // TODO: This tolerance is a workaround because the RealGasGiants API reports rings ending sooner than they should and there's little bands of the outer edge i want
+            const float SPAWN_TOLERANCE = 1.25f; // Allow spawning up to 25% beyond configured ring
+
             debugInfo = "";
             if (gasGiantsApi == null || !gasGiantsApi.IsReady) {
                 debugInfo = "GasGiants API not ready";
                 return 0f;
             }
 
-            // TODO: Fix gas giant detection at spawn positions. Currently using origin (0,0,0) as workaround
             var gasGiants = gasGiantsApi.GetAtmoGasGiantsAtPosition(Vector3D.Zero);
 
             if (!gasGiants.Any()) {
@@ -466,7 +468,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 return 0f;
             }
 
-            float gasGiantRadius = basicInfo.Item2;
+            float gasGiantRadiusMeters = basicInfo.Item2 * 1000f;
             var gasGiantCenter = nearestGasGiant.PositionComp.GetPosition();
 
             var ringInfo = gasGiantsApi.GetGasGiantConfig_RingInfo_Size(nearestGasGiant);
@@ -475,31 +477,40 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
                 return 0f;
             }
 
-            float innerRingRadius = gasGiantRadius * ringInfo.Item3;
-            float outerRingRadius = gasGiantRadius * ringInfo.Item4;
+            float innerRingRadiusMeters = gasGiantRadiusMeters * ringInfo.Item3;
+            float outerRingRadiusMeters = gasGiantRadiusMeters * ringInfo.Item4;
+            float extendedSpawnRadiusMeters = outerRingRadiusMeters * SPAWN_TOLERANCE;
 
-            double distanceFromCenter = Vector3D.Distance(position, gasGiantCenter);
+            double distanceFromCenterMeters = Vector3D.Distance(position, gasGiantCenter);
 
             debugInfo = $"Ring metrics:" +
                         $"\n - Gas Giant: {basicInfo.Item4} at {gasGiantCenter}" +
-                        $"\n - Gas Giant Radius: {gasGiantRadius / 1000:N0}km" +
-                        $"\n - Inner Ring: {innerRingRadius / 1000:N0}km" +
-                        $"\n - Outer Ring: {outerRingRadius / 1000:N0}km" +
-                        $"\n - Distance: {distanceFromCenter / 1000:N0}km";
+                        $"\n - Gas Giant Radius: {gasGiantRadiusMeters / 1000f:N0}km" +
+                        $"\n - Inner Ring: {innerRingRadiusMeters / 1000f:N0}km" +
+                        $"\n - Outer Ring: {outerRingRadiusMeters / 1000f:N0}km" +
+                        $"\n - Extended Spawn Range: {extendedSpawnRadiusMeters / 1000f:N0}km" +
+                        $"\n - Distance: {distanceFromCenterMeters / 1000f:N0}km";
 
-            if (distanceFromCenter >= outerRingRadius || distanceFromCenter <= gasGiantRadius) {
-                debugInfo += "\n - Outside valid ring range";
+            // Allow spawning up to the extended range
+            if (distanceFromCenterMeters >= extendedSpawnRadiusMeters || distanceFromCenterMeters <= gasGiantRadiusMeters) {
+                debugInfo += "\n - Outside valid spawn range";
                 return 0f;
             }
 
-            float scale = MathHelper.Lerp(
-                1.0f, // Inner ring = maximum mass
-                0.0f, // Outer ring = minimum mass
-                (float)((distanceFromCenter - innerRingRadius) / (outerRingRadius - innerRingRadius))
-            );
+            // But scale mass only within the configured ring dimensions
+            if (distanceFromCenterMeters <= outerRingRadiusMeters) {
+                float scale = MathHelper.Lerp(
+                    1.0f, // Inner ring = maximum mass
+                    0.0f, // Outer ring = minimum mass
+                    (float)((distanceFromCenterMeters - innerRingRadiusMeters) / (outerRingRadiusMeters - innerRingRadiusMeters))
+                );
+                debugInfo += $"\n - Scale Factor: {scale:F3}";
+                return scale;
+            }
 
-            debugInfo += $"\n - Scale Factor: {scale:F3}";
-            return scale;
+            // Beyond configured ring but within spawn tolerance - minimum mass
+            debugInfo += "\n - Scale Factor: 0.000 (Extended region)";
+            return 0f;
         }
 
         public class SpawnableArea
