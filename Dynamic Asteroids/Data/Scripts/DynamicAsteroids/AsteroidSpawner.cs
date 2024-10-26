@@ -256,7 +256,30 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         private class PlayerMovementData {
             public Vector3D LastPosition { get; set; }
             public DateTime LastUpdateTime { get; set; }
-            public double Speed { get; set; } //TODO: this isnt 2000m/s like the default dunno why but whatever
+            public double Speed { get; set; }
+            public Queue<double> SpeedHistory { get; private set; }
+            private const int SPEED_HISTORY_LENGTH = 10;
+            private const double SPEED_SPIKE_THRESHOLD = 2.0; // Factor above average to consider a spike
+
+            public PlayerMovementData() {
+                SpeedHistory = new Queue<double>(SPEED_HISTORY_LENGTH);
+            }
+
+            public void AddSpeedSample(double speed) {
+                SpeedHistory.Enqueue(speed);
+                if (SpeedHistory.Count > SPEED_HISTORY_LENGTH)
+                    SpeedHistory.Dequeue();
+            }
+
+            public double GetSmoothedSpeed() {
+                if (SpeedHistory.Count == 0)
+                    return Speed;
+
+                // Calculate average excluding obvious spikes
+                double avg = SpeedHistory.Average();
+                var validSpeeds = SpeedHistory.Where(s => s <= avg * SPEED_SPIKE_THRESHOLD);
+                return validSpeeds.Any() ? validSpeeds.Average() : avg;
+            }
         }
 
         public void Init(int seed) {
@@ -372,11 +395,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                     }
 
                     // Skip high-speed players
-                    if (movementData.Speed > AsteroidSettings.ZoneSpeedThreshold) {
-                        Log.Info($"Skipping zone assignment for high-speed player {player.DisplayName} ({movementData.Speed:F2} m/s).");
+                    if (IsPlayerMovingTooFast(player)) {
                         continue;
                     }
-
                     // Find closest valid zone
                     AsteroidZone bestZone = null;
                     double bestDistance = double.MaxValue;
@@ -615,8 +636,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 Vector3D playerPosition = player.GetPosition();
                 PlayerMovementData data;
                 if (playerMovementData.TryGetValue(player.IdentityId, out data)) {
-                    if (AsteroidSettings.DisableZoneWhileMovingFast && data.Speed > AsteroidSettings.ZoneSpeedThreshold) {
-                        Log.Info($"Skipping zone update for player {player.DisplayName} due to high speed.");
+                    if (AsteroidSettings.DisableZoneWhileMovingFast && IsPlayerMovingTooFast(player)) {
                         continue;
                     }
                 }
@@ -867,10 +887,11 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                     if (!zone.IsPointInZone(playerPosition)) continue;
                     PlayerMovementData data;
                     if (!playerMovementData.TryGetValue(player.IdentityId, out data)) continue;
-                    if (!(data.Speed > AsteroidSettings.ZoneSpeedThreshold)) continue;  // Use the setting instead of hardcoded value
-                    Log.Info($"Skipping asteroid spawning for player {player.DisplayName} due to high speed: {data.Speed:F2} m/s > {AsteroidSettings.ZoneSpeedThreshold} m/s");
-                    skipSpawning = true;
-                    break;
+                    if (IsPlayerMovingTooFast(player)) {
+                        skipSpawning = true;
+                        Log.Info($"Skipping asteroid spawning for player {player.DisplayName} due to high speed: {data.Speed:F2} m/s > {AsteroidSettings.ZoneSpeedThreshold} m/s");
+                        break;
+                    }
                 }
 
                 if (skipSpawning) {
@@ -982,6 +1003,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         }
 
         private void UpdatePlayerMovementData() {
+            const double MIN_TIME_DELTA = 0.016; // Minimum 1/60th second
+            const double MAX_TIME_DELTA = 1.0;   // Maximum 1 second
+            const double TELEPORT_THRESHOLD = 1000.0; // Distance in meters that suggests teleportation
+
             List<IMyPlayer> players = new List<IMyPlayer>();
             MyAPIGateway.Players.GetPlayers(players);
 
@@ -1000,20 +1025,30 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                     continue;
                 }
 
-                double timeElapsed = Math.Max((currentTime - data.LastUpdateTime).TotalSeconds, 1.0);
-                double distance = Vector3D.Distance(currentPosition, data.LastPosition);
-                double instantaneousSpeed = distance / timeElapsed;
-                double oldSpeed = data.Speed;
+                double timeDelta = (currentTime - data.LastUpdateTime).TotalSeconds;
+                timeDelta = MathHelper.Clamp(timeDelta, MIN_TIME_DELTA, MAX_TIME_DELTA);
 
-                data.Speed = instantaneousSpeed; // Remove smoothing to be more responsive
+                double distance = Vector3D.Distance(currentPosition, data.LastPosition);
+
+                // Check for probable teleport
+                if (distance > TELEPORT_THRESHOLD) {
+                    Log.Info($"Player {player.DisplayName} likely teleported: {distance:F0}m");
+                    data.LastPosition = currentPosition;
+                    data.LastUpdateTime = currentTime;
+                    data.SpeedHistory.Clear(); // Reset history after teleport
+                    continue;
+                }
+
+                double instantaneousSpeed = distance / timeDelta;
+                data.AddSpeedSample(instantaneousSpeed);
+                data.Speed = data.GetSmoothedSpeed();
+
                 data.LastPosition = currentPosition;
                 data.LastUpdateTime = currentTime;
 
-                bool wasMovingFast = oldSpeed > AsteroidSettings.ZoneSpeedThreshold;
-                bool isMovingFast = data.Speed > AsteroidSettings.ZoneSpeedThreshold;
-
-                if (wasMovingFast && !isMovingFast) {
-                    Log.Info($"Player {player.DisplayName} slowed down: {data.Speed:F2} m/s");
+                // Log only significant speed changes
+                if (Math.Abs(instantaneousSpeed - data.Speed) > AsteroidSettings.ZoneSpeedThreshold * 0.1) {
+                    Log.Info($"Player {player.DisplayName} speed: {data.Speed:F2} m/s (instant: {instantaneousSpeed:F2} m/s)");
                 }
             }
         }
@@ -1374,10 +1409,13 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             if (!playerMovementData.TryGetValue(player.IdentityId, out data))
                 return false;
 
-            bool isTooFast = data.Speed > AsteroidSettings.ZoneSpeedThreshold;
+            double smoothedSpeed = data.GetSmoothedSpeed();
+            bool isTooFast = smoothedSpeed > AsteroidSettings.ZoneSpeedThreshold;
+
             if (isTooFast) {
-                Log.Info($"Player {player.DisplayName} moving too fast: {data.Speed:F2} m/s");
+                Log.Info($"Player {player.DisplayName} moving too fast: {smoothedSpeed:F2} m/s (threshold: {AsteroidSettings.ZoneSpeedThreshold} m/s)");
             }
+
             return isTooFast;
         }
     }
