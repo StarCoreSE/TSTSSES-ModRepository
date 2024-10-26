@@ -32,23 +32,23 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public static double ZoneRadius = 10000.0;
         public static int AsteroidVelocityBase = 0;
         public static double VelocityVariability = 0;
-        public static double AngularVelocityVariability = 0;
+        public static double AngularVelocityVariability = 0; //TODO: this gets corrected during runtime and doesnt actually work
         public static double MinDistanceFromVanillaAsteroids = 1000;
-        public static double MinDistanceFromPlayer = 3000;
+        public static double MinDistanceFromPlayer = 3000; //TODO: this might only be checking form the center of a zone. lets not make zones move with players yet
         public static int Seed = 69420;
         public static bool IgnorePlanets = true;
-        public static double IceWeight = 99;
-        public static double StoneWeight = 0.5;
-        public static double IronWeight = 0.25;
-        public static double NickelWeight = 0.05;
-        public static double CobaltWeight = 0.05;
-        public static double MagnesiumWeight = 0.05;
-        public static double SiliconWeight = 0.05;
-        public static double SilverWeight = 0.05;
-        public static double GoldWeight = 0.05;
-        public static double PlatinumWeight = 0.05;
-        public static double UraniniteWeight = 0.05;
-        public static float MinAsteroidSize = 50f;
+        public static double IceWeight = 97.4;
+        public static double StoneWeight = 1.0;
+        public static double IronWeight = 0.4;
+        public static double NickelWeight = 0.2;
+        public static double CobaltWeight = 0.2;   //TODO: spawning weights might be way to proportionally out of whack for videogames gamplay
+        public static double MagnesiumWeight = 0.2;
+        public static double SiliconWeight = 0.2;
+        public static double SilverWeight = 0.1;
+        public static double GoldWeight = 0.1;
+        public static double PlatinumWeight = 0.1;
+        public static double UraniniteWeight = 0.1;
+        public static float MinAsteroidSize = 50f;   //TODO: depreciate min and max since we have reasonable volumes (sphere)
         public static float MaxAsteroidSize = 250f;
         public static float InstabilityPerMass = 0.1f;
         public static float InstabilityThresholdPercent = 0.8f;
@@ -76,18 +76,18 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public static readonly Dictionary<AsteroidType, MassRange> MinMaxMassByType =
             new Dictionary<AsteroidType, MassRange>
             {
-                //TODO: put thse into confings, gradient toward gasgiant in ring for bigger roids
-                { AsteroidType.Ice, new MassRange(10000f, 5000000f) },
-                { AsteroidType.Stone, new MassRange(8000f, 4000000f) },
-                { AsteroidType.Iron, new MassRange(5000f, 3000000f) },
-                { AsteroidType.Nickel, new MassRange(4000f, 2500000f) },
-                { AsteroidType.Cobalt, new MassRange(3000f, 2000000f) },
-                { AsteroidType.Magnesium, new MassRange(2000f, 1500000f) },
-                { AsteroidType.Silicon, new MassRange(5000f, 3500000f) },
-                { AsteroidType.Silver, new MassRange(2000f, 1000000f) },
-                { AsteroidType.Gold, new MassRange(1000f, 800000f) },
-                { AsteroidType.Platinum, new MassRange(500f, 500000f) },
-                { AsteroidType.Uraninite, new MassRange(300f, 200000f) }
+                //TODO: think about how you'd make clusters of this stuff. maybe conglomerate rocks first
+                { AsteroidType.Ice, new MassRange(10000f, 5000000000f) },
+                { AsteroidType.Stone, new MassRange(8000f, 4000000000f) },
+                { AsteroidType.Iron, new MassRange(5000f, 3000000000f) },
+                { AsteroidType.Nickel, new MassRange(4000f, 2500000000f) },
+                { AsteroidType.Cobalt, new MassRange(3000f, 2000000000f) },
+                { AsteroidType.Magnesium, new MassRange(2000f, 1500000000f) },
+                { AsteroidType.Silicon, new MassRange(5000f, 3500000000f) },
+                { AsteroidType.Silver, new MassRange(2000f, 1000000000f) },
+                { AsteroidType.Gold, new MassRange(1000f, 800000000f) },
+                { AsteroidType.Platinum, new MassRange(500f, 500000000f) },
+                { AsteroidType.Uraninite, new MassRange(300f, 200000000f) }
             };
 
         public static List<SpawnableArea> ValidSpawnLocations = new List<SpawnableArea>();
