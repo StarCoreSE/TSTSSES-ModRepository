@@ -91,7 +91,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         private Random rand;
         private List<AsteroidState> _despawnedAsteroids = new List<AsteroidState>();
         private ConcurrentQueue<AsteroidNetworkMessage> _networkMessages = new ConcurrentQueue<AsteroidNetworkMessage>();
-        private ConcurrentDictionary<long, AsteroidZone> playerZones = new ConcurrentDictionary<long, AsteroidZone>();
+        public ConcurrentDictionary<long, AsteroidZone> playerZones = new ConcurrentDictionary<long, AsteroidZone>();
         private ConcurrentDictionary<long, PlayerMovementData> playerMovementData = new ConcurrentDictionary<long, PlayerMovementData>();
 
         private ConcurrentQueue<AsteroidEntity> _updateQueue = new ConcurrentQueue<AsteroidEntity>();
@@ -619,31 +619,42 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             List<IMyPlayer> players = new List<IMyPlayer>();
             MyAPIGateway.Players.GetPlayers(players);
             Dictionary<long, AsteroidZone> updatedZones = new Dictionary<long, AsteroidZone>();
+
             foreach (IMyPlayer player in players) {
                 Vector3D playerPosition = player.GetPosition();
                 PlayerMovementData data;
                 if (playerMovementData.TryGetValue(player.IdentityId, out data)) {
                     if (AsteroidSettings.DisableZoneWhileMovingFast && data.Speed > AsteroidSettings.ZoneSpeedThreshold) {
-                        Log.Info($"Skipping zone update for player {player.DisplayName} due to high speed: {data.Speed} m/s.");
+                        Log.Info($"Skipping zone update for player {player.DisplayName} due to high speed.");
                         continue;
                     }
                 }
+
                 bool playerInZone = false;
                 foreach (AsteroidZone zone in playerZones.Values) {
-                    if (!zone.IsPointInZone(playerPosition)) continue;
+                    if (!zone.IsPointInZone(playerPosition))
+                        continue;
                     playerInZone = true;
                     break;
                 }
-                if (playerInZone) continue;
-                AsteroidZone newZone = new AsteroidZone(playerPosition, AsteroidSettings.ZoneRadius);
-                updatedZones[player.IdentityId] = newZone;
+
+                if (!playerInZone) {
+                    AsteroidZone newZone = new AsteroidZone(playerPosition, AsteroidSettings.ZoneRadius);
+                    updatedZones[player.IdentityId] = newZone;
+                }
             }
+
             foreach (KeyValuePair<long, AsteroidZone> kvp in playerZones) {
                 if (players.Any(p => kvp.Value.IsPointInZone(p.GetPosition()))) {
                     updatedZones[kvp.Key] = kvp.Value;
                 }
             }
+
             playerZones = new ConcurrentDictionary<long, AsteroidZone>(updatedZones);
+
+            if (!MyAPIGateway.Utilities.IsDedicated) {
+                MainSession.I.UpdateClientZones(playerZones.ToDictionary(kvp => kvp.Key, kvp => kvp.Value));
+            }
         }
 
         private AsteroidZone GetCachedZone(long playerId, Vector3D playerPosition) {
@@ -1279,130 +1290,55 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         }
 
         private void CleanupOrphanedAsteroids() {
+            if (_isCleanupRunning || (DateTime.UtcNow - _lastCleanupTime).TotalSeconds < CLEANUP_COOLDOWN_SECONDS)
+                return;
+
+            _isCleanupRunning = true;
             try {
                 var currentZones = playerZones.Values.ToList();
+                // Cache zone data for faster checks
+                var zoneData = currentZones.Select(z => new {
+                    Center = z.Center,
+                    RadiusSq = z.Radius * z.Radius
+                }).ToList();
+
                 var asteroidsToRemove = new List<AsteroidEntity>();
-                var entities = new HashSet<IMyEntity>();
-                MyAPIGateway.Entities.GetEntities(entities);
+                var trackedAsteroids = _asteroids.ToList();
 
-                if (MyAPIGateway.Session.IsServer) {
-                    var trackedAsteroids = _asteroids.ToList();
-
-                    // Server-side tracked asteroid check
-                    foreach (var asteroid in trackedAsteroids) {
+                // Batch process asteroids
+                const int BATCH_SIZE = 100;
+                for (int i = 0; i < trackedAsteroids.Count; i += BATCH_SIZE) {
+                    var batch = trackedAsteroids.Skip(i).Take(BATCH_SIZE);
+                    foreach (var asteroid in batch) {
                         if (asteroid == null || asteroid.MarkedForClose)
                             continue;
 
                         Vector3D asteroidPosition = asteroid.PositionComp.GetPosition();
-                        bool isInAnyZone = currentZones.Any(zone => zone.IsPointInZone(asteroidPosition));
+                        bool isInAnyZone = false;
+
+                        // Use cached zone data for faster checks
+                        foreach (var zone in zoneData) {
+                            if (Vector3D.DistanceSquared(asteroidPosition, zone.Center) <= zone.RadiusSq) {
+                                isInAnyZone = true;
+                                break;
+                            }
+                        }
 
                         if (!isInAnyZone) {
                             asteroidsToRemove.Add(asteroid);
                         }
                     }
-
-                    // Server-side entity search fallback
-                    foreach (var entity in entities) {
-                        var asteroid = entity as AsteroidEntity;
-                        if (asteroid == null || asteroidsToRemove.Contains(asteroid))
-                            continue;
-
-                        bool isTracked = trackedAsteroids.Any(a => a.EntityId == asteroid.EntityId);
-
-                        if (!isTracked) {
-                            Log.Warning($"Found untracked asteroid {asteroid.EntityId} at {asteroid.PositionComp.GetPosition()} - adding to removal list");
-                            asteroidsToRemove.Add(asteroid);
-                        }
-                        else {
-                            Vector3D position = asteroid.PositionComp.GetPosition();
-                            bool isInAnyZone = currentZones.Any(zone => zone.IsPointInZone(position));
-
-                            if (!isInAnyZone) {
-                                Log.Warning($"Found tracked but orphaned asteroid {asteroid.EntityId} at {position}");
-                                asteroidsToRemove.Add(asteroid);
-                            }
-                        }
-                    }
-                }
-                else {
-                    // Client-side checks
-                    foreach (var entity in entities) {
-                        var asteroid = entity as AsteroidEntity;
-                        if (asteroid == null || asteroid.MarkedForClose)
-                            continue;
-
-                        // Check for invalid state or physics
-                        bool isInvalid = asteroid.Physics == null || !asteroid.Physics.IsActive;
-
-                        if (!isInvalid) {
-                            // Check if it's in any zone
-                            bool isInAnyZone = currentZones.Any(zone => zone.IsPointInZone(asteroid.PositionComp.GetPosition()));
-                            if (!isInAnyZone) {
-                                isInvalid = true;
-                            }
-                        }
-
-                        if (isInvalid) {
-                            Log.Warning($"Client found invalid asteroid {asteroid.EntityId} - Physics: {asteroid.Physics != null}, adding to removal list");
-                            asteroidsToRemove.Add(asteroid);
-                        }
-                    }
                 }
 
-                // Remove identified asteroids
+                // Process removals in batches
                 foreach (var asteroid in asteroidsToRemove) {
-                    if (MyAPIGateway.Session.IsServer) {
-                        // Server-side cleanup
-                        Log.Info($"Server removing asteroid {asteroid.EntityId}");
-
-                        foreach (var zone in currentZones) {
-                            zone.ContainedAsteroids.Remove(asteroid.EntityId);
-                            zone.TransferredFromOtherZone.Remove(asteroid.EntityId);
-                        }
-
-                        if (_asteroids.Contains(asteroid)) {
-                            AsteroidEntity dummy;
-                            while (_asteroids.TryTake(out dummy)) {
-                                if (dummy.EntityId == asteroid.EntityId)
-                                    break;
-                                _asteroids.Add(dummy);
-                            }
-                        }
-
-                        // Send removal message to clients
-                        var message = new AsteroidNetworkMessage(
-                            asteroid.PositionComp.GetPosition(),
-                            asteroid.Properties.Diameter,
-                            Vector3D.Zero,
-                            Vector3D.Zero,
-                            asteroid.Type,
-                            false,
-                            asteroid.EntityId,
-                            true,
-                            false,
-                            Quaternion.Identity
-                        );
-
-                        byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(message);
-                        MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
-                    }
-                    else {
-                        // Client-side cleanup
-                        Log.Info($"Client removing asteroid {asteroid.EntityId}");
-                    }
-
-                    // Common cleanup for both server and client
-                    MyEntities.Remove(asteroid);
-                    asteroid.Close();
+                    RemoveAsteroid(asteroid);
                 }
 
-                if (asteroidsToRemove.Count > 0) {
-                    Log.Info($"{(MyAPIGateway.Session.IsServer ? "Server" : "Client")} cleanup complete - " +
-                            $"Removed {asteroidsToRemove.Count} asteroids");
-                }
+                _lastCleanupTime = DateTime.UtcNow;
             }
-            catch (Exception ex) {
-                Log.Exception(ex, typeof(AsteroidSpawner), "Error in cleanup");
+            finally {
+                _isCleanupRunning = false;
             }
         }
 
