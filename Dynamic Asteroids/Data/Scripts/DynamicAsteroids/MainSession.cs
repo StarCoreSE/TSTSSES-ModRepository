@@ -6,6 +6,7 @@ using Sandbox.ModAPI;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Sandbox.Game;
 using VRage.Game;
 using VRage.Game.Components;
 using VRage.Game.ModAPI;
@@ -58,7 +59,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             // Register network handlers for both client and server
             MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(32000, OnSecureMessageReceived);
             MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(32001, OnSecureMessageReceived);
+            MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(32002, OnSettingsSyncReceived);
             MyAPIGateway.Utilities.MessageEntered += OnMessageEntered;
+            MyVisualScriptLogicProvider.PlayerConnected += OnPlayerConnected;
         }
 
         public override void BeforeStart() {
@@ -109,7 +112,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
                 MyAPIGateway.Multiplayer.UnregisterSecureMessageHandler(32000, OnSecureMessageReceived);
                 MyAPIGateway.Multiplayer.UnregisterSecureMessageHandler(32001, OnSecureMessageReceived);
+                MyAPIGateway.Multiplayer.UnregisterSecureMessageHandler(32002, OnSettingsSyncReceived);
                 MyAPIGateway.Utilities.MessageEntered -= OnMessageEntered;
+                MyVisualScriptLogicProvider.PlayerConnected -= OnPlayerConnected;
 
                 if (RealGasGiantsApi != null) {
                     RealGasGiantsApi.Unload();
@@ -788,6 +793,45 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             }
             catch (Exception ex) {
                 Log.Exception(ex, typeof(MainSession), "Error processing zone packet");
+            }
+        }
+
+        private void OnSettingsSyncReceived(ushort handlerId, byte[] data, ulong steamId, bool isFromServer) {
+            if (!isFromServer) return;
+
+            try {
+                var settings = MyAPIGateway.Utilities.SerializeFromBinary<SettingsSyncMessage>(data);
+                if (settings != null) {
+                    AsteroidSettings.EnableLogging = settings.EnableLogging;
+                    Log.Info($"Received settings from server. Debug logging: {settings.EnableLogging}");
+                }
+            }
+            catch (Exception ex) {
+                Log.Exception(ex, typeof(MainSession), "Error processing settings sync");
+            }
+        }
+
+        private void OnPlayerConnected(long playerId) {
+            var player = GetPlayerBySteamId(playerId);
+            if (player != null) {
+                HandleClientJoined(player.SteamUserId);
+            }
+        }
+
+        private IMyPlayer GetPlayerBySteamId(long playerId) {
+            List<IMyPlayer> players = new List<IMyPlayer>();
+            MyAPIGateway.Players.GetPlayers(players);
+            return players.FirstOrDefault(p => p.IdentityId == playerId);
+        }
+
+        private void HandleClientJoined(ulong clientId) {
+            if (MyAPIGateway.Session.IsServer) {
+                var settings = new SettingsSyncMessage {
+                    EnableLogging = AsteroidSettings.EnableLogging
+                };
+
+                byte[] data = MyAPIGateway.Utilities.SerializeToBinary(settings);
+                MyAPIGateway.Multiplayer.SendMessageTo(32002, data, clientId);
             }
         }
     }

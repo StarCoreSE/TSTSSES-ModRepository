@@ -301,4 +301,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         public Quaternion GetRotation() => new Quaternion(RotX, RotY, RotZ, RotW);
     }
 
+    [ProtoContract]
+    public class SettingsSyncMessage : PacketBase {
+        [ProtoMember(1)]
+        public bool EnableLogging { get; set; }
+        // Add other settings that need to be synced
+    }
 }
