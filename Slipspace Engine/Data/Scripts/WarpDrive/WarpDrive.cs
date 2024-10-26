@@ -66,8 +66,6 @@ namespace WarpDriveMod
             if (WarpDriveSession.Instance != null)
                 initStart = WarpDriveSession.Instance.Runtime;
 
-            MyVisualScriptLogicProvider.PlayerLeftCockpit += PlayerLeftCockpit;
-
             if (!MyAPIGateway.Utilities.IsDedicated)
                 Block.AppendingCustomInfo += Block_AppendingCustomInfo;
 
