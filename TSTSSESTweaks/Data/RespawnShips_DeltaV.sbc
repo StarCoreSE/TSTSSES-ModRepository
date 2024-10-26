@@ -14,7 +14,7 @@
 
       <UseForSpace>true</UseForSpace>
 
-      <SpawnPosition x="0" y="5000000" z="-100000000" />
+      <SpawnPosition x="0" y="9000000" z="-175000000" />
       <!-- specific position -->
       <SpawnPositionDispersionMin>10000</SpawnPositionDispersionMin>
       <!-- minimum deviation from position -->
@@ -40,7 +40,7 @@
 
       <UseForSpace>true</UseForSpace>
 
-      <SpawnPosition x="-100000000" y="10000000" z="0" />
+      <SpawnPosition x="-175000000" y="17000000" z="0" />
       <!-- specific position -->
       <SpawnPositionDispersionMin>10000</SpawnPositionDispersionMin>
       <!-- minimum deviation from position -->
@@ -66,7 +66,7 @@
 
       <UseForSpace>true</UseForSpace>
 
-      <SpawnPosition x="0" y="-5000000" z="100000000" />
+      <SpawnPosition x="0" y="-9000000" z="175000000" />
       <!-- specific position -->
       <SpawnPositionDispersionMin>10000</SpawnPositionDispersionMin>
       <!-- minimum deviation from position -->
@@ -92,7 +92,7 @@
 
       <UseForSpace>true</UseForSpace>
 
-      <SpawnPosition x="100000000" y="-10000000" z="0" />
+      <SpawnPosition x="175000000" y="-17000000" z="0" />
       <!-- specific position -->
       <SpawnPositionDispersionMin>10000</SpawnPositionDispersionMin>
       <!-- minimum deviation from position -->
