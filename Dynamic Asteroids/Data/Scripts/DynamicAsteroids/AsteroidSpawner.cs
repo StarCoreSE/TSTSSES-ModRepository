@@ -1038,7 +1038,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             }
 
             // Check spawnable areas
-            foreach (SpawnableArea area in AsteroidSettings.ValidSpawnLocations) {
+            foreach (AsteroidSettings.SpawnableArea area in AsteroidSettings.ValidSpawnLocations) {
                 if (area.ContainsPoint(position))
                     return true;
             }

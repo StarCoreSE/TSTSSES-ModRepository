@@ -87,6 +87,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
             CurrentInstability = 0f;
             _lastChunkThreshold = 0f;
         }
+
     }
 
 }

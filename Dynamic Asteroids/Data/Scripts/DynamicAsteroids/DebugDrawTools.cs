@@ -42,43 +42,96 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 Log.Exception(ex, typeof(MainSession), "Error in Draw");
             }
         }
-        //TODO: a file where we store client settings and commands they can do using GetFileInLocalStorage. see ModularAssemblies for a command creator factory thing
         private void DrawNearbyAsteroidHitboxes(Vector3D characterPosition) {
-            // Skip if we're in debug mode (already showing debug spheres), this is for live gameplay
-            if (AsteroidSettings.EnableLogging)
-                return;
+            //if (AsteroidSettings.EnableLogging)
+            //    return;
 
             try {
                 var entities = new HashSet<IMyEntity>();
                 MyAPIGateway.Entities.GetEntities(entities, e => e is AsteroidEntity &&
-                                                                 Vector3D.DistanceSquared(e.GetPosition(), characterPosition) <= HITBOX_DISPLAY_DISTANCE * HITBOX_DISPLAY_DISTANCE);
+                                                                Vector3D.DistanceSquared(e.GetPosition(), characterPosition) <= HITBOX_DISPLAY_DISTANCE * HITBOX_DISPLAY_DISTANCE);
 
                 foreach (AsteroidEntity asteroid in entities.Cast<AsteroidEntity>()) {
                     if (asteroid == null || asteroid.MarkedForClose)
                         continue;
 
-                    MatrixD worldMatrix = MatrixD.CreateTranslation(asteroid.PositionComp.GetPosition());
+                    // Calculate health percentage (assuming Properties.CurrentIntegrity and MaximumIntegrity exist)
+                    float healthPercentage = asteroid.Properties.GetIntegrityPercentage() / 100f;
 
-                    // Very thin white wireframe
-                    Color hitboxColor = new Color(255, 255, 255, 15); // Almost transparent white
+                    // Calculate instability percentage
+                    float instabilityPercentage = asteroid.Properties.GetInstabilityPercentage() / 100f;
 
+                    // Color interpolation: Green (full health) to Red (low health)
+                    Color baseColor = Color.Lerp(
+                        Color.Red,   // Low health
+                        Color.Green, // Full health
+                        healthPercentage
+                    );
+
+                    // Add slight transparency
+                    Color hitboxColor = new Color(
+                        baseColor.R,
+                        baseColor.G,
+                        baseColor.B,
+                        15 // Keep the transparency
+                    );
+
+                    // Create wobble effect based on instability
+                    Vector3D wobbleOffset = Vector3D.Zero;
+                    if (instabilityPercentage > 0) {
+                        // Create a time-based wobble
+                        double time = DateTime.Now.TimeOfDay.TotalSeconds;
+                        float wobbleAmount = instabilityPercentage * 0.2f; // Max 20% radius wobble
+
+                        wobbleOffset = new Vector3D(
+                            Math.Sin(time * 5f) * wobbleAmount,
+                            Math.Cos(time * 3f) * wobbleAmount,
+                            Math.Sin(time * 4f) * wobbleAmount
+                        ) * asteroid.Properties.Radius;
+                    }
+
+                    // Apply wobble to position
+                    MatrixD worldMatrix = MatrixD.CreateTranslation(
+                        asteroid.PositionComp.GetPosition() + wobbleOffset
+                    );
+
+                    // Draw the sphere
                     MySimpleObjectDraw.DrawTransparentSphere(
                         ref worldMatrix,
                         asteroid.Properties.Radius,
                         ref hitboxColor,
                         MySimpleObjectRasterizer.Wireframe,
-                        8, // More segments for smoother sphere
+                        8,
                         null,
                         MyStringId.GetOrCompute("Square"),
-                        0.1f // Thin lines
+                        0.1f
                     );
+
+                    // Optional: Add a pulsing effect for highly unstable asteroids
+                    if (instabilityPercentage > 0.5f) {
+                        float pulseIntensity = (float)Math.Sin(DateTime.Now.TimeOfDay.TotalSeconds * 4f) * 0.5f + 0.5f;
+                        Color pulseColor = new Color(255, 0, 0, (byte)(15 * pulseIntensity));
+
+                        MatrixD pulseMatrix = MatrixD.CreateTranslation(asteroid.PositionComp.GetPosition());
+                        float pulseRadius = asteroid.Properties.Radius * (1f + (0.1f * pulseIntensity));
+
+                        MySimpleObjectDraw.DrawTransparentSphere(
+                            ref pulseMatrix,
+                            pulseRadius,
+                            ref pulseColor,
+                            MySimpleObjectRasterizer.Wireframe,
+                            8,
+                            null,
+                            MyStringId.GetOrCompute("Square"),
+                            0.05f // Thinner lines for pulse effect
+                        );
+                    }
                 }
             }
             catch (Exception ex) {
                 Log.Exception(ex, typeof(MainSession), "Error drawing hitbox spheres");
             }
         }
-
         private void DrawPlayerZones(Vector3D characterPosition) {
             // Draw active zones first
             foreach (var kvp in _clientZones) {

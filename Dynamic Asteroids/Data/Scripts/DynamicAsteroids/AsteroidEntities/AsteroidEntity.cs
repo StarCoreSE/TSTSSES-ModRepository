@@ -90,14 +90,23 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
                 if (entityId.HasValue)
                     ent.EntityId = entityId.Value;
 
-                // Only generate random rotation on server if none provided
+                var massRange = AsteroidSettings.MinMaxMassByType[type];
+
+                string ringDebugInfo;
+                float distanceScale = AsteroidSettings.CalculateMassScaleByDistance(position, MainSession.I.RealGasGiantsApi, out ringDebugInfo);
+
+                float randomFactor = (float)MainSession.I.Rand.NextDouble() * 0.2f - 0.1f;
+                float finalMass = MathHelper.Lerp(massRange.MinMass, massRange.MaxMass, distanceScale + randomFactor);
+                finalMass = MathHelper.Clamp(finalMass, massRange.MinMass, massRange.MaxMass);
+
+                ent.Properties = AsteroidPhysicalProperties.CreateFromMass(finalMass, AsteroidPhysicalProperties.DEFAULT_DENSITY, ent);
+
                 if (!rotation.HasValue && MyAPIGateway.Session.IsServer) {
                     Vector3D randomAxis = RandVector();
                     float randomAngle = (float)(MainSession.I.Rand.NextDouble() * Math.PI * 2);
                     rotation = Quaternion.CreateFromAxisAngle(randomAxis, randomAngle);
                 }
                 else if (!rotation.HasValue) {
-                    // On client, use identity rotation until server update arrives
                     rotation = Quaternion.Identity;
                 }
 
@@ -109,7 +118,16 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
                     return null;
                 }
 
-                Log.Info($"Successfully added asteroid {ent.EntityId} to the scene at position {position} with rotation {rotation.Value}");
+                // Detailed spawn logging
+                Log.Info($"Spawned ring asteroid {ent.EntityId}:" +
+                         $"\nType: {type}" +
+                         $"\nMass Range: {massRange.MinMass:N0}kg - {massRange.MaxMass:N0}kg" +
+                         $"\nFinal Mass: {finalMass:N0}kg" +
+                         $"\nRandom Factor: {randomFactor:F3}" +
+                         $"\nPosition: {position}" +
+                         $"\nVelocity: {initialVelocity.Length():F1}m/s" +
+                         $"\n{ringDebugInfo}");
+
                 return ent;
             }
             catch (Exception ex) {
