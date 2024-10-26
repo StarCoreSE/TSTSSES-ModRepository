@@ -479,118 +479,100 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             return nearestGasGiant;
         }
 
-        private void OnSecureMessageReceived(ushort handlerId, byte[] message, ulong steamId, bool isFromServer)
-        {
-            try
-            {
-                if (message == null || message.Length == 0)
-                {
+        private void OnSecureMessageReceived(ushort handlerId, byte[] message, ulong steamId, bool isFromServer) {
+            try {
+                if (message == null || message.Length == 0) {
                     Log.Warning("Received empty or null message");
                     return;
                 }
 
-                // maybe packets too big?
-                if (message.Length > 1024 * 1024)
-                {
+                // SE's network message size limit is typically around 4MB
+                const int MAX_MESSAGE_SIZE = 4 * 1024 * 1024;
+                if (message.Length > MAX_MESSAGE_SIZE) {
                     Log.Warning($"Message size exceeds limit: {message.Length} bytes");
                     return;
                 }
 
-                if (handlerId == 32001)
-                {
+                if (handlerId == 32001) {
                     ProcessZoneMessage(message);
                     return;
                 }
 
-                try
-                {
+                try {
                     // Try container first with validation
-                    using (MemoryStream ms = new MemoryStream(message))
-                    {
-                        try
-                        {
-                            AsteroidNetworkMessageContainer container = MyAPIGateway.Utilities.SerializeFromBinary<AsteroidNetworkMessageContainer>(message);
-                            if (container != null && ValidateContainer(container))
-                            {
-                                ProcessMessageContainer(container);
-                                return;
-                            }
-                        }
-                        catch (Exception containerEx)
-                        {
-                            Log.Warning($"Container deserialization failed: {containerEx.Message}");
-                        }
-
-                        // Fallback to single message
-                        try
-                        {
-                            AsteroidNetworkMessage asteroidMessage = MyAPIGateway.Utilities.SerializeFromBinary<AsteroidNetworkMessage>(message);
-                            if (ValidateMessage(asteroidMessage))
-                            {
-                                if (!MyAPIGateway.Session.IsServer)
-                                {
-                                    ProcessClientMessage(asteroidMessage);
-                                }
-                                else
-                                {
-                                    ProcessServerMessage(asteroidMessage, steamId);
-                                }
-                            }
-                            else
-                            {
-                                Log.Warning("Invalid message format received");
-                            }
-                        }
-                        catch (Exception messageEx)
-                        {
-                            Log.Exception(messageEx, typeof(MainSession), "Message deserialization failed");
-                        }
+                    var container = MyAPIGateway.Utilities.SerializeFromBinary<AsteroidNetworkMessageContainer>(message);
+                    if (container != null && ValidateContainer(container)) {
+                        ProcessMessageContainer(container);
+                        return;
                     }
                 }
-                catch (Exception ex)
-                {
-                    Log.Exception(ex, typeof(MainSession), "Critical error in message processing");
+                catch (Exception containerEx) {
+                    Log.Warning($"Container deserialization failed: {containerEx.Message}");
+
+                    // Try single message as fallback
+                    try {
+                        var asteroidMessage = MyAPIGateway.Utilities.SerializeFromBinary<AsteroidNetworkMessage>(message);
+                        if (ValidateMessage(asteroidMessage)) {
+                            if (!MyAPIGateway.Session.IsServer) {
+                                ProcessClientMessage(asteroidMessage);
+                            }
+                            else {
+                                ProcessServerMessage(asteroidMessage, steamId);
+                            }
+                        }
+                        else {
+                            Log.Warning("Invalid message format received");
+                        }
+                    }
+                    catch (Exception messageEx) {
+                        Log.Exception(messageEx, typeof(MainSession), "Message deserialization failed");
+                    }
                 }
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 Log.Exception(ex, typeof(MainSession), "Fatal error in OnSecureMessageReceived");
             }
         }
 
-        private bool ValidateContainer(AsteroidNetworkMessageContainer container)
-        {
-            if (container == null || container.Messages == null)
+        private bool ValidateContainer(AsteroidNetworkMessageContainer container) {
+            if (container.Messages == null || container.Messages.Length == 0)
                 return false;
 
-            if (container.Messages.Length <= 1000) return container.Messages.All(ValidateMessage);// Reasonable limit
-            Log.Warning($"Container has too many messages: {container.Messages.Length}");
-            return false;
+            // Validate each message in container
+            foreach (var message in container.Messages) {
+                if (!ValidateMessage(message))
+                    return false;
+            }
 
+            return true;
         }
 
-        private bool ValidateMessage(AsteroidNetworkMessage message)
-        {
+        private bool ValidateMessage(AsteroidNetworkMessage message) {
             if (message == null)
                 return false;
 
-            // Basic sanity checks
-            if (double.IsInfinity(message.PosX) ||
-                double.IsInfinity(message.PosY) ||
-                double.IsInfinity(message.PosZ) ||
-                double.IsNaN(message.PosX) ||
-                double.IsNaN(message.PosY) ||
-                double.IsNaN(message.PosZ))
-            {
-                Log.Warning("Invalid position values in message");
+            // Check for NaN or infinity in position
+            if (double.IsNaN(message.PosX) || double.IsInfinity(message.PosX) ||
+                double.IsNaN(message.PosY) || double.IsInfinity(message.PosY) ||
+                double.IsNaN(message.PosZ) || double.IsInfinity(message.PosZ))
                 return false;
-            }
 
-            // Size validation
-            if (!(message.Size <= 0) && !(message.Size > 1000)) return true;// Adjust max size as needed
-            Log.Warning($"Invalid message size: {message.Size}");
-            return false;
+            // Validate EntityId
+            if (message.EntityId == 0 && !message.IsInitialCreation)
+                return false;
 
+            // Validate size
+            if (message.Size <= 0 || float.IsNaN(message.Size) || float.IsInfinity(message.Size))
+                return false;
+
+            // Validate rotation
+            if (float.IsNaN(message.RotX) || float.IsInfinity(message.RotX) ||
+                float.IsNaN(message.RotY) || float.IsInfinity(message.RotY) ||
+                float.IsNaN(message.RotZ) || float.IsInfinity(message.RotZ) ||
+                float.IsNaN(message.RotW) || float.IsInfinity(message.RotW))
+                return false;
+
+            return true;
         }
 
         private void ProcessMessageContainer(AsteroidNetworkMessageContainer container)
