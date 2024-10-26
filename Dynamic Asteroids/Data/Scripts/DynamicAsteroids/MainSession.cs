@@ -5,6 +5,7 @@ using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using VRage.Game;
 using VRage.Game.Components;
@@ -484,7 +485,14 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             {
                 if (message == null || message.Length == 0)
                 {
-                    Log.Info("Received empty or null message, skipping processing.");
+                    Log.Warning("Received empty or null message");
+                    return;
+                }
+
+                // maybe packets too big?
+                if (message.Length > 1024 * 1024)
+                {
+                    Log.Warning($"Message size exceeds limit: {message.Length} bytes");
                     return;
                 }
 
@@ -496,33 +504,115 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
                 try
                 {
-                    AsteroidNetworkMessageContainer container = MyAPIGateway.Utilities.SerializeFromBinary<AsteroidNetworkMessageContainer>(message);
-                    if (container != null && container.Messages != null)
+                    // Try container first with validation
+                    using (MemoryStream ms = new MemoryStream(message))
                     {
-                        Log.Info($"Received batch update with {container.Messages.Length} asteroids");
-                        foreach (AsteroidNetworkMessage asteroidMessage in container.Messages)
+                        try
                         {
-                            ProcessClientMessage(asteroidMessage);
+                            AsteroidNetworkMessageContainer container = MyAPIGateway.Utilities.SerializeFromBinary<AsteroidNetworkMessageContainer>(message);
+                            if (container != null && ValidateContainer(container))
+                            {
+                                ProcessMessageContainer(container);
+                                return;
+                            }
                         }
-                        return;
+                        catch (Exception containerEx)
+                        {
+                            Log.Warning($"Container deserialization failed: {containerEx.Message}");
+                        }
+
+                        // Fallback to single message
+                        try
+                        {
+                            AsteroidNetworkMessage asteroidMessage = MyAPIGateway.Utilities.SerializeFromBinary<AsteroidNetworkMessage>(message);
+                            if (ValidateMessage(asteroidMessage))
+                            {
+                                if (!MyAPIGateway.Session.IsServer)
+                                {
+                                    ProcessClientMessage(asteroidMessage);
+                                }
+                                else
+                                {
+                                    ProcessServerMessage(asteroidMessage, steamId);
+                                }
+                            }
+                            else
+                            {
+                                Log.Warning("Invalid message format received");
+                            }
+                        }
+                        catch (Exception messageEx)
+                        {
+                            Log.Exception(messageEx, typeof(MainSession), "Message deserialization failed");
+                        }
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    AsteroidNetworkMessage asteroidMessage = MyAPIGateway.Utilities.SerializeFromBinary<AsteroidNetworkMessage>(message);
+                    Log.Exception(ex, typeof(MainSession), "Critical error in message processing");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Exception(ex, typeof(MainSession), "Fatal error in OnSecureMessageReceived");
+            }
+        }
+
+        private bool ValidateContainer(AsteroidNetworkMessageContainer container)
+        {
+            if (container == null || container.Messages == null)
+                return false;
+
+            if (container.Messages.Length <= 1000) return container.Messages.All(ValidateMessage);// Reasonable limit
+            Log.Warning($"Container has too many messages: {container.Messages.Length}");
+            return false;
+
+        }
+
+        private bool ValidateMessage(AsteroidNetworkMessage message)
+        {
+            if (message == null)
+                return false;
+
+            // Basic sanity checks
+            if (double.IsInfinity(message.PosX) ||
+                double.IsInfinity(message.PosY) ||
+                double.IsInfinity(message.PosZ) ||
+                double.IsNaN(message.PosX) ||
+                double.IsNaN(message.PosY) ||
+                double.IsNaN(message.PosZ))
+            {
+                Log.Warning("Invalid position values in message");
+                return false;
+            }
+
+            // Size validation
+            if (!(message.Size <= 0) && !(message.Size > 1000)) return true;// Adjust max size as needed
+            Log.Warning($"Invalid message size: {message.Size}");
+            return false;
+
+        }
+
+        private void ProcessMessageContainer(AsteroidNetworkMessageContainer container)
+        {
+            try
+            {
+                Log.Info($"Processing message container with {container.Messages.Length} messages");
+                foreach (AsteroidNetworkMessage message in container.Messages)
+                {
                     if (!MyAPIGateway.Session.IsServer)
                     {
-                        ProcessClientMessage(asteroidMessage);
+                        ProcessClientMessage(message);
                     }
                     else
                     {
-                        ProcessServerMessage(asteroidMessage, steamId);
+                        ProcessServerMessage(message, 0);// Steam ID not available for container messages
                     }
                 }
             }
             catch (Exception ex)
             {
-                Log.Exception(ex, typeof(MainSession), "Error processing received message");
+                Log.Exception(ex, typeof(MainSession), "Error processing message container");
             }
         }
 
@@ -550,36 +640,32 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 return;
             }
 
-            if (message.IsInitialCreation && message.EntityId == 0)
-            {
-                // Handle client request to create new asteroid
-                AsteroidEntity asteroid = AsteroidEntity.CreateAsteroid(
-                    message.GetPosition(),
-                    message.Size,
-                    message.GetVelocity(),
-                    message.GetType()
-                );
+            if (!message.IsInitialCreation || message.EntityId != 0) return;
+            // Handle client request to create new asteroid
+            AsteroidEntity asteroid = AsteroidEntity.CreateAsteroid(
+                message.GetPosition(),
+                message.Size,
+                message.GetVelocity(),
+                message.GetType()
+            );
 
-                if (asteroid != null && _spawner != null)
-                {
-                    _spawner.AddAsteroid(asteroid);
-                    AsteroidNetworkMessage response = new AsteroidNetworkMessage(
-                        asteroid.PositionComp.GetPosition(),
-                        asteroid.Properties.Diameter,
-                        asteroid.Physics.LinearVelocity,
-                        asteroid.Physics.AngularVelocity,
-                        asteroid.Type,
-                        false,
-                        asteroid.EntityId,
-                        false,
-                        true,
-                        Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix)
-                    );
+            if (asteroid == null || _spawner == null) return;
+            _spawner.AddAsteroid(asteroid);
+            AsteroidNetworkMessage response = new AsteroidNetworkMessage(
+                asteroid.PositionComp.GetPosition(),
+                asteroid.Properties.Diameter,
+                asteroid.Physics.LinearVelocity,
+                asteroid.Physics.AngularVelocity,
+                asteroid.Type,
+                false,
+                asteroid.EntityId,
+                false,
+                true,
+                Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix)
+            );
 
-                    byte[] responseBytes = MyAPIGateway.Utilities.SerializeToBinary(response);
-                    MyAPIGateway.Multiplayer.SendMessageToOthers(32000, responseBytes);
-                }
-            }
+            byte[] responseBytes = MyAPIGateway.Utilities.SerializeToBinary(response);
+            MyAPIGateway.Multiplayer.SendMessageToOthers(32000, responseBytes);
         }
 
         private void RemoveAsteroidOnClient(long entityId)
