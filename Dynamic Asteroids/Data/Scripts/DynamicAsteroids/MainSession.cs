@@ -439,20 +439,32 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                     return;
                 }
 
-                try {
-                    var batchPacket = MyAPIGateway.Utilities.SerializeFromBinary<AsteroidBatchUpdatePacket>(message);
-                    if (batchPacket != null) {
-                        ProcessBatchMessage(batchPacket);
-                        return;
-                    }
+                // Handle zone updates
+                if (handlerId == 32001) {
+                    ProcessZoneMessage(message);
+                    return;
                 }
-                catch {
-                    var asteroidMessage = MyAPIGateway.Utilities.SerializeFromBinary<AsteroidNetworkMessage>(message);
-                    if (!MyAPIGateway.Session.IsServer) {
-                        ProcessClientMessage(asteroidMessage);
+
+                if (handlerId == 32000) {
+                    try {
+                        // Try to process as batch update first
+                        var batchPacket = MyAPIGateway.Utilities.SerializeFromBinary<AsteroidBatchUpdatePacket>(message);
+                        if (batchPacket != null) {
+                            ProcessBatchMessage(batchPacket);
+                            return;
+                        }
                     }
-                    else {
-                        ProcessServerMessage(asteroidMessage, steamId);
+                    catch {
+                        // If batch deserialization fails, try single message
+                        var singleMessage = MyAPIGateway.Utilities.SerializeFromBinary<AsteroidNetworkMessage>(message);
+                        if (singleMessage != null) {
+                            if (!MyAPIGateway.Session.IsServer) {
+                                ProcessClientMessage(singleMessage);
+                            }
+                            else {
+                                ProcessServerMessage(singleMessage, steamId);
+                            }
+                        }
                     }
                 }
             }
