@@ -21,19 +21,26 @@ namespace CGP.ShareTrack.HeartNetworking
         public ushort NetworkId { get; private set; }
         public int TotalNetworkLoad { get; private set; }
 
-        public void LoadData(ushort networkId)
-        {
+        public void LoadData(ushort networkId) {
+            if (I != null)
+                return;
+
             I = this;
-
             NetworkId = networkId;
-            MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(NetworkId, ReceivedPacket);
 
-            foreach (var type in PacketBase.Types) TypeNetworkLoad.Add(type, 0);
+            TypeNetworkLoad.Clear();
+            foreach (var type in PacketBase.Types)
+                TypeNetworkLoad.Add(type, 0);
+
+            MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(NetworkId, ReceivedPacket);
         }
 
-        public void UnloadData()
-        {
-            MyAPIGateway.Multiplayer.UnregisterSecureMessageHandler(NetworkId, ReceivedPacket);
+        public void UnloadData() {
+            if (NetworkId > 0)
+                MyAPIGateway.Multiplayer.UnregisterSecureMessageHandler(NetworkId, ReceivedPacket);
+
+            TypeNetworkLoad?.Clear();
+            NetworkId = 0;
             I = null;
         }
 
@@ -54,29 +61,37 @@ namespace CGP.ShareTrack.HeartNetworking
             }
         }
 
-        private void ReceivedPacket(ushort channelId, byte[] serialized, ulong senderSteamId, bool isSenderServer)
-        {
-            try
-            {
+        private void ReceivedPacket(ushort channelId, byte[] serialized, ulong senderSteamId, bool isSenderServer) {
+            // Add check if mod is unloaded
+            if (MasterSession.I == null || Log.IsUnloaded)
+                return;
+
+            try {
                 var packet = MyAPIGateway.Utilities.SerializeFromBinary<PacketBase>(serialized);
-                TypeNetworkLoad[packet.GetType()] += serialized.Length;
+                if (packet == null)
+                    return;
+
+                if (TypeNetworkLoad.ContainsKey(packet.GetType()))
+                    TypeNetworkLoad[packet.GetType()] += serialized.Length;
+
                 HandlePacket(packet, senderSteamId);
             }
-            catch (Exception ex)
-            {
-                Log.Error(ex);
+            catch (Exception ex) {
+                if (!Log.IsUnloaded)
+                    Log.Error(ex);
             }
         }
 
-        private void HandlePacket(PacketBase packet, ulong senderSteamId)
-        {
-            try
-            {
+        private void HandlePacket(PacketBase packet, ulong senderSteamId) {
+            if (packet == null || MasterSession.I == null)
+                return;
+
+            try {
                 packet.Received(senderSteamId);
             }
-            catch (Exception ex)
-            {
-                Log.Error(ex);
+            catch (Exception ex) {
+                if (!Log.IsUnloaded)
+                    Log.Error(ex);
             }
         }
 
