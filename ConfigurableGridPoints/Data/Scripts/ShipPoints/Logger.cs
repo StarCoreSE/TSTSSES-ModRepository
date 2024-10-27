@@ -38,7 +38,7 @@ namespace CGP.ShareTrack {
         private static Log _instance;
         private static Handler _handler;
         private static bool _unloaded;
-        public bool IsUnloaded { get; set; }
+        public static bool IsUnloaded { get; set; }
 
         public static readonly string File = GenerateTimestampedFileName();
 
