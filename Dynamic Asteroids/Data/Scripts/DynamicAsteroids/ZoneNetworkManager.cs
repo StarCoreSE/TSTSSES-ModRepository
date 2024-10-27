@@ -29,29 +29,34 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             }
         }
 
-        public void SendBatchedUpdates(
-            List<AsteroidState> updates,
-            ConcurrentDictionary<long, AsteroidZone> zones) {
+        public void SendBatchedUpdates(List<AsteroidState> updates, ConcurrentDictionary<long, AsteroidZone> zones) {
+            if (updates == null || updates.Count == 0 || zones == null || zones.Count == 0) {
+                return;
+            }
+
             // Group updates by zone
             var updatesByZone = updates.GroupBy(u => {
                 var zone = zones.FirstOrDefault(z => z.Value.IsPointInZone(u.Position));
                 return zone.Key;
-            });
+            }).Where(g => g.Key != 0); // Filter out updates with no zone
+
+            if (!updatesByZone.Any()) return;
 
             foreach (var zoneGroup in updatesByZone) {
-                if (zoneGroup.Key == 0) continue; // Skip if no zone found
-
                 // Find players who should receive these updates
                 var relevantPlayers = _playerZoneAwareness
                     .Where(p => p.Value.Contains(zoneGroup.Key))
-                    .Select(p => p.Key);
+                    .Select(p => p.Key)
+                    .ToList();
 
-                if (!relevantPlayers.Any()) continue;
+                if (relevantPlayers.Count == 0) continue;
 
                 // Send batched updates only to relevant players
                 const int MAX_UPDATES_PER_PACKET = 25;
                 for (int i = 0; i < zoneGroup.Count(); i += MAX_UPDATES_PER_PACKET) {
-                    var batch = zoneGroup.Skip(i).Take(MAX_UPDATES_PER_PACKET);
+                    var batch = zoneGroup.Skip(i).Take(MAX_UPDATES_PER_PACKET).ToList();
+                    if (batch.Count == 0) continue;
+
                     var packet = new AsteroidBatchUpdatePacket();
                     packet.Updates.AddRange(batch);
 
@@ -59,7 +64,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
                     // Send only to players who care about this zone
                     foreach (var playerId in relevantPlayers) {
-                        MyAPIGateway.Multiplayer.SendMessageTo(32000, data, GetSteamId(playerId));
+                        var steamId = GetSteamId(playerId);
+                        if (steamId != 0) {
+                            MyAPIGateway.Multiplayer.SendMessageTo(32000, data, steamId);
+                        }
                     }
                 }
             }

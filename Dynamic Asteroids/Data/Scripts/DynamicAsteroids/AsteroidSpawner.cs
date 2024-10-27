@@ -1120,17 +1120,26 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         public void SendNetworkMessages() {
             if (!MyAPIGateway.Session.IsServer || !MyAPIGateway.Utilities.IsDedicated)
                 return;
-
+            // Don't send messages if there are no valid spawn areas and gas giant rings are disabled
+            if (!AsteroidSettings.EnableGasGiantRingSpawning &&
+                (AsteroidSettings.ValidSpawnLocations == null ||
+                 AsteroidSettings.ValidSpawnLocations.Count == 0)) {
+                return;
+            }
+            // Don't send messages if there are no active zones or asteroids
+            if (playerZones.Count == 0 || _asteroids.Count == 0) {
+                return;
+            }
             try {
                 // Process immediate priority messages first
                 ProcessImmediateMessages();
-
                 // Then handle batched updates if it's time
                 if (_networkMessageTimer >= AsteroidSettings.NetworkUpdateInterval) {
                     // Update zone awareness
                     var playerPositions = GetPlayerPositions();
+                    // Skip if no players to update
+                    if (playerPositions.Count == 0) return;
                     _networkManager.UpdateZoneAwareness(playerPositions, playerZones);
-
                     // Process and send updates through the network manager
                     ProcessBatchedUpdates();
                 }
@@ -1215,6 +1224,11 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         private void ProcessBatchedUpdates() {
             List<IMyPlayer> players = new List<IMyPlayer>();
             MyAPIGateway.Players.GetPlayers(players);
+
+            if (players.Count == 0) {
+                Log.Info("No players to update, skipping batch update");
+                return;
+            }
 
             foreach (AsteroidEntity asteroid in _asteroids) {
                 if (asteroid == null || asteroid.MarkedForClose) continue;
