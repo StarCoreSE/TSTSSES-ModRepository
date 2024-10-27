@@ -529,6 +529,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         private void RemoveAsteroidOnClient(long entityId) {
             Log.Info($"Client: Removing asteroid with ID {entityId}");
 
+            _knownAsteroidIds.Remove(entityId); // Add this line
+
             AsteroidEntity asteroid = MyEntities.GetEntityById(entityId) as AsteroidEntity;
             if (asteroid != null) {
                 try {
@@ -574,6 +576,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             }
         }
 
+        private HashSet<long> _knownAsteroidIds = new HashSet<long>();
+
         private void ProcessClientMessage(AsteroidNetworkMessage message) {
             try {
                 if (!NetworkMessageVerification.ValidateMessage(message)) {
@@ -583,43 +587,73 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
                 if (message.IsRemoval) {
                     RemoveAsteroidOnClient(message.EntityId);
+                    _knownAsteroidIds.Remove(message.EntityId);
                     return;
                 }
 
+                // Check if we already know about this asteroid
+                bool isKnown = _knownAsteroidIds.Contains(message.EntityId);
                 AsteroidEntity existingAsteroid = MyEntities.GetEntityById(message.EntityId) as AsteroidEntity;
+
                 if (message.IsInitialCreation) {
-                    if (existingAsteroid != null) {
+                    if (existingAsteroid != null || isKnown) {
                         Log.Warning($"Received creation message for existing asteroid {message.EntityId}");
                         return;
                     }
 
-                    // On initial creation, don't generate random rotation, use server's
-                    CreateNewAsteroidOnClient(message);
+                    try {
+                        CreateNewAsteroidOnClient(message);
+                        _knownAsteroidIds.Add(message.EntityId);
+                    }
+                    catch (Exception ex) {
+                        if (ex.GetType().Name == "DuplicateIdException") {
+                            Log.Warning($"Duplicate ID detected for asteroid {message.EntityId}, removing existing entity first");
+                            RemoveAsteroidOnClient(message.EntityId);
+                            CreateNewAsteroidOnClient(message);
+                            _knownAsteroidIds.Add(message.EntityId);
+                        }
+                        else {
+                            throw;
+                        }
+                    }
                 }
                 else if (existingAsteroid != null) {
                     UpdateExistingAsteroidOnClient(existingAsteroid, message);
                 }
-                else {
-                    Log.Warning($"Received update for non-existent asteroid {message.EntityId}");
-                    CreateNewAsteroidOnClient(new AsteroidNetworkMessage(
-                        message.GetPosition(),
-                        message.Size,
-                        message.GetVelocity(),
-                        message.GetAngularVelocity(),
-                        message.GetType(),
-                        false,
-                        message.EntityId,
-                        false,
-                        true,
-                        message.GetRotation() // Use server's rotation
-                    ));
+                else if (!isKnown) {
+                    Log.Warning($"Received update for non-existent asteroid {message.EntityId}, creating new");
+                    try {
+                        CreateNewAsteroidOnClient(new AsteroidNetworkMessage(
+                            message.GetPosition(),
+                            message.Size,
+                            message.GetVelocity(),
+                            message.GetAngularVelocity(),
+                            message.GetType(),
+                            false,
+                            message.EntityId,
+                            false,
+                            true,
+                            message.GetRotation()
+                        ));
+                        _knownAsteroidIds.Add(message.EntityId);
+                    }
+                    catch (Exception ex) {
+                        if (ex.GetType().Name == "DuplicateIdException") {
+                            Log.Warning($"Duplicate ID detected during recovery of {message.EntityId}, removing and recreating");
+                            RemoveAsteroidOnClient(message.EntityId);
+                            CreateNewAsteroidOnClient(message);
+                            _knownAsteroidIds.Add(message.EntityId);
+                        }
+                        else {
+                            throw;
+                        }
+                    }
                 }
             }
             catch (Exception ex) {
                 Log.Exception(ex, typeof(MainSession), $"Error processing client message");
             }
         }
-
         // Add a separate method for batch updates
         private void ProcessBatchMessage(AsteroidBatchUpdatePacket packet) {
             try {

@@ -707,11 +707,19 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                     _pendingRemovals.Enqueue(asteroid.EntityId);
                 }
 
+                // Remove from all zone tracking
+                foreach (var zone in playerZones.Values) {
+                    zone.ContainedAsteroids.Remove(asteroid.EntityId);
+                    zone.TransferredFromOtherZone.Remove(asteroid.EntityId);
+                }
+
                 MyEntities.Remove(asteroid);
                 asteroid.Close();
 
                 AsteroidEntity removed;
                 _asteroids.TryTake(out removed);
+
+                Log.Info($"Successfully removed asteroid {asteroid.EntityId}");
             }
             catch (Exception ex) {
                 Log.Exception(ex, typeof(AsteroidSpawner), $"Error removing asteroid {asteroid?.EntityId}");
@@ -719,9 +727,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         }
         public void SpawnAsteroids(List<AsteroidZone> zones) {
             if (!MyAPIGateway.Session.IsServer) return; // Ensure only server handles spawning
-
-            if (!AreAsteroidsEnabled())
+             if (!AreAsteroidsEnabled())
                 return;
+
+             Log.Info($"Starting asteroid spawn cycle for {zones.Count} zones"); // Add debug logging
 
             int totalSpawnAttempts = 0;
             if (AsteroidSettings.MaxAsteroidCount == 0) {
@@ -737,6 +746,13 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             UpdatePlayerMovementData();
 
             foreach (AsteroidZone zone in zones) {
+                Log.Info($"Checking zone at {zone.Center}:" +
+                         $"\n - Current count: {zone.TotalAsteroidCount}/{AsteroidSettings.MaxAsteroidsPerZone}" +
+                         $"\n - Is marked for removal: {zone.IsMarkedForRemoval}" +
+                         $"\n - Can spawn: {zone.TotalAsteroidCount < AsteroidSettings.MaxAsteroidsPerZone}");
+                if (zone.IsMarkedForRemoval) continue;
+                if (zone.TotalAsteroidCount >= AsteroidSettings.MaxAsteroidsPerZone) continue;
+
                 int asteroidsSpawned = 0;
                 int zoneSpawnAttempts = 0;
 
@@ -1324,14 +1340,12 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 var trackedIds = _asteroids.Select(a => a.EntityId).ToHashSet();
                 var entities = new HashSet<IMyEntity>();
                 MyAPIGateway.Entities.GetEntities(entities);
-
-                // Convert to list for indexed access
                 var entityList = entities.Skip(_lastValidatedIndex).Take(VALIDATION_BATCH_SIZE).ToList();
-                int untrackedCount = 0;
+
+                var untrackedAsteroids = new List<AsteroidEntity>();
                 int processedCount = 0;
 
                 foreach (var entity in entityList) {
-                    // Check if we're taking too long
                     if ((DateTime.UtcNow - startTime).TotalMilliseconds > VALIDATION_MAX_TIME_MS) {
                         Log.Warning($"Validation taking too long - processed {processedCount} entities before timeout");
                         break;
@@ -1340,35 +1354,55 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                     var asteroid = entity as AsteroidEntity;
                     if (asteroid != null && !asteroid.MarkedForClose) {
                         if (!trackedIds.Contains(asteroid.EntityId)) {
-                            untrackedCount++;
+                            untrackedAsteroids.Add(asteroid);
                             Log.Warning($"Found untracked asteroid {asteroid.EntityId} at {asteroid.PositionComp.GetPosition()}");
                         }
                     }
                     processedCount++;
                 }
 
-                // Update the index for next time
+                // Handle untracked asteroids
+                if (untrackedAsteroids.Count > 0) {
+                    bool inActiveZone = false;
+                    foreach (var asteroid in untrackedAsteroids) {
+                        // Check if asteroid is in any active zone
+                        foreach (var zone in playerZones.Values) {
+                            if (zone.IsPointInZone(asteroid.PositionComp.GetPosition())) {
+                                // Add to tracking if in active zone
+                                _asteroids.Add(asteroid);
+                                zone.ContainedAsteroids.Add(asteroid.EntityId);
+                                inActiveZone = true;
+                                Log.Info($"Recovered untracked asteroid {asteroid.EntityId} in active zone");
+                                break;
+                            }
+                        }
+
+                        // Remove if not in any active zone
+                        if (!inActiveZone) {
+                            Log.Info($"Removing untracked asteroid {asteroid.EntityId} outside active zones");
+                            RemoveAsteroid(asteroid);
+                        }
+                    }
+                }
+
                 _lastValidatedIndex += processedCount;
                 if (_lastValidatedIndex >= entities.Count) {
-                    _lastValidatedIndex = 0; // Reset when we've checked everything
-
-                    if (untrackedCount > 0) {
-                        Log.Warning($"Validation cycle complete: Found {untrackedCount} untracked asteroids in world");
+                    _lastValidatedIndex = 0;
+                    if (untrackedAsteroids.Count > 0) {
+                        Log.Warning($"Validation cycle complete: Found and handled {untrackedAsteroids.Count} untracked asteroids");
                     }
                 }
 
                 double elapsedMs = (DateTime.UtcNow - startTime).TotalMilliseconds;
-                if (elapsedMs > 5.0) // Log if taking more than 5ms
-                {
+                if (elapsedMs > 5.0) {
                     Log.Info($"Asteroid validation took {elapsedMs:F2}ms to process {processedCount} entities");
                 }
             }
             catch (Exception ex) {
                 Log.Exception(ex, typeof(AsteroidSpawner), "Error in asteroid validation");
-                _lastValidatedIndex = 0; // Reset on error
+                _lastValidatedIndex = 0;
             }
         }
-
 
 
     }
