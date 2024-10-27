@@ -97,6 +97,11 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         private ConcurrentQueue<AsteroidEntity> _updateQueue = new ConcurrentQueue<AsteroidEntity>();
         private const int UpdatesPerTick = 50;// update rate of the roids
 
+        private ConcurrentQueue<long> _pendingRemovals = new ConcurrentQueue<long>();
+        private const int REMOVAL_BATCH_SIZE = 50;
+        private const double REMOVAL_BATCH_INTERVAL = 1.0; // seconds
+        private DateTime _lastRemovalBatch = DateTime.MinValue;
+
         private RealGasGiantsApi _realGasGiantsApi;
 
         private Dictionary<long, DateTime> _newAsteroidTimestamps = new Dictionary<long, DateTime>(); //JUST ONE MORE BRO JUST ONE MORE DICTIONARY WE GOTTA STORE THE DATA BRO WE MIGHT FORGET!!!
@@ -701,7 +706,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             MergeZones();
             UpdateZones();
             SendZoneUpdates();
-
+            
             try {
                 List<IMyPlayer> players = new List<IMyPlayer>();
                 MyAPIGateway.Players.GetPlayers(players);
@@ -749,6 +754,11 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                         CleanupOrphanedAsteroids();
                     }
                 }
+
+                if (MyAPIGateway.Session.IsServer) {
+                    ProcessPendingRemovals();
+                }
+
             }
             catch (Exception ex) {
                 Log.Exception(ex, typeof(AsteroidSpawner), "Error in UpdateTick");
@@ -1153,52 +1163,22 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
         private void RemoveAsteroid(AsteroidEntity asteroid) {
             if (asteroid == null) return;
+
             try {
-                var existingEntity = MyEntities.GetEntityById(asteroid.EntityId) as AsteroidEntity;
-                if (existingEntity == null || existingEntity.MarkedForClose) {
-                    AsteroidEntity removedFromBag;
-                    _asteroids.TryTake(out removedFromBag);
-                    _messageCache.Clear(); // Clear pending messages
-                    return;
+                if (MyAPIGateway.Session.IsServer) {
+                    _pendingRemovals.Enqueue(asteroid.EntityId);
                 }
 
-                if (existingEntity != asteroid) {
-                    Log.Warning($"Entity mismatch for asteroid {asteroid.EntityId} - skipping removal");
-                    return;
-                }
+                MyEntities.Remove(asteroid);
+                asteroid.Close();
 
-                AsteroidEntity removedAsteroid;
-                if (_asteroids.TryTake(out removedAsteroid)) {
-                    // Send removal message for any server (dedicated or not)
-                    if (MyAPIGateway.Session.IsServer) {
-                        var message = new AsteroidNetworkMessage(
-                            asteroid.PositionComp.GetPosition(),
-                            asteroid.Properties.Diameter,
-                            Vector3D.Zero,
-                            Vector3D.Zero,
-                            asteroid.Type,
-                            false,
-                            asteroid.EntityId,
-                            true,  // isRemoval
-                            false,
-                            Quaternion.Identity
-                        );
-                        byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(message);
-                        MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
-                        Log.Info($"Sent removal message for asteroid {asteroid.EntityId}");
-                    }
-
-                    MyEntities.Remove(asteroid);
-                    asteroid.Close();
-                    _messageCache.Clear(); // Clear pending messages after removal
-                    Log.Info($"Successfully removed asteroid {asteroid.EntityId} from world");
-                }
+                AsteroidEntity removed;
+                _asteroids.TryTake(out removed);
             }
             catch (Exception ex) {
                 Log.Exception(ex, typeof(AsteroidSpawner), $"Error removing asteroid {asteroid?.EntityId}");
             }
         }
-
         public void SendPositionUpdates() {
             if (!MyAPIGateway.Session.IsServer)
                 return;
@@ -1417,6 +1397,25 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             }
 
             return isTooFast;
+        }
+
+        private void ProcessPendingRemovals() {
+            if ((DateTime.UtcNow - _lastRemovalBatch).TotalSeconds < REMOVAL_BATCH_INTERVAL)
+                return;
+
+            var removalBatch = new List<long>();
+            long entityId;
+
+            while (removalBatch.Count < REMOVAL_BATCH_SIZE && _pendingRemovals.TryDequeue(out entityId)) {
+                removalBatch.Add(entityId);
+            }
+
+            if (removalBatch.Count > 0) {
+                var packet = new AsteroidBatchUpdatePacket { Removals = removalBatch };
+                byte[] data = MyAPIGateway.Utilities.SerializeToBinary(packet);
+                MyAPIGateway.Multiplayer.SendMessageToOthers(32000, data);
+                _lastRemovalBatch = DateTime.UtcNow;
+            }
         }
     }
 }
