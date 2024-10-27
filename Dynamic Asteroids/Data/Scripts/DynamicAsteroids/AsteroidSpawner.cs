@@ -334,11 +334,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                     }
                 }
 
-                // This second check shouldn't be here - we already checked at the start
-                if (!AreAsteroidsEnabled()) {
-                    continue;
-                }
-
                 AsteroidZone existingZone;
                 if (playerZones.TryGetValue(player.IdentityId, out existingZone)) {
                     existingZone.LastActiveTime = DateTime.UtcNow;
