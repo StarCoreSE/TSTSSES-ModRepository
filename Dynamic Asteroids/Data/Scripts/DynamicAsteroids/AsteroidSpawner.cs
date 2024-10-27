@@ -310,7 +310,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
         #region Player and Zone Management
         private void AssignZonesToPlayers() {
-            // Early exit if spawning disabled
             if (!AreAsteroidsEnabled()) {
                 playerZones.Clear();
                 return;
@@ -320,8 +319,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             MyAPIGateway.Players.GetPlayers(players);
             foreach (IMyPlayer player in players) {
                 Vector3D playerPosition = player.GetPosition();
-
-                // Skip invalid positions
                 if (Vector3D.IsZero(playerPosition) || double.IsNaN(playerPosition.X) ||
                     double.IsNaN(playerPosition.Y) || double.IsNaN(playerPosition.Z)) {
                     continue;
@@ -335,7 +332,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                     }
                 }
 
-                // Don't create new zones if spawning is disabled
+                // This second check shouldn't be here - we already checked at the start
                 if (!AreAsteroidsEnabled()) {
                     continue;
                 }
@@ -345,12 +342,17 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                     existingZone.LastActiveTime = DateTime.UtcNow;
                     if (!existingZone.IsPointInZone(playerPosition)) {
                         existingZone.MarkForRemoval();
-                        if (existingZone.State == ZoneState.Removed)
-                        {
+                        if (existingZone.State == ZoneState.Removed) {
                             AsteroidZone removedZone;
                             playerZones.TryRemove(player.IdentityId, out removedZone);
                         }
                     }
+                }
+                // Missing the else case where we create a new zone!
+                else {
+                    var newZone = new AsteroidZone(playerPosition, AsteroidSettings.ZoneRadius);
+                    playerZones.TryAdd(player.IdentityId, newZone);
+                    Log.Info($"Created new zone for player at {playerPosition}");
                 }
             }
         }
