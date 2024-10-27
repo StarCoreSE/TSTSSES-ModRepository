@@ -302,10 +302,12 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             }
         }
 
-        private bool AreAsteroidsEnabled() {
-            return AsteroidSettings.EnableGasGiantRingSpawning ||
-                   (AsteroidSettings.ValidSpawnLocations != null &&
-                    AsteroidSettings.ValidSpawnLocations.Count > 0);
+        public bool AreAsteroidsEnabled() {
+            bool enabled = AsteroidSettings.EnableGasGiantRingSpawning ||
+                           (AsteroidSettings.ValidSpawnLocations != null &&
+                            AsteroidSettings.ValidSpawnLocations.Count > 0);
+            Log.Info($"Asteroids enabled check: {enabled} (GasGiantRing: {AsteroidSettings.EnableGasGiantRingSpawning}, ValidLocations: {AsteroidSettings.ValidSpawnLocations?.Count ?? 0})");
+            return enabled;
         }
 
         #region Player and Zone Management
@@ -621,14 +623,17 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 }
             }
         }
+        private int _zoneUpdateTimer = 0;
+        private const int ZONE_UPDATE_INTERVAL = 60; // Once per second
         public void SendZoneUpdates() {
-            if (!MyAPIGateway.Session.IsServer)
-                return;
+            if (!MyAPIGateway.Session.IsServer) return;
+            if (!AreAsteroidsEnabled()) return;
 
-            // Don't send zone updates if spawning is disabled
-            if (!AreAsteroidsEnabled()) {
-                return;
-            }
+            _zoneUpdateTimer++;
+            if (_zoneUpdateTimer < ZONE_UPDATE_INTERVAL) return;
+            _zoneUpdateTimer = 0;
+
+            if (!HaveZonesChanged()) return;
 
             var zonePacket = new ZoneUpdatePacket();
             var mergedZoneIds = new HashSet<long>();
@@ -658,10 +663,27 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 });
             }
 
+
+
             // Serialize and send
             byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(zonePacket);
             MyAPIGateway.Multiplayer.SendMessageToOthers(32001, messageBytes);
         }
+        private Dictionary<long, Vector3D> _lastZonePositions = new Dictionary<long, Vector3D>();
+        private bool HaveZonesChanged() {
+            bool changed = false;
+            foreach (var zone in playerZones.Values)
+            {
+                Vector3D lastPos;
+                if (!_lastZonePositions.TryGetValue(zone.EntityId, out lastPos) ||
+                    Vector3D.DistanceSquared(lastPos, zone.Center) > 1) {
+                    changed = true;
+                    _lastZonePositions[zone.EntityId] = zone.Center;
+                }
+            }
+            return changed || _lastZonePositions.Count != playerZones.Count;
+        }
+
         #endregion
 
         #region Asteroid Management

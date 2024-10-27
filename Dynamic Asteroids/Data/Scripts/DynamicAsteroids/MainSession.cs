@@ -758,12 +758,25 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 }
             }
         }
-
+        private Dictionary<long, Vector3D> _lastProcessedZonePositions = new Dictionary<long, Vector3D>();
         private void ProcessZoneMessage(byte[] message) {
             try {
                 var zonePacket = MyAPIGateway.Utilities.SerializeFromBinary<ZoneUpdatePacket>(message);
-                if (zonePacket?.Zones == null)
+                if (zonePacket?.Zones == null || zonePacket.Zones.Count == 0)
                     return;
+
+                bool zonesChanged = false;
+                foreach (var zoneData in zonePacket.Zones)
+                {
+                    Vector3D lastPos;
+                    if (!_lastProcessedZonePositions.TryGetValue(zoneData.PlayerId, out lastPos) ||
+                        Vector3D.DistanceSquared(lastPos, zoneData.Center) > 1) {
+                        zonesChanged = true;
+                        break;
+                    }
+                }
+
+                if (!zonesChanged) return;
 
                 // In singleplayer, we should get zones directly from the spawner
                 if (MyAPIGateway.Session.IsServer && !MyAPIGateway.Utilities.IsDedicated) {
