@@ -976,7 +976,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         private DateTime _lastCleanupTime = DateTime.MinValue;
         private bool _isCleanupRunning = false;
         private const double CLEANUP_COOLDOWN_SECONDS = 10.0; // Minimum time between cleanups
-       
+
+
         public void UpdateTick() {
             if (!MyAPIGateway.Session.IsServer)
                 return;
@@ -997,6 +998,11 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                     }
                 }
 
+                _networkMessageTimer++;
+                if (_networkMessageTimer >= AsteroidSettings.NetworkUpdateInterval) {
+                    SendNetworkMessages();
+                    _networkMessageTimer = 0;
+                }
                 // Normal update logic...
                 if (_updateIntervalTimer <= 0) {
                     UpdateAsteroids(playerZones.Values.ToList());
@@ -1025,7 +1031,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                         Log.Exception(ex, typeof(AsteroidSpawner), "Error triggering validation");
                     }
                 }
-                //CleanupZones();
 
                 // Check if cleanup should run
                 if (!_isCleanupRunning && (DateTime.UtcNow - _lastCleanupTime).TotalSeconds >= CLEANUP_COOLDOWN_SECONDS) {
@@ -1111,28 +1116,36 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         }
 
         #endregion
-     
+
         #region Network Management
+
+        private int _networkMessageTimer = 0;
+
         public void SendNetworkMessages() {
             if (!MyAPIGateway.Session.IsServer || !MyAPIGateway.Utilities.IsDedicated)
-                return; // Skip in single-player or client-hosted games
+                return;
 
             try {
-                int messagesSent = 0;
+                // Process immediate messages first
+                int immediateMessagesSent = 0;
                 _messageCache.ProcessMessages(message => {
                     if (message.EntityId == 0) {
                         Log.Warning("Attempted to send message for asteroid with ID 0");
                         return;
                     }
 
-                    // Get the actual asteroid to ensure it still exists
                     AsteroidEntity asteroid = MyEntities.GetEntityById(message.EntityId) as AsteroidEntity;
                     if (asteroid == null) {
                         Log.Warning($"Attempted to send update for non-existent asteroid {message.EntityId}");
                         return;
                     }
 
-                    // Create fresh message with current data
+                    // Only send if the asteroid has changed significantly
+                    var state = _stateCache.GetState(asteroid.EntityId);
+                    if (state != null && !state.HasChanged(asteroid)) {
+                        return;
+                    }
+
                     AsteroidNetworkMessage updateMessage = new AsteroidNetworkMessage(
                         asteroid.PositionComp.GetPosition(),
                         asteroid.Properties.Diameter,
@@ -1142,28 +1155,52 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                         false,
                         asteroid.EntityId,
                         false,
-                        false, // This is an update, not initial creation
+                        false,
                         Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix)
                     );
 
                     byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(updateMessage);
-
                     if (messageBytes == null || messageBytes.Length == 0) {
                         Log.Warning("Failed to serialize network message");
                         return;
                     }
 
-                    Log.Info($"Server: Sending position update for asteroid ID {updateMessage.EntityId}, " +
-                             $"Position: {updateMessage.GetPosition()}, " +
-                             $"Velocity: {updateMessage.GetVelocity()}, " +
-                             $"Data size: {messageBytes.Length} bytes");
-
                     MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
-                    messagesSent++;
+                    immediateMessagesSent++;
                 });
 
-                if (messagesSent > 0) {
-                    Log.Info($"Server: Successfully sent {messagesSent} asteroid updates");
+                // Process batched updates if it's time
+                if (_networkMessageTimer >= AsteroidSettings.NetworkUpdateInterval) {
+                    var batchPacket = new AsteroidBatchUpdatePacket();
+                    List<IMyPlayer> players = new List<IMyPlayer>();
+                    MyAPIGateway.Players.GetPlayers(players);
+
+                    foreach (AsteroidEntity asteroid in _asteroids) {
+                        if (asteroid == null || asteroid.MarkedForClose) continue;
+
+                        bool shouldUpdate = false;
+                        foreach (IMyPlayer player in players) {
+                            if (ShouldUpdateAsteroid(asteroid, player.GetPosition())) {
+                                shouldUpdate = true;
+                                break;
+                            }
+                        }
+
+                        if (shouldUpdate) {
+                            _stateCache.UpdateState(asteroid);
+                        }
+                    }
+
+                    var dirtyAsteroids = _stateCache.GetDirtyAsteroids();
+                    if (dirtyAsteroids.Count > 0) {
+                        SendBatchedUpdates(dirtyAsteroids);
+                    }
+
+                    _stateCache.ClearDirtyStates();
+                }
+
+                if (immediateMessagesSent > 0) {
+                    Log.Info($"Server: Successfully sent {immediateMessagesSent} immediate asteroid updates");
                 }
             }
             catch (Exception ex) {
@@ -1171,44 +1208,31 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             }
         }
         public void SendPositionUpdates() {
-            if (!MyAPIGateway.Session.IsServer)
-                return;
+            if (!MyAPIGateway.Session.IsServer) return;
 
             try {
-                var batchPacket = new AsteroidBatchUpdatePacket();
                 List<IMyPlayer> players = new List<IMyPlayer>();
                 MyAPIGateway.Players.GetPlayers(players);
 
                 foreach (AsteroidEntity asteroid in _asteroids) {
-                    if (asteroid == null || asteroid.MarkedForClose)
-                        continue;
+                    if (asteroid == null || asteroid.MarkedForClose) continue;
 
-                    bool isNearPlayer = false;
-                    Vector3D asteroidPos = asteroid.PositionComp.GetPosition();
-
+                    bool shouldUpdate = false;
                     foreach (IMyPlayer player in players) {
-                        double distSquared = Vector3D.DistanceSquared(player.GetPosition(), asteroidPos);
-                        if (distSquared <= AsteroidSettings.ZoneRadius * AsteroidSettings.ZoneRadius) {
-                            isNearPlayer = true;
+                        if (ShouldUpdateAsteroid(asteroid, player.GetPosition())) {
+                            shouldUpdate = true;
                             break;
                         }
                     }
 
-                    if (!isNearPlayer)
-                        continue;
-
-                    _stateCache.UpdateState(asteroid);
+                    if (shouldUpdate) {
+                        _stateCache.UpdateState(asteroid);
+                    }
                 }
 
                 var dirtyAsteroids = _stateCache.GetDirtyAsteroids();
-                foreach (AsteroidState state in dirtyAsteroids) {
-                    batchPacket.Updates.Add(state);
-                }
-
-                if (batchPacket.Updates.Count > 0) {
-                    byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(batchPacket);
-                    MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
-                    Log.Info($"Server: Sent batch update for {batchPacket.Updates.Count} changed asteroids");
+                if (dirtyAsteroids.Count > 0) {
+                    SendBatchedUpdates(dirtyAsteroids);
                 }
 
                 _stateCache.ClearDirtyStates();
@@ -1253,6 +1277,35 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 _messageCache.AddMessage(message);// Add to message cache for processing
                 updatesProcessed++;
             }
+        }
+        private void SendBatchedUpdates(List<AsteroidState> updates) {
+            const int MAX_UPDATES_PER_PACKET = 50;
+
+            // Sort updates by priority (distance to closest player)
+            updates.Sort((a, b) =>
+                GetDistanceToClosestPlayer(a.Position)
+                    .CompareTo(GetDistanceToClosestPlayer(b.Position)));
+
+            // Split into smaller batches
+            for (int i = 0; i < updates.Count; i += MAX_UPDATES_PER_PACKET) {
+                var batch = updates.Skip(i).Take(MAX_UPDATES_PER_PACKET);
+                var packet = new AsteroidBatchUpdatePacket();
+                packet.Updates.AddRange(batch);
+
+                byte[] data = MyAPIGateway.Utilities.SerializeToBinary(packet);
+                MyAPIGateway.Multiplayer.SendMessageToOthers(32000, data);
+
+                Log.Info($"Sent batch update containing {batch.Count()} asteroids");
+            }
+        }
+        private bool ShouldUpdateAsteroid(AsteroidEntity asteroid, Vector3D playerPos) {
+            double distance = Vector3D.Distance(asteroid.PositionComp.GetPosition(), playerPos);
+
+            // Update closer asteroids more frequently
+            if (distance < 1000) return _networkMessageTimer % 2 == 0;
+            if (distance < 5000) return _networkMessageTimer % 10 == 0;
+            if (distance < 10000) return _networkMessageTimer % 20 == 0;
+            return _networkMessageTimer % 30 == 0;
         }
         #endregion
 
@@ -1351,7 +1404,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             }
         }
         #endregion
-       
+
         #region Utility Methods
         private double GetDistanceToClosestPlayer(Vector3D position) {
             double minDistance = double.MaxValue;
@@ -1369,6 +1422,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             return Math.Pow(rand.NextDouble(), 1 / 3d) * new Vector3D(sinPhi * Math.Cos(theta), sinPhi * Math.Sin(theta), Math.Cos(phi));
         }
         #endregion
+   
         private const int VALIDATION_BATCH_SIZE = 100; // Only check this many entities per validation
         private const double VALIDATION_MAX_TIME_MS = 16.0; // Max milliseconds to spend on validation (1 frame at 60fps)
         private int _lastValidatedIndex = 0; // Track where we left off
