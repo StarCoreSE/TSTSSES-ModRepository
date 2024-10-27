@@ -98,7 +98,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         private const int UpdatesPerTick = 50;// update rate of the roids
 
         private ConcurrentQueue<long> _pendingRemovals = new ConcurrentQueue<long>();
-        private const int REMOVAL_BATCH_SIZE = 50;
+        private const int REMOVAL_BATCH_SIZE = 10;
         private const double REMOVAL_BATCH_INTERVAL = 1.0; // seconds
         private DateTime _lastRemovalBatch = DateTime.MinValue;
 
@@ -822,7 +822,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             }
 
             // Process removals in batches
-            const int REMOVAL_BATCH_SIZE = 50;
+            const int REMOVAL_BATCH_SIZE = 10;
             for (int i = 0; i < asteroidsToRemove.Count; i += REMOVAL_BATCH_SIZE) {
                 var batch = asteroidsToRemove.Skip(i).Take(REMOVAL_BATCH_SIZE);
                 foreach (var asteroid in batch) {
