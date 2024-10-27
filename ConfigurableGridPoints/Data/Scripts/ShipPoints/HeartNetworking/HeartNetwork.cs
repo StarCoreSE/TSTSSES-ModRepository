@@ -45,7 +45,7 @@ namespace CGP.ShareTrack.HeartNetworking
         }
 
         public void Update() {
-            if (MasterSession.I == null || Log.IsUnloaded)
+            if (MasterSession.I == null || Log._unloaded)
                 return;
 
             _networkLoadUpdate--;
@@ -64,7 +64,7 @@ namespace CGP.ShareTrack.HeartNetworking
 
         private void ReceivedPacket(ushort channelId, byte[] serialized, ulong senderSteamId, bool isSenderServer) {
             // Add check if mod is unloaded
-            if (MasterSession.I == null || Log.IsUnloaded)
+            if (MasterSession.I == null || Log._unloaded)
                 return;
 
             try {
@@ -78,7 +78,7 @@ namespace CGP.ShareTrack.HeartNetworking
                 HandlePacket(packet, senderSteamId);
             }
             catch (Exception ex) {
-                if (!Log.IsUnloaded)
+                if (!Log._unloaded)
                     Log.Error(ex);
             }
         }
@@ -91,7 +91,7 @@ namespace CGP.ShareTrack.HeartNetworking
                 packet.Received(senderSteamId);
             }
             catch (Exception ex) {
-                if (!Log.IsUnloaded)
+                if (!Log._unloaded)
                     Log.Error(ex);
             }
         }

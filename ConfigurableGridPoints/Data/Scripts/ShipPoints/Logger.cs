@@ -37,8 +37,7 @@ namespace CGP.ShareTrack {
 
         private static Log _instance;
         private static Handler _handler;
-        private static bool _unloaded;
-        public static bool IsUnloaded { get; set; }
+        public static bool _unloaded;
 
         public static readonly string File = GenerateTimestampedFileName();
 
@@ -277,7 +276,7 @@ namespace CGP.ShareTrack {
         }
 
         protected override void UnloadData() {
-            IsUnloaded = true;
+            _unloaded = true;
             _instance = null;
             if (_handler != null && _handler.AutoClose)
                 Unload();
