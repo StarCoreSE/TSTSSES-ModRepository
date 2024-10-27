@@ -44,15 +44,16 @@ namespace CGP.ShareTrack.HeartNetworking
             I = null;
         }
 
-        public void Update()
-        {
+        public void Update() {
+            if (MasterSession.I == null || Log.IsUnloaded)
+                return;
+
             _networkLoadUpdate--;
-            if (_networkLoadUpdate <= 0)
-            {
+            if (_networkLoadUpdate <= 0) {
                 _networkLoadUpdate = NetworkLoadTicks;
                 TotalNetworkLoad = 0;
-                foreach (var networkLoadArray in TypeNetworkLoad.Keys.ToArray())
-                {
+
+                foreach (var networkLoadArray in TypeNetworkLoad.Keys.ToArray()) {
                     TotalNetworkLoad += TypeNetworkLoad[networkLoadArray];
                     TypeNetworkLoad[networkLoadArray] = 0;
                 }
