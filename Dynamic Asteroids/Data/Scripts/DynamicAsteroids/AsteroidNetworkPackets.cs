@@ -1,6 +1,7 @@
 ﻿using DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities;
 using ProtoBuf;
 using Sandbox.ModAPI;
+using System;
 using System.Collections.Generic;
 using VRageMath;
 
@@ -48,9 +49,20 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             EntityId = asteroid.EntityId;
         }
 
+        private float GetQuaternionAngleDifference(Quaternion a, Quaternion b) {
+            float dot = a.X * b.X + a.Y * b.Y + a.Z * b.Z + a.W * b.W;
+            dot = MathHelper.Clamp(dot, -1f, 1f);
+            return 2f * (float)Math.Acos(Math.Abs(dot));
+        }
+
         public bool HasChanged(AsteroidEntity asteroid) {
-            return Vector3D.DistanceSquared(Position, asteroid.PositionComp.GetPosition()) > 0.01
-                   || Vector3D.DistanceSquared(Velocity, asteroid.Physics.LinearVelocity) > 0.01;
+            const double POSITION_THRESHOLD = 0.01;
+            const double VELOCITY_THRESHOLD = 0.01;
+            const double ROTATION_THRESHOLD = 0.01;
+
+            return Vector3D.DistanceSquared(Position, asteroid.PositionComp.GetPosition()) > POSITION_THRESHOLD ||
+                   Vector3D.DistanceSquared(Velocity, asteroid.Physics.LinearVelocity) > VELOCITY_THRESHOLD ||
+                   GetQuaternionAngleDifference(Rotation, Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix)) > ROTATION_THRESHOLD;
         }
     }
 
