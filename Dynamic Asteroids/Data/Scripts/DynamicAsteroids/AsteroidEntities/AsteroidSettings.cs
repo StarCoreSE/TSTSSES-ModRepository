@@ -27,7 +27,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
         public static int UpdateInterval = 60;
         public static int NetworkUpdateInterval = 10; //this is the network metal pipe noise
         public static int MaxAsteroidCount = 20000;
-        public static int MaxAsteroidsPerZone = 100;
+        public static int MaxAsteroidsPerZone = 500;
         public static int MaxTotalAttempts = 100;
         public static int MaxZoneAttempts = 50;
         public static double ZoneRadius = 10000.0;

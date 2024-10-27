@@ -255,9 +255,13 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         private AsteroidStateCache _stateCache = new AsteroidStateCache();
         private NetworkMessageCache _messageCache = new NetworkMessageCache();
 
+        private ZoneNetworkManager _networkManager;
+
         public AsteroidSpawner(RealGasGiantsApi realGasGiantsApi) {
             _realGasGiantsApi = realGasGiantsApi;
+            _networkManager = new ZoneNetworkManager();
         }
+
 
         public void Init(int seed) {
             if (!MyAPIGateway.Session.IsServer) return;
@@ -1118,11 +1122,16 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 return;
 
             try {
-                // Process immediate pending messages first
+                // Process immediate priority messages first
                 ProcessImmediateMessages();
 
                 // Then handle batched updates if it's time
                 if (_networkMessageTimer >= AsteroidSettings.NetworkUpdateInterval) {
+                    // Update zone awareness
+                    var playerPositions = GetPlayerPositions();
+                    _networkManager.UpdateZoneAwareness(playerPositions, playerZones);
+
+                    // Process and send updates through the network manager
                     ProcessBatchedUpdates();
                 }
             }
@@ -1146,26 +1155,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 byte[] data = MyAPIGateway.Utilities.SerializeToBinary(packet);
                 MyAPIGateway.Multiplayer.SendMessageToOthers(32000, data);
                 _lastRemovalBatch = DateTime.UtcNow;
-            }
-        }
-        private void SendBatchedUpdates(List<AsteroidState> updates) {
-            const int MAX_UPDATES_PER_PACKET = 25; // Reduced from 50
-            const int MAX_PACKETS_PER_INTERVAL = 4; // Limit packets per interval
-
-            updates.Sort((a, b) => GetDistanceToClosestPlayer(a.Position)
-                .CompareTo(GetDistanceToClosestPlayer(b.Position)));
-
-            int packetsCount = 0;
-            for (int i = 0; i < updates.Count && packetsCount < MAX_PACKETS_PER_INTERVAL; i += MAX_UPDATES_PER_PACKET) {
-                var batch = updates.Skip(i).Take(MAX_UPDATES_PER_PACKET);
-                var packet = new AsteroidBatchUpdatePacket();
-                packet.Updates.AddRange(batch);
-
-                byte[] data = MyAPIGateway.Utilities.SerializeToBinary(packet);
-                MyAPIGateway.Multiplayer.SendMessageToOthers(32000, data);
-
-                Log.Info($"Sent batch update containing {batch.Count()} asteroids");
-                packetsCount++;
             }
         }
         private bool ShouldUpdateAsteroid(AsteroidEntity asteroid, Vector3D playerPos) {
@@ -1224,15 +1213,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             }
         }
         private void ProcessBatchedUpdates() {
-            const int MAX_UPDATES_PER_INTERVAL = 100; // Limit total updates per interval
-            int updatesProcessed = 0;
-
             List<IMyPlayer> players = new List<IMyPlayer>();
             MyAPIGateway.Players.GetPlayers(players);
 
             foreach (AsteroidEntity asteroid in _asteroids) {
-                if (updatesProcessed >= MAX_UPDATES_PER_INTERVAL) break;
-
                 if (asteroid == null || asteroid.MarkedForClose) continue;
 
                 bool shouldUpdate = false;
@@ -1245,13 +1229,13 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
                 if (shouldUpdate) {
                     _stateCache.UpdateState(asteroid);
-                    updatesProcessed++;
                 }
             }
 
             var dirtyAsteroids = _stateCache.GetDirtyAsteroids();
             if (dirtyAsteroids.Count > 0) {
-                SendBatchedUpdates(dirtyAsteroids);
+                // Replace SendBatchedUpdates call with ZoneNetworkManager version
+                _networkManager.SendBatchedUpdates(dirtyAsteroids, playerZones);
             }
 
             _stateCache.ClearDirtyStates();
@@ -1370,8 +1354,21 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             double sinPhi = Math.Sin(phi);
             return Math.Pow(rand.NextDouble(), 1 / 3d) * new Vector3D(sinPhi * Math.Cos(theta), sinPhi * Math.Sin(theta), Math.Cos(phi));
         }
+        private Dictionary<long, Vector3D> GetPlayerPositions() {
+            var positions = new Dictionary<long, Vector3D>();
+            var players = new List<IMyPlayer>();
+            MyAPIGateway.Players.GetPlayers(players);
+
+            foreach (var player in players) {
+                if (player?.Character != null) {
+                    positions[player.IdentityId] = player.GetPosition();
+                }
+            }
+
+            return positions;
+        }
         #endregion
-   
+
         private const int VALIDATION_BATCH_SIZE = 100; // Only check this many entities per validation
         private const double VALIDATION_MAX_TIME_MS = 16.0; // Max milliseconds to spend on validation (1 frame at 60fps)
         private int _lastValidatedIndex = 0; // Track where we left off
