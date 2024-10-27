@@ -481,50 +481,6 @@ namespace WarpDriveMod
             return drive?.System != null && drive.System.Valid;
         }
 
-        private void OnPlayerLeftCockpit(string entityName, long playerId, string gridName) {
-            // Verify that WarpDrive.Instance and other required systems are active
-            if (WarpDrive.Instance == null || WarpDrive.Instance.System == null)
-                return;
-
-            // Try parsing the entity name to get the cockpit ID
-            long cockpitId;
-            if (long.TryParse(entityName, out cockpitId)) {
-                var cockpit = MyAPIGateway.Entities.GetEntityById(cockpitId) as IMyShipController;
-                if (cockpit == null || cockpit.CubeGrid == null)
-                    return;
-
-                // Check if the cockpit's grid has an active warp drive and is in warp state
-                var warpDrive = WarpDrive.Instance;
-                if (warpDrive.System.WarpState != WarpSystem.State.Active)
-                    return;
-
-                // Validate that the warp drive and cockpit belong to the same grid
-                if (warpDrive.Block?.CubeGrid.EntityId != cockpit.CubeGrid.EntityId)
-                    return;
-
-                // Trigger warp exit sequence
-                warpDrive.System.SafeTriggerON = true;
-
-                if (MyAPIGateway.Utilities.IsDedicated || MyAPIGateway.Multiplayer.IsServer) {
-                    warpDrive.System.currentSpeedPt = -1f;
-                    cockpit.CubeGrid?.Physics?.ClearSpeed();
-
-                    warpDrive.System.Dewarp(true);
-                    warpDrive.Block.Enabled = false;
-                    warpDrive.BlockWasON = true;
-                }
-
-                warpDrive.System.SafeTriggerON = false;
-            }
-        }
-
-        public override void LoadData() {
-            Instance = this;
-
-            // Subscribe to PlayerLeftCockpit event
-            MyVisualScriptLogicProvider.PlayerLeftCockpit += OnPlayerLeftCockpit;
-        }
-
         protected override void UnloadData()
         {
             try
