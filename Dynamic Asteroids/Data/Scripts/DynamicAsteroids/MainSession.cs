@@ -439,27 +439,14 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                     return;
                 }
 
-                if (handlerId == 32001) // Zone updates
-                {
-                    ProcessZoneMessage(message);
-                    return;
-                }
-
-                // Try to deserialize as container first
                 try {
-                    var container =
-                        MyAPIGateway.Utilities.SerializeFromBinary<AsteroidNetworkMessageContainer>(message);
-                    if (container != null && container.Messages != null) {
-                        Log.Info($"Received batch update with {container.Messages.Length} asteroids");
-                        foreach (var asteroidMessage in container.Messages) {
-                            ProcessClientMessage(asteroidMessage);
-                        }
-
+                    var batchPacket = MyAPIGateway.Utilities.SerializeFromBinary<AsteroidBatchUpdatePacket>(message);
+                    if (batchPacket != null) {
+                        ProcessBatchMessage(batchPacket);
                         return;
                     }
                 }
                 catch {
-                    // If container deserialization fails, try individual message
                     var asteroidMessage = MyAPIGateway.Utilities.SerializeFromBinary<AsteroidNetworkMessage>(message);
                     if (!MyAPIGateway.Session.IsServer) {
                         ProcessClientMessage(asteroidMessage);
@@ -621,6 +608,21 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             }
         }
 
+        // Add a separate method for batch updates
+        private void ProcessBatchMessage(AsteroidBatchUpdatePacket packet) {
+            try {
+                if (packet.Removals != null && packet.Removals.Count > 0) {
+                    foreach (long entityId in packet.Removals) {
+                        RemoveAsteroidOnClient(entityId);
+                    }
+                }
+
+                // Process other batch data as needed...
+            }
+            catch (Exception ex) {
+                Log.Exception(ex, typeof(MainSession), "Error processing batch update");
+            }
+        }
         private float GetQuaternionAngleDifference(Quaternion a, Quaternion b) {
             // Get the dot product between the quaternions
             float dot = a.X * b.X + a.Y * b.Y + a.Z * b.Z + a.W * b.W;
