@@ -87,7 +87,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
         public static AsteroidEntity CreateAsteroid(Vector3D position, float size, Vector3D initialVelocity, AsteroidType type, Quaternion? rotation = null, long? entityId = null) {
             var ent = new AsteroidEntity();
             try {
-                if (entityId.HasValue)
+                // Only set EntityId if we're the server
+                if (entityId.HasValue && MyAPIGateway.Session.IsServer)
                     ent.EntityId = entityId.Value;
 
                 var massRange = AsteroidSettings.MinMaxMassByType[type];
