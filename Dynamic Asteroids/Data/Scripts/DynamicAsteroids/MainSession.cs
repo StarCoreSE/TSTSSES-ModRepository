@@ -541,22 +541,23 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         private void RemoveAsteroidOnClient(long entityId) {
             try {
                 Log.Info($"Client: Removing asteroid with ID {entityId}");
+
+                // Remove from tracking first
                 _knownAsteroidIds.Remove(entityId);
                 _serverPositions.Remove(entityId);
                 _serverRotations.Remove(entityId);
 
+                // Then remove the entity
                 var asteroid = MyEntities.GetEntityById(entityId) as AsteroidEntity;
                 if (asteroid != null) {
-                    MyAPIGateway.Utilities.InvokeOnGameThread(() => {
-                        try {
-                            MyEntities.Remove(asteroid);
-                            asteroid.Close();
-                            Log.Info($"Client: Successfully removed asteroid {entityId}");
-                        }
-                        catch (Exception ex) {
-                            Log.Warning($"Error removing asteroid {entityId}: {ex.Message}");
-                        }
-                    });
+                    try {
+                        MyEntities.Remove(asteroid);
+                        asteroid.Close();
+                        Log.Info($"Client: Successfully removed asteroid {entityId}");
+                    }
+                    catch (Exception ex) {
+                        Log.Warning($"Error removing asteroid {entityId}: {ex.Message}");
+                    }
                 }
             }
             catch (Exception ex) {
@@ -931,55 +932,60 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         private void ProcessZoneMessage(byte[] message) {
             try {
                 var zonePacket = MyAPIGateway.Utilities.SerializeFromBinary<ZoneUpdatePacket>(message);
-                if (zonePacket == null || zonePacket.Zones == null || zonePacket.Zones.Count == 0) return;
+                if (zonePacket?.Zones == null || zonePacket.Zones.Count == 0) return;
 
-                bool zonesChanged = false;
+                // Clear all existing known asteroid IDs when zones change significantly
+                bool significantZoneChange = false;
                 foreach (var zoneData in zonePacket.Zones) {
                     Vector3D lastPos;
-                    if (!_lastProcessedZonePositions.TryGetValue(zoneData.PlayerId, out lastPos) ||
-                        Vector3D.DistanceSquared(lastPos, zoneData.Center) > 1) {
-                        zonesChanged = true;
-                        break;
+                    if (_lastProcessedZonePositions.TryGetValue(zoneData.PlayerId, out lastPos)) {
+                        if (Vector3D.DistanceSquared(lastPos, zoneData.Center) > AsteroidSettings.ZoneRadius * AsteroidSettings.ZoneRadius) {
+                            significantZoneChange = true;
+                            break;
+                        }
+                    }
+                    else {
+                        significantZoneChange = true;
                     }
                 }
 
-                if (!zonesChanged) return;
-
-                if (MyAPIGateway.Session.IsServer && !MyAPIGateway.Utilities.IsDedicated) {
-                    if (_spawner != null) {
-                        UpdateClientZones(_spawner.playerZones.ToDictionary(kvp => kvp.Key, kvp => kvp.Value));
-                    }
-                    return;
+                if (significantZoneChange) {
+                    Log.Info("Significant zone change detected, clearing client state");
+                    _knownAsteroidIds.Clear();
+                    _serverPositions.Clear();
+                    _serverRotations.Clear();
                 }
 
-                var previousZones = new Dictionary<long, AsteroidZone>(_clientZones);
-                _clientZones.Clear();
-
-                foreach (var zoneData in zonePacket.Zones) {
-                    var newZone = new AsteroidZone(zoneData.Center, zoneData.Radius) {
-                        IsMarkedForRemoval = !zoneData.IsActive,
-                        IsMerged = zoneData.IsMerged,
-                        CurrentSpeed = zoneData.CurrentSpeed,
-                        PlayerId = zoneData.PlayerId
-                    };
-                    _clientZones[zoneData.PlayerId] = newZone;
-                    previousZones.Remove(zoneData.PlayerId);
-                }
-
-                foreach (var removedZone in previousZones.Values) {
-                    _lastRemovedZones.Enqueue(removedZone);
-                    while (_lastRemovedZones.Count > 5) {
-                        _lastRemovedZones.Dequeue();
+                if (!MyAPIGateway.Session.IsServer) {
+                    _clientZones.Clear();
+                    foreach (var zoneData in zonePacket.Zones) {
+                        var newZone = new AsteroidZone(zoneData.Center, zoneData.Radius) {
+                            IsMarkedForRemoval = !zoneData.IsActive,
+                            IsMerged = zoneData.IsMerged,
+                            CurrentSpeed = zoneData.CurrentSpeed,
+                            LastActiveTime = DateTime.UtcNow
+                        };
+                        _clientZones[zoneData.PlayerId] = newZone;
+                        _lastProcessedZonePositions[zoneData.PlayerId] = zoneData.Center;
                     }
 
-                    if (!MyAPIGateway.Session.IsServer) {
-                        var entities = new HashSet<IMyEntity>();
-                        MyAPIGateway.Entities.GetEntities(entities);
-                        foreach (var entity in entities) {
-                            var asteroid = entity as AsteroidEntity;
-                            if (asteroid != null && removedZone.IsPointInZone(asteroid.PositionComp.GetPosition())) {
-                                RemoveAsteroidOnClient(asteroid.EntityId);
+                    // Clean up asteroids that are no longer in any zone
+                    var entities = new HashSet<IMyEntity>();
+                    MyAPIGateway.Entities.GetEntities(entities);
+                    foreach (var entity in entities) {
+                        var asteroid = entity as AsteroidEntity;
+                        if (asteroid == null) continue;
+
+                        bool inAnyZone = false;
+                        foreach (var zone in _clientZones.Values) {
+                            if (zone.IsPointInZone(asteroid.PositionComp.GetPosition())) {
+                                inAnyZone = true;
+                                break;
                             }
+                        }
+
+                        if (!inAnyZone) {
+                            RemoveAsteroidOnClient(asteroid.EntityId);
                         }
                     }
                 }
@@ -988,6 +994,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 Log.Exception(ex, typeof(MainSession), "Error processing zone packet");
             }
         }
+
         private void OnSettingsSyncReceived(ushort handlerId, byte[] data, ulong steamId, bool isFromServer) {
             if (!isFromServer) return;
 
