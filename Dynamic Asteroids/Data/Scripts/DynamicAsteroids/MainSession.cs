@@ -541,23 +541,22 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         private void RemoveAsteroidOnClient(long entityId) {
             try {
                 Log.Info($"Client: Removing asteroid with ID {entityId}");
-
-                // Remove from tracking first
                 _knownAsteroidIds.Remove(entityId);
                 _serverPositions.Remove(entityId);
                 _serverRotations.Remove(entityId);
 
-                // Then remove the entity
                 var asteroid = MyEntities.GetEntityById(entityId) as AsteroidEntity;
                 if (asteroid != null) {
-                    try {
-                        MyEntities.Remove(asteroid);
-                        asteroid.Close();
-                        Log.Info($"Client: Successfully removed asteroid {entityId}");
-                    }
-                    catch (Exception ex) {
-                        Log.Warning($"Error removing asteroid {entityId}: {ex.Message}");
-                    }
+                    MyAPIGateway.Utilities.InvokeOnGameThread(() => {
+                        try {
+                            MyEntities.Remove(asteroid);
+                            asteroid.Close();
+                            Log.Info($"Client: Successfully removed asteroid {entityId}");
+                        }
+                        catch (Exception ex) {
+                            Log.Warning($"Error removing asteroid {entityId}: {ex.Message}");
+                        }
+                    });
                 }
             }
             catch (Exception ex) {
