@@ -18,6 +18,7 @@ using static DynamicAsteroids.Data.Scripts.DynamicAsteroids.MainSession;
 
 namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
     public class AsteroidZone {
+        public long PlayerId { get; set; }
         public Vector3D Center { get; set; }
         public double Radius { get; set; }
         public int AsteroidCount { get; set; }
@@ -86,6 +87,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
     public class AsteroidSpawner {
         private ConcurrentBag<AsteroidEntity> _asteroids;
+        private ConcurrentDictionary<long, AsteroidEntity> _asteroidLookup = new ConcurrentDictionary<long, AsteroidEntity>();
         private bool _canSpawnAsteroids = false;
         private DateTime _worldLoadTime;
         private Random rand;
@@ -263,7 +265,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         }
 
         public bool IsAsteroidTracked(long entityId) {
-            return _asteroids.Any(a => a.EntityId == entityId);
+            return _asteroidLookup.ContainsKey(entityId);
         }
 
         public void Init(int seed) {
@@ -756,21 +758,20 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         }
         public void AddAsteroid(AsteroidEntity asteroid) {
             _asteroids.Add(asteroid);
+            _asteroidLookup[asteroid.EntityId] = asteroid;
             _newAsteroidTimestamps[asteroid.EntityId] = DateTime.UtcNow;
             Log.Info($"Added new asteroid {asteroid.EntityId} with grace period");
         }
         public bool TryRemoveAsteroid(AsteroidEntity asteroid) {
             return _asteroids.TryTake(out asteroid);
         }
+
         private void RemoveAsteroid(AsteroidEntity asteroid) {
             if (asteroid == null) return;
-
             try {
                 if (MyAPIGateway.Session.IsServer) {
                     _pendingRemovals.Enqueue(asteroid.EntityId);
                 }
-
-                // Remove from all zone tracking
                 foreach (var zone in playerZones.Values) {
                     zone.ContainedAsteroids.Remove(asteroid.EntityId);
                     zone.TransferredFromOtherZone.Remove(asteroid.EntityId);
@@ -778,16 +779,17 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
                 MyEntities.Remove(asteroid);
                 asteroid.Close();
-
                 AsteroidEntity removed;
                 _asteroids.TryTake(out removed);
-
+                AsteroidEntity removedFromLookup;
+                _asteroidLookup.TryRemove(asteroid.EntityId, out removedFromLookup);
                 Log.Info($"Successfully removed asteroid {asteroid.EntityId}");
             }
             catch (Exception ex) {
                 Log.Exception(ex, typeof(AsteroidSpawner), $"Error removing asteroid {asteroid?.EntityId}");
             }
         }
+
         public void SpawnAsteroids(List<AsteroidZone> zones) {
             if (!MyAPIGateway.Session.IsServer) return;
             if (!AreAsteroidsEnabled()) return;
