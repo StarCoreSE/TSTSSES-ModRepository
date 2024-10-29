@@ -562,7 +562,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             HashSet<AsteroidZone> oldZones = new HashSet<AsteroidZone>(playerZones.Values);
 
             foreach (IMyPlayer player in players) {
-                if (player?.Character == null) continue;
+                if (player?.Character == null)
+                    continue;
 
                 Vector3D playerPosition = player.GetPosition();
                 PlayerMovementData data;
@@ -577,8 +578,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                     if (zone.IsPointInZone(playerPosition)) {
                         playerInZone = true;
                         oldZones.Remove(zone);
+                        // Update zone position to follow player
+                        zone.Center = playerPosition;  // This line might be missing
                         updatedZones[player.IdentityId] = zone;
-                        zone.Center = playerPosition; // Update zone position to follow player
                         break;
                     }
                 }
@@ -721,11 +723,26 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             }
         }
         public void SpawnAsteroids(List<AsteroidZone> zones) {
-            if (!MyAPIGateway.Session.IsServer) return; // Ensure only server handles spawning
-             if (!AreAsteroidsEnabled())
-                return;
+            if (!MyAPIGateway.Session.IsServer) return;
+            if (!AreAsteroidsEnabled()) return;
 
-             Log.Info($"Starting asteroid spawn cycle for {zones.Count} zones"); // Add debug logging
+            Log.Info($"Starting asteroid spawn cycle for {zones.Count} zones");
+
+            // Update zone positions based on player positions
+            List<IMyPlayer> players = new List<IMyPlayer>();
+            MyAPIGateway.Players.GetPlayers(players);
+            foreach (AsteroidZone zone in zones) {
+                var zoneOwner = players.FirstOrDefault(p =>
+                    playerZones.ContainsKey(p.IdentityId) &&
+                    playerZones[p.IdentityId] == zone);
+
+                if (zoneOwner != null) {
+                    Vector3D playerPos = zoneOwner.GetPosition();
+                    // Update zone position to follow player
+                    zone.Center = playerPos;
+                    zone.LastActiveTime = DateTime.UtcNow;
+                }
+            }
 
             int totalSpawnAttempts = 0;
             if (AsteroidSettings.MaxAsteroidCount == 0) {
@@ -745,6 +762,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                          $"\n - Current count: {zone.TotalAsteroidCount}/{AsteroidSettings.MaxAsteroidsPerZone}" +
                          $"\n - Is marked for removal: {zone.IsMarkedForRemoval}" +
                          $"\n - Can spawn: {zone.TotalAsteroidCount < AsteroidSettings.MaxAsteroidsPerZone}");
+
                 if (zone.IsMarkedForRemoval) continue;
                 if (zone.TotalAsteroidCount >= AsteroidSettings.MaxAsteroidsPerZone) continue;
 
@@ -759,29 +777,28 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 }
 
                 bool skipSpawning = false;
-                List<IMyPlayer> players = new List<IMyPlayer>();
-                MyAPIGateway.Players.GetPlayers(players);
-
                 foreach (IMyPlayer player in players) {
                     Vector3D playerPosition = player.GetPosition();
                     if (!zone.IsPointInZone(playerPosition)) continue;
+
                     PlayerMovementData data;
                     if (!playerMovementData.TryGetValue(player.IdentityId, out data)) continue;
+
                     if (IsPlayerMovingTooFast(player)) {
                         skipSpawning = true;
+                        zone.CurrentSpeed = data.Speed; // Update zone speed tracking
                         Log.Info($"Skipping asteroid spawning for player {player.DisplayName} due to high speed: {data.Speed:F2} m/s > {AsteroidSettings.ZoneSpeedThreshold} m/s");
                         break;
                     }
                 }
 
-                if (skipSpawning) {
-                    continue;
-                }
+                if (skipSpawning) continue;
 
                 while (zone.AsteroidCount < AsteroidSettings.MaxAsteroidsPerZone &&
-                      asteroidsSpawned < 10 &&
-                      zoneSpawnAttempts < AsteroidSettings.MaxZoneAttempts &&
-                      totalSpawnAttempts < AsteroidSettings.MaxTotalAttempts) {
+                       asteroidsSpawned < 10 &&
+                       zoneSpawnAttempts < AsteroidSettings.MaxZoneAttempts &&
+                       totalSpawnAttempts < AsteroidSettings.MaxTotalAttempts) {
+
                     Vector3D newPosition;
                     bool isInRing = false;
                     bool validPosition = false;
@@ -791,7 +808,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                         newPosition = zone.Center + RandVector() * AsteroidSettings.ZoneRadius;
                         zoneSpawnAttempts++;
                         totalSpawnAttempts++;
-                        //Log.Info($"Attempting to spawn asteroid at {newPosition} (attempt {totalSpawnAttempts})");
 
                         if (AsteroidSettings.EnableGasGiantRingSpawning && _realGasGiantsApi != null && _realGasGiantsApi.IsReady) {
                             ringInfluence = _realGasGiantsApi.GetRingInfluenceAtPositionGlobal(newPosition);
@@ -807,15 +823,15 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                         }
 
                     } while (!validPosition &&
-                            zoneSpawnAttempts < AsteroidSettings.MaxZoneAttempts &&
-                            totalSpawnAttempts < AsteroidSettings.MaxTotalAttempts);
+                             zoneSpawnAttempts < AsteroidSettings.MaxZoneAttempts &&
+                             totalSpawnAttempts < AsteroidSettings.MaxTotalAttempts);
 
-                    if (zoneSpawnAttempts >= AsteroidSettings.MaxZoneAttempts || totalSpawnAttempts >= AsteroidSettings.MaxTotalAttempts)
+                    if (zoneSpawnAttempts >= AsteroidSettings.MaxZoneAttempts ||
+                        totalSpawnAttempts >= AsteroidSettings.MaxTotalAttempts)
                         break;
 
                     Vector3D newVelocity;
                     if (!AsteroidSettings.CanSpawnAsteroidAtPoint(newPosition, out newVelocity, isInRing)) {
-                        //Log.Info($"Cannot spawn asteroid at {newPosition}, skipping.");
                         continue;
                     }
 
@@ -828,11 +844,6 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                     if (AsteroidSettings.MaxAsteroidCount != -1 && _asteroids.Count >= AsteroidSettings.MaxAsteroidCount) {
                         Log.Warning($"Maximum asteroid count of {AsteroidSettings.MaxAsteroidCount} reached. No more asteroids will be spawned until existing ones are removed.");
                         return;
-                    }
-
-                    if (zone.AsteroidCount >= AsteroidSettings.MaxAsteroidsPerZone) {
-                        Log.Info($"Zone at {zone.Center} has reached its maximum asteroid count ({AsteroidSettings.MaxAsteroidsPerZone}). Skipping further spawning in this zone.");
-                        break;
                     }
 
                     float spawnChance = isInRing ?
@@ -854,19 +865,23 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                     Quaternion rotation = Quaternion.CreateFromYawPitchRoll(
                         (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi,
                         (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi,
-                        (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi);
+                        (float)MainSession.I.Rand.NextDouble() * MathHelper.TwoPi
+                    );
 
                     AsteroidEntity asteroid = AsteroidEntity.CreateAsteroid(newPosition, size, newVelocity, type, rotation);
-
                     if (asteroid == null) continue;
+
                     _asteroids.Add(asteroid);
+                    zone.ContainedAsteroids.Add(asteroid.EntityId); // Track asteroid in zone
                     zone.AsteroidCount++;
                     spawnedPositions.Add(newPosition);
 
-                    _messageCache.AddMessage(new AsteroidNetworkMessage(newPosition, size, newVelocity, Vector3D.Zero, type, false, asteroid.EntityId, false, true, rotation));
-                    asteroidsSpawned++;
+                    _messageCache.AddMessage(new AsteroidNetworkMessage(
+                        newPosition, size, newVelocity, Vector3D.Zero, type,
+                        false, asteroid.EntityId, false, true, rotation));
 
-                    Log.Info($"Spawned asteroid at {newPosition} with size {size} and type {type}");
+                    asteroidsSpawned++;
+                    Log.Info($"Spawned asteroid {asteroid.EntityId} at {newPosition} with size {size} and type {type}");
                 }
 
                 totalAsteroidsSpawned += asteroidsSpawned;
