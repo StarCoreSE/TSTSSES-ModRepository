@@ -224,8 +224,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         }
 
         public static void SendAsteroidRemoval(long entityId) {
+            Log.Info($"Broadcasting asteroid removal: {entityId}");
             var packet = new AsteroidRemovalPacket { EntityId = entityId };
-
             byte[] data = MyAPIGateway.Utilities.SerializeToBinary(packet);
             MyAPIGateway.Multiplayer.SendMessageToOthers(32000, data);
         }
