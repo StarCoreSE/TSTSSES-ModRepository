@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Invalid.DynamicDebris.Data.Scripts.DynamicDebrisFramework.Utils {
-    internal class Constants {
+namespace Invalid.DynamicDebris.Data.Scripts.DynamicDebrisFramework.Entities {
+    internal class DebrisEntity {
     }
 }

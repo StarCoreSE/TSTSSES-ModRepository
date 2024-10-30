@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Invalid.DynamicDebris.Data.Scripts.DynamicDebrisFramework.Utils {
-    internal class DebugDraw {
+namespace Invalid.DynamicDebris.Data.Scripts.DynamicDebrisFramework.Core.Session {
+    internal class DebrisSpawnManager {
     }
 }

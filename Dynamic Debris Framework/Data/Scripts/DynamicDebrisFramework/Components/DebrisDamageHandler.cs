@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Invalid.DynamicDebris.Data.Scripts.DynamicDebrisFramework.Core {
-    internal class DebrisEntity {
+namespace Invalid.DynamicDebris.Data.Scripts.DynamicDebrisFramework.Components {
+    internal class DebrisDamageHandler {
     }
 }

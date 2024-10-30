@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Invalid.DynamicDebris.Data.Scripts.DynamicDebrisFramework.Spawn {
-    internal class SpawnManager {
+namespace Invalid.DynamicDebris.Data.Scripts.DynamicDebrisFramework.Definitions {
+    internal class DebrisDefinitionManager {
     }
 }
