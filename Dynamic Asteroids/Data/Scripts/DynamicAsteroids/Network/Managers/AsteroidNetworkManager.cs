@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace DynamicAsteroids {
     public class AsteroidNetworkManager : BaseNetworkManager {
-        
+
         public AsteroidNetworkManager(Action<string> logger) : base(logger) {
         }
 

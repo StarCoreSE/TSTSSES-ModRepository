@@ -10,13 +10,15 @@ namespace DynamicAsteroids {
         public AsteroidNetworkManager AsteroidManager { get; }
         public ZoneNetworkManager ZoneManager { get; }
         public PlayerStateNetworkManager PlayerStateManager { get; }
+        private readonly NetworkLogger _logger;
 
         private readonly Dictionary<ushort, Action<byte[], ulong, bool>> _messageHandlers;
 
         public NetworkManagerService(Action<string> logger) {
-            AsteroidManager = new AsteroidNetworkManager(logger);
-            ZoneManager = new ZoneNetworkManager(logger);
-            PlayerStateManager = new PlayerStateNetworkManager(logger);
+            _logger = new NetworkLogger("NetworkManager");
+            AsteroidManager = new AsteroidNetworkManager(_logger.LogAction);
+            ZoneManager = new ZoneNetworkManager(_logger.LogAction);
+            PlayerStateManager = new PlayerStateNetworkManager(_logger.LogAction);
 
             _messageHandlers = new Dictionary<ushort, Action<byte[], ulong, bool>>
             {
