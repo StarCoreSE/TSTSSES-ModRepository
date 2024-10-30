@@ -1,4 +1,5 @@
-﻿using RealGasGiants;
+﻿using DynamicAsteroids.Entities.Asteroids;
+using DynamicAsteroids.Systems.Integration;
 using Sandbox.ModAPI;
 using System;
 using System.Collections.Generic;
@@ -7,7 +8,7 @@ using System.Linq;
 using VRageMath;
 
 
-namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities
+namespace DynamicAsteroids.AsteroidEntities
 {
     public static class AsteroidSettings
     {

@@ -7,8 +7,10 @@ using VRage;
 using VRage.ModAPI;
 using VRageMath;
 
-namespace RealGasGiants {
-    public class RealGasGiantsApi {
+namespace DynamicAsteroids.Systems.Integration
+{
+    public class RealGasGiantsApi
+    {
         private bool _apiInit;
 
         private Func<Vector3D, float, Vector3I, string, float, float, float, MyPlanet> _spawnGasGiant;
@@ -49,7 +51,8 @@ namespace RealGasGiants {
 
         public bool IsReady { get; private set; }
         public bool Compromised { get; private set; }
-        private void HandleMessage(object o) {
+        private void HandleMessage(object o)
+        {
             if (_apiInit) return;
             var dict = o as IReadOnlyDictionary<string, Delegate>;
             var message = o as string;
@@ -72,8 +75,10 @@ namespace RealGasGiants {
 
         private bool _isRegistered;
 
-        public bool Load() {
-            if (!_isRegistered) {
+        public bool Load()
+        {
+            if (!_isRegistered)
+            {
                 _isRegistered = true;
                 MyAPIGateway.Utilities.RegisterMessageHandler(Channel, HandleMessage);
             }
@@ -82,15 +87,18 @@ namespace RealGasGiants {
             return IsReady;
         }
 
-        public void Unload() {
-            if (_isRegistered) {
+        public void Unload()
+        {
+            if (_isRegistered)
+            {
                 _isRegistered = false;
                 MyAPIGateway.Utilities.UnregisterMessageHandler(Channel, HandleMessage);
             }
             IsReady = false;
         }
 
-        public void ApiLoad(IReadOnlyDictionary<string, Delegate> delegates) {
+        public void ApiLoad(IReadOnlyDictionary<string, Delegate> delegates)
+        {
             _apiInit = true;
 
             _spawnGasGiant = (Func<Vector3D, float, Vector3I, string, float, float, float, MyPlanet>)delegates["SpawnGasGiant"];

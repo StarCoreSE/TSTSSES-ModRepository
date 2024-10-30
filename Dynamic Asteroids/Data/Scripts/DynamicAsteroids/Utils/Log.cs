@@ -1,11 +1,11 @@
-﻿using DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities;
+﻿using DynamicAsteroids.AsteroidEntities;
 using Sandbox.ModAPI;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 
-namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
+namespace DynamicAsteroids {
     internal class Log {
         private class LogEntry {
             public string Message { get; set; }

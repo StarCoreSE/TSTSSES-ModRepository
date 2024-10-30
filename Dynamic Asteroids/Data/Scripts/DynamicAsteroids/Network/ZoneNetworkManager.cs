@@ -1,4 +1,5 @@
-﻿using Sandbox.ModAPI;
+﻿using DynamicAsteroids.Network.Messages;
+using Sandbox.ModAPI;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -8,7 +9,8 @@ using System.Threading.Tasks;
 using VRage.Game.ModAPI;
 using VRageMath;
 
-namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
+namespace DynamicAsteroids
+{
     public class ZoneNetworkManager {
         private Dictionary<long, HashSet<long>> _playerZoneAwareness = new Dictionary<long, HashSet<long>>();
         private const double ZONE_AWARENESS_RADIUS = 25000; // Only sync zones within this range

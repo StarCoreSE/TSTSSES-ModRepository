@@ -1,5 +1,7 @@
-﻿using DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities;
-using RealGasGiants;
+﻿using DynamicAsteroids.AsteroidEntities;
+using DynamicAsteroids.Entities.Asteroids;
+using DynamicAsteroids.Network.Messages;
+using DynamicAsteroids.Systems.Integration;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using System;
@@ -12,11 +14,12 @@ using VRage.Game.Entity;
 using VRage.Game.ModAPI;
 using VRage.ModAPI;
 using VRageMath;
-using static DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidZone;
-using static DynamicAsteroids.Data.Scripts.DynamicAsteroids.MainSession;
+using static DynamicAsteroids.AsteroidZone;
+using static DynamicAsteroids.MainSession;
 
 
-namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
+namespace DynamicAsteroids
+{
     public class AsteroidZone {
         public Vector3D Center { get; set; }
         public double Radius { get; set; }
