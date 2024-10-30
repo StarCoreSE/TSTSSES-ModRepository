@@ -1,11 +1,11 @@
-﻿using DynamicAsteroids.Entities.Asteroids;
+﻿using DynamicAsteroids;
 using ProtoBuf;
 using Sandbox.ModAPI;
 using System;
 using System.Collections.Generic;
 using VRageMath;
 
-namespace DynamicAsteroids.Network.Messages
+namespace DynamicAsteroids
 {
     [ProtoInclude(10, typeof(AsteroidUpdatePacket))]
     [ProtoInclude(11, typeof(AsteroidRemovalPacket))]
@@ -73,10 +73,15 @@ namespace DynamicAsteroids.Network.Messages
     }
 
     [ProtoContract]
-    public class AsteroidUpdatePacket : PacketBase
-    {
+    public class AsteroidUpdatePacket : PacketBase {
         [ProtoMember(1)]
         public List<AsteroidState> States { get; set; } = new List<AsteroidState>();
+
+        public AsteroidUpdatePacket() { }
+
+        public AsteroidUpdatePacket(AsteroidEntity asteroid) {
+            States.Add(new AsteroidState(asteroid));
+        }
     }
 
     [ProtoContract]

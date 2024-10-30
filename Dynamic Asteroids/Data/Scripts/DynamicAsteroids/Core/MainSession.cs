@@ -1,5 +1,4 @@
-﻿using DynamicAsteroids.AsteroidEntities;
-using Sandbox.Definitions;
+﻿using Sandbox.Definitions;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using System;
@@ -13,10 +12,7 @@ using VRage.Input;
 using VRage.ModAPI;
 using VRage.Utils;
 using VRageMath;
-using DynamicAsteroids.Entities.Asteroids;
-using DynamicAsteroids.Systems.Integration;
-using DynamicAsteroids.Systems.Damage;
-using DynamicAsteroids.Network.Messages;
+using DynamicAsteroids;
 
 
 namespace DynamicAsteroids

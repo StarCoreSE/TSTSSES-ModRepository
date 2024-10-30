@@ -1,5 +1,4 @@
-﻿using DynamicAsteroids.Entities.Asteroids;
-using DynamicAsteroids.Systems.Integration;
+﻿using DynamicAsteroids;
 using Sandbox.ModAPI;
 using System;
 using System.Collections.Generic;
@@ -8,7 +7,7 @@ using System.Linq;
 using VRageMath;
 
 
-namespace DynamicAsteroids.AsteroidEntities
+namespace DynamicAsteroids
 {
     public static class AsteroidSettings
     {

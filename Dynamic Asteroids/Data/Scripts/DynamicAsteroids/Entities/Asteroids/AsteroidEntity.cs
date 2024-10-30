@@ -14,11 +14,9 @@ using VRageMath;
 using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 using Color = VRageMath.Color;
 using VRage;
-using DynamicAsteroids.AsteroidEntities;
-using DynamicAsteroids.Network.Messages;
-using DynamicAsteroids.Systems.Damage;
+using DynamicAsteroids;
 
-namespace DynamicAsteroids.Entities.Asteroids
+namespace DynamicAsteroids
 {
     public enum AsteroidType
     {

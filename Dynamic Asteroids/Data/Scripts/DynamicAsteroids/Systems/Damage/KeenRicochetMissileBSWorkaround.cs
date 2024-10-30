@@ -1,12 +1,11 @@
-﻿using DynamicAsteroids.Entities.Asteroids;
-using Sandbox.Definitions;
+﻿using Sandbox.Definitions;
 using Sandbox.ModAPI;
 using System;
 using VRage.Game.ModAPI;
 using VRage.Utils;
 using VRageMath;
 
-namespace DynamicAsteroids.Systems.Damage
+namespace DynamicAsteroids
 {
     public class KeenRicochetMissileBSWorkaroundHandler
     {

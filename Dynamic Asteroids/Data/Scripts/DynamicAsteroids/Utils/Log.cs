@@ -1,4 +1,4 @@
-﻿using DynamicAsteroids.AsteroidEntities;
+﻿using DynamicAsteroids;
 using Sandbox.ModAPI;
 using System;
 using System.Collections.Concurrent;

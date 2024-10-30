@@ -1,5 +1,4 @@
-﻿using DynamicAsteroids.AsteroidEntities;
-using DynamicAsteroids.Entities.Asteroids;
+﻿using DynamicAsteroids;
 using Sandbox.Definitions;
 using Sandbox.Game;
 using Sandbox.Game.Entities;
@@ -13,7 +12,7 @@ using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRageMath;
 
-namespace DynamicAsteroids.Systems.Damage
+namespace DynamicAsteroids
 {
     public class AsteroidDamageHandler
     {

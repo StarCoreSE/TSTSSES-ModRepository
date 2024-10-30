@@ -7,7 +7,7 @@ using VRage;
 using VRage.ModAPI;
 using VRageMath;
 
-namespace DynamicAsteroids.Systems.Integration
+namespace DynamicAsteroids
 {
     public class RealGasGiantsApi
     {

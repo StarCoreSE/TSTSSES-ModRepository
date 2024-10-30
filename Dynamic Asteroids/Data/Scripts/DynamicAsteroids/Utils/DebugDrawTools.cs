@@ -1,5 +1,4 @@
-﻿using DynamicAsteroids.AsteroidEntities;
-using DynamicAsteroids.Entities.Asteroids;
+﻿using DynamicAsteroids;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using System;
@@ -7,7 +6,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using DynamicAsteroids.Network.Messages;
 using VRage.Game;
 using VRage.ModAPI;
 using VRage.Utils;

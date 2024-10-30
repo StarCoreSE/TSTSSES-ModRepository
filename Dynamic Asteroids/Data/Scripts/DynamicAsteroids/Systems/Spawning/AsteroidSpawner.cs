@@ -1,7 +1,4 @@
-﻿using DynamicAsteroids.AsteroidEntities;
-using DynamicAsteroids.Entities.Asteroids;
-using DynamicAsteroids.Network.Messages;
-using DynamicAsteroids.Systems.Integration;
+﻿using DynamicAsteroids;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using System;
@@ -109,6 +106,7 @@ namespace DynamicAsteroids
 
         private Dictionary<long, DateTime> _newAsteroidTimestamps = new Dictionary<long, DateTime>(); //JUST ONE MORE BRO JUST ONE MORE DICTIONARY WE GOTTA STORE THE DATA BRO WE MIGHT FORGET!!!
         private const double NEW_ASTEROID_GRACE_PERIOD = 5.0; // seconds
+
 
         private class ZoneCache {
             public AsteroidZone Zone { get; set; }
@@ -262,7 +260,7 @@ namespace DynamicAsteroids
 
         public AsteroidSpawner(RealGasGiantsApi realGasGiantsApi) {
             _realGasGiantsApi = realGasGiantsApi;
-            _networkManager = new ZoneNetworkManager();
+            _networkManager = new ZoneNetworkManager(Log.Info);
         }
 
 
