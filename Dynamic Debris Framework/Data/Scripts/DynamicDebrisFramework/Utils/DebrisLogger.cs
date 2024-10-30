@@ -38,17 +38,17 @@ namespace DynamicDebrisFramework.Utils {
         }
 
         public static void Info(string message) {
-            if (AsteroidSettings.EnableLogging)
+            if (DebrisConfig.EnableLogging)
                 I?.CacheLogMessage(message);
         }
 
         public static void Warning(string message) {
-            if (AsteroidSettings.EnableLogging)
+            if (DebrisConfig.EnableLogging)
                 I?.WriteToFile("WARNING: " + message);
         }
 
         public static void Exception(Exception ex, Type callingType, string prefix = "") {
-            if (AsteroidSettings.EnableLogging)
+            if (DebrisConfig.EnableLogging)
                 I?._LogException(ex, callingType, prefix);
         }
 

@@ -11,7 +11,7 @@ namespace DynamicDebrisFramework.Utils {
         public static DebrisConfig Instance { get; private set; }
 
         // Debug Settings
-        public bool EnableLogging { get; private set; } = false;
+        public static bool EnableLogging { get; private set; } = false;
         public bool EnableDebugLogging { get; private set; } = false;
 
         // Network Settings
