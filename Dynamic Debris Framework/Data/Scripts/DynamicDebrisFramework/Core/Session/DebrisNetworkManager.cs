@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Invalid.DynamicDebris.Data.Scripts.DynamicDebrisFramework.Core.Session {
+namespace DynamicDebrisFramework.Core.Session {
     internal class DebrisNetworkManager {
     }
 }
