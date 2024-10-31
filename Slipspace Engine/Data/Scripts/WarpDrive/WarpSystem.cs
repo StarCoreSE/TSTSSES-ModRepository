@@ -1328,29 +1328,15 @@ namespace WarpDriveMod
         public void Dewarp(bool Collision = false)
         {
             // Check if we've been in warp for more than 1 minute (assuming 60 updates per second)
-            if (WarpState == State.Active &&
-                grid?.MainGrid != null &&
-                currentSpeedPt > 0 &&
-                timeInWarpCounter >= 3600) // 60 seconds * 60 updates
-            {
+            if (WarpState == State.Active && grid?.MainGrid != null && currentSpeedPt > 0 && timeInWarpCounter >= 3600) {
                 Vector3D exitPosition = grid.MainGrid.PositionComp.GetPosition();
 
-                // Get faction color or use a default color
-                long ownerId = grid.MainGrid.BigOwners.FirstOrDefault();
-                var faction = MyAPIGateway.Session.Factions.TryGetPlayerFaction(ownerId);
-                Color gpsColor = faction != null
-                    ? MyColorPickerConstants.HSVOffsetToHSV(faction.CustomColor).HSVtoColor()
-                    : Color.Black; // Default color if no faction
-
-                // Server-only block for adding GPS
-                if (MyAPIGateway.Multiplayer.IsServer || MyAPIGateway.Utilities.IsDedicated)
-                {
-                    // Only the server or dedicated server adds the GPS marker once, visible to all players
+                if (MyAPIGateway.Multiplayer.IsServer || MyAPIGateway.Utilities.IsDedicated) {
                     MyVisualScriptLogicProvider.AddGPSForAll(
                         "Slipspace™ Exit Signature",
                         "A ship has exited slipspace™ here!",
                         exitPosition,
-                        gpsColor,
+                        Color.White,  // Just using white instead of doing faction color lookup
                         30);
                 }
             }
