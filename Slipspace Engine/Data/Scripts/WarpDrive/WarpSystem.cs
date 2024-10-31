@@ -10,6 +10,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using VRage;
 using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
@@ -18,10 +19,8 @@ using VRage.Network;
 using VRage.Utils;
 using VRageMath;
 
-namespace WarpDriveMod
-{
-    public class WarpSystem
-    {
+namespace WarpDriveMod {
+    public class WarpSystem {
         public bool Valid => grid.Valid;
         public long InvalidOn => grid.InvalidOn;
         public int Id { get; private set; }
@@ -78,8 +77,7 @@ namespace WarpDriveMod
 
         public const float EARTH_GRAVITY = 9.806652f;
 
-        public WarpSystem(WarpDrive block, WarpSystem oldSystem)
-        {
+        public WarpSystem(WarpDrive block, WarpSystem oldSystem) {
             if (block == null || block.Block == null || block.Block.CubeGrid == null)
                 return;
 
@@ -94,16 +92,13 @@ namespace WarpDriveMod
 
             grid.OnSystemInvalidated += OnSystemInvalidated;
 
-            if (!MyAPIGateway.Utilities.IsDedicated && grid.MainGrid != null)
-            {
-                sound = new MyEntity3DSoundEmitter(grid.MainGrid)
-                {
+            if (!MyAPIGateway.Utilities.IsDedicated && grid.MainGrid != null) {
+                sound = new MyEntity3DSoundEmitter(grid.MainGrid) {
                     CanPlayLoopSounds = true
                 };
             }
 
-            if (oldSystem != null)
-            {
+            if (oldSystem != null) {
                 startWarpSource = oldSystem.startWarpSource;
                 if (startWarpSource?.MarkedForClose == true)
                     startWarpSource = null;
@@ -111,12 +106,9 @@ namespace WarpDriveMod
                 totalHeat = oldSystem.totalHeat;
                 WarpState = oldSystem.WarpState;
 
-                if (WarpState == State.Charging)
-                {
-                    if (!MyAPIGateway.Utilities.IsDedicated)
-                    {
-                        try
-                        {
+                if (WarpState == State.Charging) {
+                    if (!MyAPIGateway.Utilities.IsDedicated) {
+                        try {
                             PlayParticleEffect();
                         }
                         catch { }
@@ -125,8 +117,7 @@ namespace WarpDriveMod
                     startChargeRuntime = oldSystem.startChargeRuntime;
                     WarpState = State.Charging;
                 }
-                else if (WarpState == State.Active)
-                {
+                else if (WarpState == State.Active) {
                     currentSpeedPt = oldSystem.currentSpeedPt;
                     WarpState = State.Active;
                 }
@@ -135,14 +126,12 @@ namespace WarpDriveMod
             block.SetWarpSystem(this);
         }
 
-        private void UpdateOnlinePlayers()
-        {
+        private void UpdateOnlinePlayers() {
             OnlinePlayersList.Clear();
             MyAPIGateway.Players.GetPlayers(OnlinePlayersList);
         }
 
-        public void UpdateBeforeSimulation()
-        {
+        public void UpdateBeforeSimulation() {
             if (Instance == null)
                 Instance = this;
 
@@ -151,20 +140,16 @@ namespace WarpDriveMod
 
             var MainGrid = grid.MainGrid;
 
-            if (UpdatePlayersTick++ >= 300)
-            {
+            if (UpdatePlayersTick++ >= 300) {
                 UpdateOnlinePlayers();
                 UpdatePlayersTick = 0;
             }
 
-            if (BlockOnTick++ >= 60)
-            {
+            if (BlockOnTick++ >= 60) {
                 BlockOnTick = 0;
 
-                if (TempDisabledDrives.Count > 0)
-                {
-                    foreach (var block in TempDisabledDrives)
-                    {
+                if (TempDisabledDrives.Count > 0) {
+                    foreach (var block in TempDisabledDrives) {
                         if (block != null)
                             block.Enabled = true;
                     }
@@ -183,8 +168,7 @@ namespace WarpDriveMod
             if (WarpState == State.Charging)
                 InCharge();
 
-            if (WarpState == State.Active)
-            {
+            if (WarpState == State.Active) {
                 timeInWarpCounter++;
 
                 if (!MyAPIGateway.Utilities.IsDedicated)
@@ -194,16 +178,13 @@ namespace WarpDriveMod
                     TeleportNow = true;
 
 
-                if (!MyAPIGateway.Utilities.IsDedicated)
-                {
-                    if (currentSpeedPt < 316.6666)
-                    {
+                if (!MyAPIGateway.Utilities.IsDedicated) {
+                    if (currentSpeedPt < 316.6666) {
                         // DrawAllLines();
                         DrawAllLinesCenter2();
                         DrawAllLinesCenter3();
 
-                        if (WarpDropSound)
-                        {
+                        if (WarpDropSound) {
                             sound.PlaySound(WarpConstants.jumpOutSound, true);
                             sound.VolumeMultiplier = 1;
                             WarpDropSound = false;
@@ -214,23 +195,19 @@ namespace WarpDriveMod
                 }
             }
 
-            if (TeleportNow && !SafeTriggerON)
-            {
+            if (TeleportNow && !SafeTriggerON) {
                 TeleportNow = false;
 
-                if (currentSpeedPt > 1f && gridMatrix != null)
-                {
+                if (currentSpeedPt > 1f && gridMatrix != null) {
                     gridMatrix.Translation += gridMatrix.Forward * currentSpeedPt;
 
                     if (MyAPIGateway.Utilities.IsDedicated || MyAPIGateway.Multiplayer.IsServer)
                         MainGrid.Teleport(gridMatrix);
 
-                    if (!MyAPIGateway.Utilities.IsDedicated)
-                    {
+                    if (!MyAPIGateway.Utilities.IsDedicated) {
                         DrawAllLinesCenter1();
 
-                        if (currentSpeedPt > 316.6666)
-                        {
+                        if (currentSpeedPt > 316.6666) {
                             //StartBlinkParticleEffect();
                             DrawAllLinesCenter4();
                         }
@@ -239,16 +216,14 @@ namespace WarpDriveMod
             }
         }
 
-        private bool InWarp()
-        {
+        private bool InWarp() {
             if (grid.MainGrid == null)
                 return false;
 
             var MainGrid = grid.MainGrid;
             var WarpDriveOnGrid = GetActiveWarpDrive(MainGrid);
 
-            if (ShipSpeedResetTick++ >= 120)
-            {
+            if (ShipSpeedResetTick++ >= 120) {
                 ShipSpeedResetTick = 0;
 
                 // clear ship speed in warp to prevent damage from asteroids, if ship speed is high there is high chance to get damage from passing in too asteroid.
@@ -256,10 +231,8 @@ namespace WarpDriveMod
                     MainGrid.Physics.ClearSpeed();
             }
 
-            if (PlayersInWarpList.Count > 0)
-            {
-                foreach (var Player in PlayersInWarpList)
-                {
+            if (PlayersInWarpList.Count > 0) {
+                foreach (var Player in PlayersInWarpList) {
                     if (Player == null || Player.Character == null)
                         continue;
 
@@ -268,8 +241,7 @@ namespace WarpDriveMod
                 }
             }
 
-            if (IsInGravity())
-            {
+            if (IsInGravity()) {
                 SendMessage(warnDestablalized);
 
                 if (WarpDrive.Instance.Settings.AllowInGravity && GridGravityNow() > 0)
@@ -280,8 +252,7 @@ namespace WarpDriveMod
                 return false;
             }
 
-            if (WarpDrive.Instance.ProxymityDangerInWarp(gridMatrix, MainGrid, currentSpeedPt))
-            {
+            if (WarpDrive.Instance.ProxymityDangerInWarp(gridMatrix, MainGrid, currentSpeedPt)) {
                 currentSpeedPt = -1f;
 
                 if (!MyAPIGateway.Utilities.IsDedicated)
@@ -292,12 +263,9 @@ namespace WarpDriveMod
                 // true here for ship speed to 0! collision detected.
                 Dewarp(true);
 
-                if (WarpDriveOnGrid != null)
-                {
-                    foreach (var ActiveDrive in GetActiveWarpDrives())
-                    {
-                        if (ActiveDrive.Enabled)
-                        {
+                if (WarpDriveOnGrid != null) {
+                    foreach (var ActiveDrive in GetActiveWarpDrives()) {
+                        if (ActiveDrive.Enabled) {
                             ActiveDrive.Enabled = false;
                             if (!TempDisabledDrives.Contains(ActiveDrive))
                                 TempDisabledDrives.Add(ActiveDrive);
@@ -308,17 +276,13 @@ namespace WarpDriveMod
                 return false;
             }
 
-            if (!hasEnoughPower)
-            {
+            if (!hasEnoughPower) {
                 SendMessage(warnNoPower);
                 Dewarp();
 
-                if (WarpDriveOnGrid != null)
-                {
-                    foreach (var ActiveDrive in GetActiveWarpDrives())
-                    {
-                        if (ActiveDrive.Enabled)
-                        {
+                if (WarpDriveOnGrid != null) {
+                    foreach (var ActiveDrive in GetActiveWarpDrives()) {
+                        if (ActiveDrive.Enabled) {
                             ActiveDrive.Enabled = false;
                             if (!TempDisabledDrives.Contains(ActiveDrive))
                                 TempDisabledDrives.Add(ActiveDrive);
@@ -329,23 +293,19 @@ namespace WarpDriveMod
                 return false;
             }
 
-            if (functionalDrives == 0)
-            {
+            if (functionalDrives == 0) {
                 SendMessage(warnDamaged);
                 Dewarp();
 
                 return false;
             }
 
-            if (totalHeat >= WarpDrive.Instance.Settings.maxHeat)
-            {
+            if (totalHeat >= WarpDrive.Instance.Settings.maxHeat) {
                 SendMessage(warnOverheat);
                 Dewarp();
 
-                foreach (var ActiveDrive in GetActiveWarpDrives())
-                {
-                    if (ActiveDrive.Enabled)
-                    {
+                foreach (var ActiveDrive in GetActiveWarpDrives()) {
+                    if (ActiveDrive.Enabled) {
                         ActiveDrive.Enabled = false;
                         if (!TempDisabledDrives.Contains(ActiveDrive))
                             TempDisabledDrives.Add(ActiveDrive);
@@ -355,24 +315,19 @@ namespace WarpDriveMod
                 return false;
             }
 
-            if (MyAPIGateway.Utilities.IsDedicated && PlayersInWarpList.Count > 0)
-            {
+            if (MyAPIGateway.Utilities.IsDedicated && PlayersInWarpList.Count > 0) {
                 var PlayerFound = false;
-                foreach (var Player in PlayersInWarpList)
-                {
+                foreach (var Player in PlayersInWarpList) {
                     if (OnlinePlayersList.Contains(Player))
                         PlayerFound = true;
                 }
 
-                if (!PlayerFound)
-                {
+                if (!PlayerFound) {
                     // if player left server, stop warp and stop ship!
                     Dewarp(true);
 
-                    foreach (var ActiveDrive in GetActiveWarpDrives())
-                    {
-                        if (ActiveDrive.Enabled)
-                        {
+                    foreach (var ActiveDrive in GetActiveWarpDrives()) {
+                        if (ActiveDrive.Enabled) {
                             ActiveDrive.Enabled = false;
                             if (!TempDisabledDrives.Contains(ActiveDrive))
                                 TempDisabledDrives.Add(ActiveDrive);
@@ -384,59 +339,72 @@ namespace WarpDriveMod
             }
 
             // Update Server/Client with WarpSpeed change.
-            if (!MyAPIGateway.Utilities.IsDedicated && MyAPIGateway.Multiplayer.IsServer)
-            {
+            if (!MyAPIGateway.Utilities.IsDedicated && MyAPIGateway.Multiplayer.IsServer) {
                 var Hostplayer = MyAPIGateway.Session?.Player;
                 var cockpit = Hostplayer?.Character?.Parent as IMyShipController;
+                if (!(MyAPIGateway.Session.CameraController is MySpectator)) {
 
-                bool NotPressed_f = MyAPIGateway.Input.IsGameControlPressed(MyControlsSpace.FORWARD);
-                bool NotPressed_b = MyAPIGateway.Input.IsGameControlPressed(MyControlsSpace.BACKWARD);
+                    bool NotPressed_f = MyAPIGateway.Input.IsGameControlPressed(MyControlsSpace.FORWARD);
+                    bool NotPressed_b = MyAPIGateway.Input.IsGameControlPressed(MyControlsSpace.BACKWARD);
 
-                if (WarpDriveOnGrid != null && WarpDriveSession.Instance.warpDrivesSpeeds.Count > 0)
-                {
-                    double NewSpeed;
-                    WarpDriveSession.Instance.warpDrivesSpeeds.TryGetValue(WarpDriveOnGrid, out NewSpeed);
+                    if (WarpDriveOnGrid != null && WarpDriveSession.Instance.warpDrivesSpeeds.Count > 0) {
+                        double NewSpeed;
+                        WarpDriveSession.Instance.warpDrivesSpeeds.TryGetValue(WarpDriveOnGrid, out NewSpeed);
 
-                    if (WarpDrive.Instance.Settings.AllowInGravity && GridGravityNow() > 0)
-                    {
-                        if (NewSpeed > WarpDrive.Instance.Settings.AllowInGravityMaxSpeed)
-                        {
-                            currentSpeedPt = 1000 / 60d;
+                        if (WarpDrive.Instance.Settings.AllowInGravity && GridGravityNow() > 0) {
+                            if (NewSpeed > WarpDrive.Instance.Settings.AllowInGravityMaxSpeed) {
+                                currentSpeedPt = 1000 / 60d;
+                                WarpDriveSession.Instance.warpDrivesSpeeds[WarpDriveOnGrid] = currentSpeedPt;
+                            }
+                            else
+                                currentSpeedPt = NewSpeed;
+                        }
+                        else if (NewSpeed > WarpDrive.Instance.Settings.maxSpeed) {
+                            currentSpeedPt = WarpDrive.Instance.Settings.maxSpeed;
                             WarpDriveSession.Instance.warpDrivesSpeeds[WarpDriveOnGrid] = currentSpeedPt;
                         }
                         else
                             currentSpeedPt = NewSpeed;
                     }
-                    else if (NewSpeed > WarpDrive.Instance.Settings.maxSpeed)
-                    {
-                        currentSpeedPt = WarpDrive.Instance.Settings.maxSpeed;
-                        WarpDriveSession.Instance.warpDrivesSpeeds[WarpDriveOnGrid] = currentSpeedPt;
-                    }
-                    else
-                        currentSpeedPt = NewSpeed;
-                }
 
-                if (Hostplayer != null && cockpit?.CubeGrid != null && grid.Contains((MyCubeGrid)cockpit.CubeGrid))
-                {
-                    if (!NotPressed_b && NotPressed_f)
-                    {
-                        if (SpeedUpSendToServerTick++ >= 10)
-                        {
-                            SpeedUpSendToServerTick = 0;
+                    if (Hostplayer != null && cockpit?.CubeGrid != null && grid.Contains((MyCubeGrid)cockpit.CubeGrid)) {
+                        if (!NotPressed_b && NotPressed_f) {
+                            if (SpeedUpSendToServerTick++ >= 10) {
+                                SpeedUpSendToServerTick = 0;
 
-                            if (WarpDrive.Instance.Settings.AllowInGravity && GridGravityNow() > 0)
-                            {
-                                if (currentSpeedPt > WarpDrive.Instance.Settings.AllowInGravityMaxSpeed)
-                                {
-                                    currentSpeedPt = WarpDrive.Instance.Settings.AllowInGravityMaxSpeed;
+                                if (WarpDrive.Instance.Settings.AllowInGravity && GridGravityNow() > 0) {
+                                    if (currentSpeedPt > WarpDrive.Instance.Settings.AllowInGravityMaxSpeed) {
+                                        currentSpeedPt = WarpDrive.Instance.Settings.AllowInGravityMaxSpeed;
+
+                                        if (!WarpDriveSession.Instance.warpDrivesSpeeds.ContainsKey(WarpDriveOnGrid))
+                                            WarpDriveSession.Instance.warpDrivesSpeeds.Add(WarpDriveOnGrid,
+                                                WarpDrive.Instance.Settings.AllowInGravityMaxSpeed);
+                                        else
+                                            WarpDriveSession.Instance.warpDrivesSpeeds[WarpDriveOnGrid] =
+                                                WarpDrive.Instance.Settings.AllowInGravityMaxSpeed;
+                                    }
+                                    else {
+                                        currentSpeedPt += 15f;
+
+                                        if (!WarpDriveSession.Instance.warpDrivesSpeeds.ContainsKey(WarpDriveOnGrid))
+                                            WarpDriveSession.Instance.warpDrivesSpeeds.Add(WarpDriveOnGrid,
+                                                currentSpeedPt);
+                                        else
+                                            WarpDriveSession.Instance.warpDrivesSpeeds[WarpDriveOnGrid] =
+                                                currentSpeedPt;
+                                    }
+                                }
+                                else if (currentSpeedPt > WarpDrive.Instance.Settings.maxSpeed) {
+                                    currentSpeedPt = WarpDrive.Instance.Settings.maxSpeed;
 
                                     if (!WarpDriveSession.Instance.warpDrivesSpeeds.ContainsKey(WarpDriveOnGrid))
-                                        WarpDriveSession.Instance.warpDrivesSpeeds.Add(WarpDriveOnGrid, WarpDrive.Instance.Settings.AllowInGravityMaxSpeed);
+                                        WarpDriveSession.Instance.warpDrivesSpeeds.Add(WarpDriveOnGrid,
+                                            WarpDrive.Instance.Settings.maxSpeed);
                                     else
-                                        WarpDriveSession.Instance.warpDrivesSpeeds[WarpDriveOnGrid] = WarpDrive.Instance.Settings.AllowInGravityMaxSpeed;
+                                        WarpDriveSession.Instance.warpDrivesSpeeds[WarpDriveOnGrid] =
+                                            WarpDrive.Instance.Settings.maxSpeed;
                                 }
-                                else
-                                {
+                                else {
                                     currentSpeedPt += 15f;
 
                                     if (!WarpDriveSession.Instance.warpDrivesSpeeds.ContainsKey(WarpDriveOnGrid))
@@ -445,18 +413,16 @@ namespace WarpDriveMod
                                         WarpDriveSession.Instance.warpDrivesSpeeds[WarpDriveOnGrid] = currentSpeedPt;
                                 }
                             }
-                            else if (currentSpeedPt > WarpDrive.Instance.Settings.maxSpeed)
-                            {
-                                currentSpeedPt = WarpDrive.Instance.Settings.maxSpeed;
+                        }
 
-                                if (!WarpDriveSession.Instance.warpDrivesSpeeds.ContainsKey(WarpDriveOnGrid))
-                                    WarpDriveSession.Instance.warpDrivesSpeeds.Add(WarpDriveOnGrid, WarpDrive.Instance.Settings.maxSpeed);
-                                else
-                                    WarpDriveSession.Instance.warpDrivesSpeeds[WarpDriveOnGrid] = WarpDrive.Instance.Settings.maxSpeed;
-                            }
-                            else
-                            {
-                                currentSpeedPt += 15f;
+                        if (!NotPressed_f && NotPressed_b) {
+                            if (SpeedDownSendToServerTick++ >= 10) {
+                                SpeedDownSendToServerTick = 0;
+
+                                currentSpeedPt -= 15f;
+
+                                if (currentSpeedPt < -1f)
+                                    currentSpeedPt = -5f;
 
                                 if (!WarpDriveSession.Instance.warpDrivesSpeeds.ContainsKey(WarpDriveOnGrid))
                                     WarpDriveSession.Instance.warpDrivesSpeeds.Add(WarpDriveOnGrid, currentSpeedPt);
@@ -464,96 +430,68 @@ namespace WarpDriveMod
                                     WarpDriveSession.Instance.warpDrivesSpeeds[WarpDriveOnGrid] = currentSpeedPt;
                             }
                         }
-                    }
 
-                    if (!NotPressed_f && NotPressed_b)
-                    {
-                        if (SpeedDownSendToServerTick++ >= 10)
-                        {
-                            SpeedDownSendToServerTick = 0;
+                        if (WarpDrive.Instance.Settings.AllowInGravity && GridGravityNow() > 0) {
+                            if (currentSpeedPt > WarpDrive.Instance.Settings.AllowInGravityMaxSpeed) {
+                                currentSpeedPt = WarpDrive.Instance.Settings.AllowInGravityMaxSpeed;
 
-                            currentSpeedPt -= 15f;
-
-                            if (currentSpeedPt < -1f)
-                                currentSpeedPt = -5f;
-
-                            if (!WarpDriveSession.Instance.warpDrivesSpeeds.ContainsKey(WarpDriveOnGrid))
-                                WarpDriveSession.Instance.warpDrivesSpeeds.Add(WarpDriveOnGrid, currentSpeedPt);
-                            else
-                                WarpDriveSession.Instance.warpDrivesSpeeds[WarpDriveOnGrid] = currentSpeedPt;
-                        }
-                    }
-
-                    if (WarpDrive.Instance.Settings.AllowInGravity && GridGravityNow() > 0)
-                    {
-                        if (currentSpeedPt > WarpDrive.Instance.Settings.AllowInGravityMaxSpeed)
-                        {
-                            currentSpeedPt = WarpDrive.Instance.Settings.AllowInGravityMaxSpeed;
-
-                            if (!WarpDriveSession.Instance.warpDrivesSpeeds.ContainsKey(WarpDriveOnGrid))
-                                WarpDriveSession.Instance.warpDrivesSpeeds.Add(WarpDriveOnGrid, WarpDrive.Instance.Settings.AllowInGravityMaxSpeed);
-                            else
-                                WarpDriveSession.Instance.warpDrivesSpeeds[WarpDriveOnGrid] = WarpDrive.Instance.Settings.AllowInGravityMaxSpeed;
-                        }
-                    }
-                    else if (currentSpeedPt > WarpDrive.Instance.Settings.maxSpeed)
-                    {
-                        currentSpeedPt = WarpDrive.Instance.Settings.maxSpeed;
-
-                        if (!WarpDriveSession.Instance.warpDrivesSpeeds.ContainsKey(WarpDriveOnGrid))
-                            WarpDriveSession.Instance.warpDrivesSpeeds.Add(WarpDriveOnGrid, WarpDrive.Instance.Settings.maxSpeed);
-                        else
-                            WarpDriveSession.Instance.warpDrivesSpeeds[WarpDriveOnGrid] = WarpDrive.Instance.Settings.maxSpeed;
-                    }
-
-                    if (WarpDriveOnGrid != null && currentSpeedPt > 1)
-                    {
-                        MyAPIGateway.Multiplayer.SendMessageToOthers(WarpDriveSession.toggleWarpPacketIdSpeed,
-                            message: MyAPIGateway.Utilities.SerializeToBinary(new SpeedMessage
-                            {
-                                EntityId = WarpDriveOnGrid.EntityId,
-                                WarpSpeed = currentSpeedPt
-                            }));
-                    }
-
-                    if (currentSpeedPt <= -1f)
-                    {
-                        Dewarp();
-
-                        if (WarpDriveOnGrid != null)
-                        {
-                            foreach (var ActiveDrive in GetActiveWarpDrives())
-                            {
-                                if (ActiveDrive.Enabled)
-                                {
-                                    ActiveDrive.Enabled = false;
-                                    if (!TempDisabledDrives.Contains(ActiveDrive))
-                                        TempDisabledDrives.Add(ActiveDrive);
-                                }
+                                if (!WarpDriveSession.Instance.warpDrivesSpeeds.ContainsKey(WarpDriveOnGrid))
+                                    WarpDriveSession.Instance.warpDrivesSpeeds.Add(WarpDriveOnGrid,
+                                        WarpDrive.Instance.Settings.AllowInGravityMaxSpeed);
+                                else
+                                    WarpDriveSession.Instance.warpDrivesSpeeds[WarpDriveOnGrid] =
+                                        WarpDrive.Instance.Settings.AllowInGravityMaxSpeed;
                             }
                         }
+                        else if (currentSpeedPt > WarpDrive.Instance.Settings.maxSpeed) {
+                            currentSpeedPt = WarpDrive.Instance.Settings.maxSpeed;
 
-                        return false;
+                            if (!WarpDriveSession.Instance.warpDrivesSpeeds.ContainsKey(WarpDriveOnGrid))
+                                WarpDriveSession.Instance.warpDrivesSpeeds.Add(WarpDriveOnGrid,
+                                    WarpDrive.Instance.Settings.maxSpeed);
+                            else
+                                WarpDriveSession.Instance.warpDrivesSpeeds[WarpDriveOnGrid] =
+                                    WarpDrive.Instance.Settings.maxSpeed;
+                        }
+
+                        if (WarpDriveOnGrid != null && currentSpeedPt > 1) {
+                            MyAPIGateway.Multiplayer.SendMessageToOthers(WarpDriveSession.toggleWarpPacketIdSpeed,
+                                message: MyAPIGateway.Utilities.SerializeToBinary(new SpeedMessage {
+                                    EntityId = WarpDriveOnGrid.EntityId,
+                                    WarpSpeed = currentSpeedPt
+                                }));
+                        }
+
+                        if (currentSpeedPt <= -1f) {
+                            Dewarp();
+
+                            if (WarpDriveOnGrid != null) {
+                                foreach (var ActiveDrive in GetActiveWarpDrives()) {
+                                    if (ActiveDrive.Enabled) {
+                                        ActiveDrive.Enabled = false;
+                                        if (!TempDisabledDrives.Contains(ActiveDrive))
+                                            TempDisabledDrives.Add(ActiveDrive);
+                                    }
+                                }
+                            }
+
+                            return false;
+                        }
                     }
                 }
             }
-            else if (!MyAPIGateway.Utilities.IsDedicated && !MyAPIGateway.Multiplayer.IsServer)
-            {
+            else if (!MyAPIGateway.Utilities.IsDedicated && !MyAPIGateway.Multiplayer.IsServer) {
                 bool NotPressed_f = MyAPIGateway.Input.IsGameControlPressed(MyControlsSpace.FORWARD);
                 bool NotPressed_b = MyAPIGateway.Input.IsGameControlPressed(MyControlsSpace.BACKWARD);
 
                 // update speed
-                if (WarpDriveOnGrid != null && WarpDriveSession.Instance.warpDrivesSpeeds.Count > 0)
-                {
+                if (WarpDriveOnGrid != null && WarpDriveSession.Instance.warpDrivesSpeeds.Count > 0) {
                     double NewSpeed;
                     WarpDriveSession.Instance.warpDrivesSpeeds.TryGetValue(WarpDriveOnGrid, out NewSpeed);
 
-                    if (NewSpeed != 0f)
-                    {
-                        if (WarpDrive.Instance.Settings.AllowInGravity && GridGravityNow() > 0)
-                        {
-                            if (NewSpeed > WarpDrive.Instance.Settings.AllowInGravityMaxSpeed)
-                            {
+                    if (NewSpeed != 0f) {
+                        if (WarpDrive.Instance.Settings.AllowInGravity && GridGravityNow() > 0) {
+                            if (NewSpeed > WarpDrive.Instance.Settings.AllowInGravityMaxSpeed) {
                                 currentSpeedPt = 1000 / 60d;
 
                                 if (!WarpDriveSession.Instance.warpDrivesSpeeds.ContainsKey(WarpDriveOnGrid))
@@ -563,8 +501,7 @@ namespace WarpDriveMod
 
                                 WarpDriveSession.Instance.TransmitWarpSpeed(WarpDriveOnGrid, currentSpeedPt);
                             }
-                            else
-                            {
+                            else {
                                 currentSpeedPt = NewSpeed;
 
                                 if (!WarpDriveSession.Instance.warpDrivesSpeeds.ContainsKey(WarpDriveOnGrid))
@@ -573,8 +510,7 @@ namespace WarpDriveMod
                                     WarpDriveSession.Instance.warpDrivesSpeeds[WarpDriveOnGrid] = currentSpeedPt;
                             }
                         }
-                        else if (NewSpeed > WarpDrive.Instance.Settings.maxSpeed)
-                        {
+                        else if (NewSpeed > WarpDrive.Instance.Settings.maxSpeed) {
                             currentSpeedPt = WarpDrive.Instance.Settings.maxSpeed;
 
                             if (!WarpDriveSession.Instance.warpDrivesSpeeds.ContainsKey(WarpDriveOnGrid))
@@ -584,8 +520,7 @@ namespace WarpDriveMod
 
                             WarpDriveSession.Instance.TransmitWarpSpeed(WarpDriveOnGrid, WarpDrive.Instance.Settings.maxSpeed);
                         }
-                        else
-                        {
+                        else {
                             currentSpeedPt = NewSpeed;
 
                             if (!WarpDriveSession.Instance.warpDrivesSpeeds.ContainsKey(WarpDriveOnGrid))
@@ -596,18 +531,14 @@ namespace WarpDriveMod
                     }
                 }
 
-                if (!NotPressed_b && NotPressed_f)
-                {
-                    if (SpeedUpSendToServerTick++ >= 10)
-                    {
+                if (!NotPressed_b && NotPressed_f) {
+                    if (SpeedUpSendToServerTick++ >= 10) {
                         SpeedUpSendToServerTick = 0;
 
-                        if (WarpDriveOnGrid != null)
-                        {
+                        if (WarpDriveOnGrid != null) {
                             currentSpeedPt += 15f;
 
-                            if (WarpDrive.Instance.Settings.AllowInGravity && GridGravityNow() > 0)
-                            {
+                            if (WarpDrive.Instance.Settings.AllowInGravity && GridGravityNow() > 0) {
                                 if (currentSpeedPt > WarpDrive.Instance.Settings.AllowInGravityMaxSpeed)
                                     currentSpeedPt = WarpDrive.Instance.Settings.AllowInGravityMaxSpeed;
                             }
@@ -624,14 +555,11 @@ namespace WarpDriveMod
                     }
                 }
 
-                if (!NotPressed_f && NotPressed_b)
-                {
-                    if (SpeedDownSendToServerTick++ >= 10)
-                    {
+                if (!NotPressed_f && NotPressed_b) {
+                    if (SpeedDownSendToServerTick++ >= 10) {
                         SpeedDownSendToServerTick = 0;
 
-                        if (WarpDriveOnGrid != null)
-                        {
+                        if (WarpDriveOnGrid != null) {
                             currentSpeedPt -= 15f;
 
                             if (currentSpeedPt < -1f)
@@ -647,14 +575,11 @@ namespace WarpDriveMod
                     }
                 }
 
-                if (WarpDrive.Instance.Settings.AllowInGravity && GridGravityNow() > 0)
-                {
-                    if (currentSpeedPt > WarpDrive.Instance.Settings.AllowInGravityMaxSpeed)
-                    {
+                if (WarpDrive.Instance.Settings.AllowInGravity && GridGravityNow() > 0) {
+                    if (currentSpeedPt > WarpDrive.Instance.Settings.AllowInGravityMaxSpeed) {
                         currentSpeedPt = WarpDrive.Instance.Settings.AllowInGravityMaxSpeed;
 
-                        if (WarpDriveOnGrid != null)
-                        {
+                        if (WarpDriveOnGrid != null) {
                             if (!WarpDriveSession.Instance.warpDrivesSpeeds.ContainsKey(WarpDriveOnGrid))
                                 WarpDriveSession.Instance.warpDrivesSpeeds.Add(WarpDriveOnGrid, WarpDrive.Instance.Settings.AllowInGravityMaxSpeed);
                             else
@@ -664,12 +589,10 @@ namespace WarpDriveMod
                         }
                     }
                 }
-                else if (currentSpeedPt > WarpDrive.Instance.Settings.maxSpeed)
-                {
+                else if (currentSpeedPt > WarpDrive.Instance.Settings.maxSpeed) {
                     currentSpeedPt = WarpDrive.Instance.Settings.maxSpeed;
 
-                    if (WarpDriveOnGrid != null)
-                    {
+                    if (WarpDriveOnGrid != null) {
                         if (!WarpDriveSession.Instance.warpDrivesSpeeds.ContainsKey(WarpDriveOnGrid))
                             WarpDriveSession.Instance.warpDrivesSpeeds.Add(WarpDriveOnGrid, WarpDrive.Instance.Settings.maxSpeed);
                         else
@@ -679,17 +602,13 @@ namespace WarpDriveMod
                     }
                 }
 
-                if (currentSpeedPt <= -1f)
-                {
+                if (currentSpeedPt <= -1f) {
                     WarpDriveSession.Instance.TransmitWarpSpeed(WarpDriveOnGrid, -1f);
                     WarpDriveSession.Instance.TransmitToggleWarp(WarpDriveOnGrid);
 
-                    if (WarpDriveOnGrid != null)
-                    {
-                        foreach (var ActiveDrive in GetActiveWarpDrives())
-                        {
-                            if (ActiveDrive.Enabled)
-                            {
+                    if (WarpDriveOnGrid != null) {
+                        foreach (var ActiveDrive in GetActiveWarpDrives()) {
+                            if (ActiveDrive.Enabled) {
                                 ActiveDrive.Enabled = false;
                                 if (!TempDisabledDrives.Contains(ActiveDrive))
                                     TempDisabledDrives.Add(ActiveDrive);
@@ -700,44 +619,36 @@ namespace WarpDriveMod
                     return false;
                 }
             }
-            else if (MyAPIGateway.Utilities.IsDedicated)
-            {
-                if (WarpDriveOnGrid != null && WarpDriveSession.Instance.warpDrivesSpeeds.Count > 0)
-                {
+            else if (MyAPIGateway.Utilities.IsDedicated) {
+                if (WarpDriveOnGrid != null && WarpDriveSession.Instance.warpDrivesSpeeds.Count > 0) {
                     double NewSpeed;
                     WarpDriveSession.Instance.warpDrivesSpeeds.TryGetValue(WarpDriveOnGrid, out NewSpeed);
 
-                    if (WarpDrive.Instance.Settings.AllowInGravity && GridGravityNow() > 0)
-                    {
-                        if (NewSpeed > WarpDrive.Instance.Settings.AllowInGravityMaxSpeed)
-                        {
+                    if (WarpDrive.Instance.Settings.AllowInGravity && GridGravityNow() > 0) {
+                        if (NewSpeed > WarpDrive.Instance.Settings.AllowInGravityMaxSpeed) {
                             currentSpeedPt = 1000 / 60d;
                             WarpDriveSession.Instance.warpDrivesSpeeds[WarpDriveOnGrid] = currentSpeedPt;
                         }
                         else
                             currentSpeedPt = NewSpeed;
                     }
-                    else if (NewSpeed > WarpDrive.Instance.Settings.maxSpeed)
-                    {
+                    else if (NewSpeed > WarpDrive.Instance.Settings.maxSpeed) {
                         currentSpeedPt = WarpDrive.Instance.Settings.maxSpeed;
                         WarpDriveSession.Instance.warpDrivesSpeeds[WarpDriveOnGrid] = currentSpeedPt;
                     }
                     else
                         currentSpeedPt = NewSpeed;
 
-                    if (WarpDriveOnGrid != null && currentSpeedPt > 1)
-                    {
+                    if (WarpDriveOnGrid != null && currentSpeedPt > 1) {
                         MyAPIGateway.Multiplayer.SendMessageToOthers(WarpDriveSession.toggleWarpPacketIdSpeed,
-                            message: MyAPIGateway.Utilities.SerializeToBinary(new SpeedMessage
-                            {
+                            message: MyAPIGateway.Utilities.SerializeToBinary(new SpeedMessage {
                                 EntityId = WarpDriveOnGrid.EntityId,
                                 WarpSpeed = currentSpeedPt
                             }));
                     }
                 }
 
-                if (currentSpeedPt <= -1f)
-                {
+                if (currentSpeedPt <= -1f) {
                     Dewarp();
 
                     return false;
@@ -748,8 +659,7 @@ namespace WarpDriveMod
             return true;
         }
 
-        private float GetRadiusCenter()
-        {
+        private float GetRadiusCenter() {
             MyCubeGrid sys = grid.MainGrid;
             float s = 0f;
             if (sys.GridSizeEnum == MyCubeSize.Small)
@@ -760,23 +670,20 @@ namespace WarpDriveMod
         }
 
         // Center 1
-        private void DrawAllLinesCenter1()
-        {
+        private void DrawAllLinesCenter1() {
             if (grid.MainGrid == null)
                 return;
 
             var MainGrid = grid.MainGrid;
 
-            try
-            {
+            try {
                 float r = Math.Max(GetRadiusCenter() + 0, 12);
                 Vector3D pos = MainGrid.Physics.CenterOfMassWorld;
 
                 var SpeedCorrector = 1200 - (currentSpeedPt / 3);
                 Vector3D centerEnd = pos + (gridMatrix.Forward * 240);
 
-                if (MainGrid.GridSizeEnum == MyCubeSize.Small)
-                {
+                if (MainGrid.GridSizeEnum == MyCubeSize.Small) {
                     SpeedCorrector = 600 - (currentSpeedPt / 3);
                     centerEnd = pos + (gridMatrix.Forward * 120);
                 }
@@ -794,8 +701,7 @@ namespace WarpDriveMod
             catch { }
         }
 
-        private void DrawLineCenter1(Vector3D startPos, Vector3D endPos, float rad)
-        {
+        private void DrawLineCenter1(Vector3D startPos, Vector3D endPos, float rad) {
             Vector4 baseCol = Color.DarkOrange;
             string material = "SciFiEngineThrustMiddle"; // IlluminatingShell ReflectorGlareAlphaBlended
             float ranf = MyUtils.GetRandomFloat(0.1f * rad, 0.8f * rad);
@@ -805,22 +711,19 @@ namespace WarpDriveMod
         }
 
         // Center 2
-        private void DrawAllLinesCenter2()
-        {
+        private void DrawAllLinesCenter2() {
             if (grid.MainGrid == null)
                 return;
 
             var MainGrid = grid.MainGrid;
 
-            try
-            {
+            try {
                 float r = Math.Max(GetRadiusCenter() + 0, 12);
                 Vector3D pos = MainGrid.Physics.CenterOfMassWorld;
                 var SpeedCorrector = 1000 - (currentSpeedPt / 3);
                 Vector3D centerEnd = pos + (gridMatrix.Forward * 180);
 
-                if (MainGrid.GridSizeEnum == MyCubeSize.Small)
-                {
+                if (MainGrid.GridSizeEnum == MyCubeSize.Small) {
                     SpeedCorrector = 500 - (currentSpeedPt / 3);
                     centerEnd = pos + (gridMatrix.Forward * 90);
                 }
@@ -837,8 +740,7 @@ namespace WarpDriveMod
             catch { }
         }
 
-        private void DrawLineCenter2(Vector3D startPos, Vector3D endPos, float rad)
-        {
+        private void DrawLineCenter2(Vector3D startPos, Vector3D endPos, float rad) {
             Vector4 baseCol = Color.Orange;
             string material = "SciFiEngineThrustMiddle"; // IlluminatingShell ReflectorGlareAlphaBlended
             float ranf = MyUtils.GetRandomFloat(0.1f * rad, 0.8f * rad);
@@ -848,22 +750,19 @@ namespace WarpDriveMod
         }
 
         //Center 3
-        private void DrawAllLinesCenter3()
-        {
+        private void DrawAllLinesCenter3() {
             if (grid.MainGrid == null)
                 return;
 
             var MainGrid = grid.MainGrid;
 
-            try
-            {
+            try {
                 float r = Math.Max(GetRadiusCenter() + 0, 12);
                 Vector3D pos = MainGrid.Physics.CenterOfMassWorld;
                 var SpeedCorrector = 800 - (currentSpeedPt / 3);
                 Vector3D centerEnd = pos + (gridMatrix.Forward * 220);
 
-                if (MainGrid.GridSizeEnum == MyCubeSize.Small)
-                {
+                if (MainGrid.GridSizeEnum == MyCubeSize.Small) {
                     SpeedCorrector = 400 - (currentSpeedPt / 3);
                     centerEnd = pos + (gridMatrix.Forward * 110);
                 }
@@ -880,8 +779,7 @@ namespace WarpDriveMod
             catch { }
         }
 
-        private void DrawLineCenter3(Vector3D startPos, Vector3D endPos, float rad)
-        {
+        private void DrawLineCenter3(Vector3D startPos, Vector3D endPos, float rad) {
             Vector4 baseCol = Color.OrangeRed;
             string material = "SciFiEngineThrustMiddle"; // IlluminatingShell ReflectorGlareAlphaBlended
             float ranf = MyUtils.GetRandomFloat(0.1f * rad, 0.8f * rad);
@@ -891,22 +789,19 @@ namespace WarpDriveMod
         }
 
         //Center 4
-        private void DrawAllLinesCenter4()
-        {
+        private void DrawAllLinesCenter4() {
             if (grid.MainGrid == null)
                 return;
 
             var MainGrid = grid.MainGrid;
 
-            try
-            {
+            try {
                 float r = Math.Max(GetRadiusCenter() + 0, 12);
                 Vector3D pos = MainGrid.Physics.CenterOfMassWorld;
                 var SpeedCorrector = 1500 - (currentSpeedPt / 3);
                 Vector3D centerEnd = pos + (gridMatrix.Forward * 90);
 
-                if (MainGrid.GridSizeEnum == MyCubeSize.Small)
-                {
+                if (MainGrid.GridSizeEnum == MyCubeSize.Small) {
                     SpeedCorrector = 750 - (currentSpeedPt / 3);
                     centerEnd = pos + (gridMatrix.Forward * 45);
                 }
@@ -924,8 +819,7 @@ namespace WarpDriveMod
             catch { }
         }
 
-        private void DrawLineCenter4(Vector3D startPos, Vector3D endPos, float rad)
-        {
+        private void DrawLineCenter4(Vector3D startPos, Vector3D endPos, float rad) {
             Vector4 baseCol = Color.DarkOrange;
             string material = "SciFiEngineThrustMiddle"; // IlluminatingShell ReflectorGlareAlphaBlended
             float ranf = MyUtils.GetRandomFloat(1.1f * rad, 1.8f * rad);
@@ -939,7 +833,7 @@ namespace WarpDriveMod
         {
             if (MyAPIGateway.Utilities.IsDedicated)
                 return;
-            
+
             if (grid.MainGrid == null)
                 return;
 
@@ -986,24 +880,19 @@ namespace WarpDriveMod
         }
         */
 
-        public void StopBlinkParticleEffect()
-        {
+        public void StopBlinkParticleEffect() {
             if (!MyAPIGateway.Utilities.IsDedicated)
                 BlinkTrailEffect?.Stop();
         }
 
-        private bool FindPlayerInCockpit()
-        {
+        private bool FindPlayerInCockpit() {
             if (grid.MainGrid == null)
                 return false;
 
             HashSet<IMyShipController> gridCockpits;
-            if (grid.cockpits.TryGetValue(grid.MainGrid, out gridCockpits))
-            {
-                if (gridCockpits.Count > 0)
-                {
-                    foreach (IMyShipController cockpit in gridCockpits)
-                    {
+            if (grid.cockpits.TryGetValue(grid.MainGrid, out gridCockpits)) {
+                if (gridCockpits.Count > 0) {
+                    foreach (IMyShipController cockpit in gridCockpits) {
                         if (cockpit != null && cockpit.IsUnderControl)
                             return true;
                     }
@@ -1013,31 +902,25 @@ namespace WarpDriveMod
             return false;
         }
 
-        public void ToggleWarp(IMyTerminalBlock block, IMyCubeGrid source, long PlayerID)
-        {
+        public void ToggleWarp(IMyTerminalBlock block, IMyCubeGrid source, long PlayerID) {
             WarpDrive drive = block?.GameLogic?.GetAs<WarpDrive>();
-            if (drive != null)
-            {
-                if (drive.System.WarpState == State.Idle)
-                {
+            if (drive != null) {
+                if (drive.System.WarpState == State.Idle) {
                     if (!hasEnoughPower || !FindPlayerInCockpit())
                         return;
 
-                    if (MyAPIGateway.Utilities.IsDedicated || MyAPIGateway.Multiplayer.IsServer)
-                    {
+                    if (MyAPIGateway.Utilities.IsDedicated || MyAPIGateway.Multiplayer.IsServer) {
                         WarpDriveSession.Instance.RefreshGridCockpits(block);
                         MatrixD gridMatrix = drive.System.grid.FindWorldMatrix();
 
-                        if (WarpDrive.Instance.ProxymityDangerCharge(gridMatrix, source))
-                        {
+                        if (WarpDrive.Instance.ProxymityDangerCharge(gridMatrix, source)) {
                             SendMessage(ProximytyAlert, 2f, "Red", PlayerID);
                             WarpState = State.Idle;
                             return;
                         }
 
                         MyAPIGateway.Multiplayer.SendMessageToOthers(WarpDriveSession.toggleWarpPacketId,
-                            message: MyAPIGateway.Utilities.SerializeToBinary(new ItemsMessage
-                            {
+                            message: MyAPIGateway.Utilities.SerializeToBinary(new ItemsMessage {
                                 EntityId = block.EntityId,
                                 SendingPlayerID = PlayerID
                             }));
@@ -1049,17 +932,13 @@ namespace WarpDriveMod
                     if (!MyAPIGateway.Utilities.IsDedicated && !MyAPIGateway.Multiplayer.IsServer)
                         WarpDriveSession.Instance.TransmitWarpConfig(Settings.Instance, block.EntityId);
                 }
-                else
-                {
+                else {
                     drive.System.Dewarp();
 
                     var MyGrid = drive.Block.CubeGrid as MyCubeGrid;
-                    if (GetActiveWarpDrive(MyGrid) != null)
-                    {
-                        foreach (var ActiveDrive in GetActiveWarpDrives())
-                        {
-                            if (ActiveDrive.Enabled)
-                            {
+                    if (GetActiveWarpDrive(MyGrid) != null) {
+                        foreach (var ActiveDrive in GetActiveWarpDrives()) {
+                            if (ActiveDrive.Enabled) {
                                 ActiveDrive.Enabled = false;
                                 if (!TempDisabledDrives.Contains(ActiveDrive))
                                     TempDisabledDrives.Add(ActiveDrive);
@@ -1070,38 +949,30 @@ namespace WarpDriveMod
             }
         }
 
-        public bool Contains(WarpDrive drive)
-        {
+        public bool Contains(WarpDrive drive) {
             return grid.Contains((MyCubeGrid)drive.Block.CubeGrid);
         }
 
-        private List<long> FindAllPlayersInGrid(GridSystem System)
-        {
+        private List<long> FindAllPlayersInGrid(GridSystem System) {
             var PlayersIdList = new List<long>();
 
-            if (System != null)
-            {
-                foreach (var grid in System.Grids)
-                {
-                    foreach (var Block in grid.GetFatBlocks())
-                    {
+            if (System != null) {
+                foreach (var grid in System.Grids) {
+                    foreach (var Block in grid.GetFatBlocks()) {
                         if (Block == null)
                             continue;
 
                         var Cockpit = Block as IMyCockpit;
                         var CryoChamber = Block as IMyCryoChamber;
 
-                        if (Cockpit != null)
-                        {
-                            if (Cockpit.Pilot != null)
-                            {
+                        if (Cockpit != null) {
+                            if (Cockpit.Pilot != null) {
                                 PlayersIdList.Add(Cockpit.Pilot.EntityId);
                                 continue;
                             }
                         }
 
-                        if (CryoChamber != null)
-                        {
+                        if (CryoChamber != null) {
                             if (CryoChamber.Pilot != null)
                                 PlayersIdList.Add(CryoChamber.Pilot.EntityId);
                         }
@@ -1111,20 +982,16 @@ namespace WarpDriveMod
             return PlayersIdList;
         }
 
-        private bool ConnectedStatic(IMyCubeGrid MyGrid)
-        {
+        private bool ConnectedStatic(IMyCubeGrid MyGrid) {
             if (MyGrid == null)
                 return false;
 
             var AttachedList = new List<IMyCubeGrid>();
             MyAPIGateway.GridGroups.GetGroup(MyGrid, GridLinkTypeEnum.Physical, AttachedList);
 
-            if (AttachedList.Count > 1)
-            {
-                foreach (var AttachedGrid in AttachedList)
-                {
-                    if (AttachedGrid != null)
-                    {
+            if (AttachedList.Count > 1) {
+                foreach (var AttachedGrid in AttachedList) {
+                    if (AttachedGrid != null) {
                         if (AttachedGrid.IsStatic)
                             return true;
                     }
@@ -1133,38 +1000,30 @@ namespace WarpDriveMod
             return false;
         }
 
-        private void StartCharging(long PlayerID)
-        {
+        private void StartCharging(long PlayerID) {
             if (grid.MainGrid == null)
                 return;
 
-            if (IsInGravity())
-            {
+            if (IsInGravity()) {
                 SendMessage(warnNoEstablish, 5f, "Red", PlayerID);
                 WarpState = State.Idle;
                 return;
             }
 
-            if (ConnectedStatic(grid.MainGrid))
-            {
+            if (ConnectedStatic(grid.MainGrid)) {
                 SendMessage(warnStatic, 5f, "Red", PlayerID);
                 WarpState = State.Idle;
                 return;
             }
 
-            if (!grid.IsStatic)
-            {
+            if (!grid.IsStatic) {
                 WarpState = State.Charging;
                 startChargeRuntime = WarpDriveSession.Instance.Runtime;
 
-                if (MyAPIGateway.Utilities.IsDedicated)
-                {
-                    if (PlayerID > 0)
-                    {
-                        foreach (var Player in OnlinePlayersList)
-                        {
-                            if (Player.IdentityId == PlayerID)
-                            {
+                if (MyAPIGateway.Utilities.IsDedicated) {
+                    if (PlayerID > 0) {
+                        foreach (var Player in OnlinePlayersList) {
+                            if (Player.IdentityId == PlayerID) {
                                 if (!PlayersInWarpList.Contains(Player))
                                     PlayersInWarpList.Add(Player);
                             }
@@ -1172,8 +1031,7 @@ namespace WarpDriveMod
                     }
                 }
 
-                if (!MyAPIGateway.Utilities.IsDedicated)
-                {
+                if (!MyAPIGateway.Utilities.IsDedicated) {
                     sound.PlaySound(WarpConstants.chargingSound, true);
                     sound.VolumeMultiplier = 2;
 
@@ -1184,8 +1042,7 @@ namespace WarpDriveMod
                 SendMessage(warnStatic, 5f, "Red", PlayerID);
         }
 
-        private void StartWarp()
-        {
+        private void StartWarp() {
             timeInWarpCounter = 0;
 
             if (grid.MainGrid == null)
@@ -1193,26 +1050,22 @@ namespace WarpDriveMod
 
             var MainGrid = grid.MainGrid;
 
-            if (IsInGravity())
-            {
+            if (IsInGravity()) {
                 SendMessage(warnNoEstablish);
                 return;
             }
 
-            if (grid.IsStatic)
-            {
+            if (grid.IsStatic) {
                 SendMessage(warnStatic);
                 return;
             }
 
-            if (ConnectedStatic(MainGrid))
-            {
+            if (ConnectedStatic(MainGrid)) {
                 SendMessage(warnStatic);
                 return;
             }
 
-            if (!MyAPIGateway.Utilities.IsDedicated)
-            {
+            if (!MyAPIGateway.Utilities.IsDedicated) {
                 if (effect != null)
                     StopParticleEffect();
 
@@ -1223,8 +1076,7 @@ namespace WarpDriveMod
             WarpState = State.Active;
 
             Vector3D? currentVelocity = MainGrid?.Physics?.LinearVelocity;
-            if (currentVelocity.HasValue)
-            {
+            if (currentVelocity.HasValue) {
                 gridMatrix = grid.FindWorldMatrix();
 
                 /* // people asked to get the start speed no matter what was the ship normal speed before warp.
@@ -1235,34 +1087,29 @@ namespace WarpDriveMod
                 currentSpeedPt = MathHelper.Clamp(dot, WarpDrive.Instance.Settings.startSpeed, WarpDrive.Instance.Settings.maxSpeed);
                 */
 
-                if (WarpDrive.Instance.Settings.AllowInGravity && GridGravityNow() > 0)
-                {
+                if (WarpDrive.Instance.Settings.AllowInGravity && GridGravityNow() > 0) {
                     currentSpeedPt = 1000 / 60d;
                 }
                 else
                     currentSpeedPt = WarpDrive.Instance.Settings.startSpeed;
 
                 var WarpDriveOnGrid = GetActiveWarpDrive(MainGrid);
-                if (WarpDriveOnGrid != null)
-                {
+                if (WarpDriveOnGrid != null) {
                     if (!WarpDriveSession.Instance.warpDrivesSpeeds.ContainsKey(WarpDriveOnGrid))
                         WarpDriveSession.Instance.warpDrivesSpeeds.Add(WarpDriveOnGrid, currentSpeedPt);
                     else
                         WarpDriveSession.Instance.warpDrivesSpeeds[WarpDriveOnGrid] = currentSpeedPt;
                 }
             }
-            else
-            {
-                if (WarpDrive.Instance.Settings.AllowInGravity && GridGravityNow() > 0)
-                {
+            else {
+                if (WarpDrive.Instance.Settings.AllowInGravity && GridGravityNow() > 0) {
                     currentSpeedPt = 1000 / 60d;
                 }
                 else
                     currentSpeedPt = WarpDrive.Instance.Settings.startSpeed;
 
                 var WarpDriveOnGrid = GetActiveWarpDrive(MainGrid);
-                if (WarpDriveOnGrid != null)
-                {
+                if (WarpDriveOnGrid != null) {
                     if (!WarpDriveSession.Instance.warpDrivesSpeeds.ContainsKey(WarpDriveOnGrid))
                         WarpDriveSession.Instance.warpDrivesSpeeds.Add(WarpDriveOnGrid, currentSpeedPt);
                     else
@@ -1272,21 +1119,17 @@ namespace WarpDriveMod
 
             var PlayersIdsOnGrid = FindAllPlayersInGrid(grid);
 
-            if (PlayersIdsOnGrid != null && PlayersIdsOnGrid.Count > 0)
-            {
-                foreach (var OnlinePlayer in OnlinePlayersList)
-                {
+            if (PlayersIdsOnGrid != null && PlayersIdsOnGrid.Count > 0) {
+                foreach (var OnlinePlayer in OnlinePlayersList) {
                     if (OnlinePlayer.Character != null && PlayersIdsOnGrid.Contains(OnlinePlayer.Character.EntityId) && !PlayersInWarpList.Contains(OnlinePlayer))
                         PlayersInWarpList.Add(OnlinePlayer);
                 }
             }
         }
 
-        private IMyFunctionalBlock GetActiveWarpDrive(MyCubeGrid MyGrid)
-        {
+        private IMyFunctionalBlock GetActiveWarpDrive(MyCubeGrid MyGrid) {
             HashSet<WarpDrive> controllingDrives;
-            if (startWarpSource == null || !warpDrives.TryGetValue(startWarpSource, out controllingDrives))
-            {
+            if (startWarpSource == null || !warpDrives.TryGetValue(startWarpSource, out controllingDrives)) {
                 if (MyGrid == null || !warpDrives.TryGetValue(MyGrid, out controllingDrives))
                     controllingDrives = warpDrives.FirstPair().Value;
             }
@@ -1294,20 +1137,17 @@ namespace WarpDriveMod
             if (controllingDrives == null)
                 return null;
 
-            foreach (WarpDrive drive in controllingDrives)
-            {
+            foreach (WarpDrive drive in controllingDrives) {
                 if (drive.Block.IsFunctional && drive.Block.IsWorking)
                     return drive.Block;
             }
             return null;
         }
 
-        private List<IMyFunctionalBlock> GetActiveWarpDrives()
-        {
+        private List<IMyFunctionalBlock> GetActiveWarpDrives() {
             HashSet<WarpDrive> controllingDrives;
             var GridDrives = new List<IMyFunctionalBlock>();
-            if (startWarpSource == null || !warpDrives.TryGetValue(startWarpSource, out controllingDrives))
-            {
+            if (startWarpSource == null || !warpDrives.TryGetValue(startWarpSource, out controllingDrives)) {
                 if (grid.MainGrid == null || !warpDrives.TryGetValue(grid.MainGrid, out controllingDrives))
                     controllingDrives = warpDrives.FirstPair().Value;
             }
@@ -1315,8 +1155,7 @@ namespace WarpDriveMod
             if (controllingDrives == null)
                 controllingDrives = new HashSet<WarpDrive>();
 
-            foreach (WarpDrive drive in controllingDrives)
-            {
+            foreach (WarpDrive drive in controllingDrives) {
                 if (drive.Block.IsFunctional && drive.Block.IsWorking)
                     GridDrives.Add(drive.Block);
             }
@@ -1325,8 +1164,7 @@ namespace WarpDriveMod
 
         private bool isDewarping = false;
 
-        public void Dewarp(bool Collision = false)
-        {
+        public void Dewarp(bool Collision = false) {
             // Check if we've been in warp for more than 1 minute (assuming 60 updates per second)
             if (WarpState == State.Active && grid?.MainGrid != null && currentSpeedPt > 0 && timeInWarpCounter >= 3600) {
                 Vector3D exitPosition = grid.MainGrid.PositionComp.GetPosition();
@@ -1343,10 +1181,8 @@ namespace WarpDriveMod
 
             // The rest of Dewarp() executes on both client and server to maintain synchronization
 
-            if (PlayersInWarpList.Count > 0)
-            {
-                foreach (var Player in PlayersInWarpList)
-                {
+            if (PlayersInWarpList.Count > 0) {
+                foreach (var Player in PlayersInWarpList) {
                     if (Player == null || Player.Character == null)
                         continue;
 
@@ -1364,57 +1200,46 @@ namespace WarpDriveMod
             var WarpDriveOnGrid = GetActiveWarpDrive(MainGrid);
 
             // Sending network message to other players for warp state changes
-            if (WarpDriveOnGrid != null && WarpState == State.Active && (MyAPIGateway.Multiplayer.IsServer || MyAPIGateway.Utilities.IsDedicated))
-            {
-                if (WarpDriveOnGrid != null)
-                {
+            if (WarpDriveOnGrid != null && WarpState == State.Active && (MyAPIGateway.Multiplayer.IsServer || MyAPIGateway.Utilities.IsDedicated)) {
+                if (WarpDriveOnGrid != null) {
                     MyAPIGateway.Multiplayer.SendMessageToOthers(WarpDriveSession.toggleWarpPacketId,
-                    message: MyAPIGateway.Utilities.SerializeToBinary(new ItemsMessage
-                    {
+                    message: MyAPIGateway.Utilities.SerializeToBinary(new ItemsMessage {
                         EntityId = WarpDriveOnGrid.EntityId,
                         SendingPlayerID = 0
                     }));
                 }
             }
 
-            if (!MyAPIGateway.Utilities.IsDedicated)
-            {
+            if (!MyAPIGateway.Utilities.IsDedicated) {
                 StopParticleEffect();
                 StopBlinkParticleEffect();
 
                 sound.SetPosition(MainGrid.PositionComp.GetPosition());
                 sound?.StopSound(false);
 
-                if (WarpState == State.Active)
-                {
-                    if (ProxymityStop)
-                    {
+                if (WarpState == State.Active) {
+                    if (ProxymityStop) {
                         sound.PlaySound(WarpConstants.jumpOutSound, true);
                         sound.VolumeMultiplier = 1;
                         ProxymityStop = false;
                     }
-                    else
-                    {
-                        if (currentSpeedPt < -1)
-                        {
+                    else {
+                        if (currentSpeedPt < -1) {
                             sound.PlaySound(WarpConstants.jumpOutSound, true);
                             sound.VolumeMultiplier = 1;
                         }
 
-                        if (functionalDrives == 0)
-                        {
+                        if (functionalDrives == 0) {
                             sound.PlaySound(WarpConstants.EmergencyDropSound, true);
                             sound.VolumeMultiplier = 1;
                         }
 
-                        if (!hasEnoughPower)
-                        {
+                        if (!hasEnoughPower) {
                             sound.PlaySound(WarpConstants.EmergencyDropSound, true);
                             sound.VolumeMultiplier = 1;
                         }
 
-                        if (IsInGravity())
-                        {
+                        if (IsInGravity()) {
                             sound.PlaySound(WarpConstants.EmergencyDropSound, true);
                             sound.VolumeMultiplier = 1;
                         }
@@ -1425,10 +1250,8 @@ namespace WarpDriveMod
                 }
             }
 
-            if (WarpState == State.Active && !Collision)
-            {
-                if (MainGrid.Physics != null && GridSpeedLinearVelocity.ContainsKey(MainGrid.EntityId))
-                {
+            if (WarpState == State.Active && !Collision) {
+                if (MainGrid.Physics != null && GridSpeedLinearVelocity.ContainsKey(MainGrid.EntityId)) {
                     MainGrid.Physics.LinearVelocity = GridSpeedLinearVelocity[MainGrid.EntityId];
                     MainGrid.Physics.AngularVelocity = GridSpeedAngularVelocity[MainGrid.EntityId];
                 }
@@ -1444,8 +1267,7 @@ namespace WarpDriveMod
             if (PlayersInWarpList.Count > 0)
                 PlayersInWarpList.Clear();
 
-            if (WarpDriveOnGrid != null)
-            {
+            if (WarpDriveOnGrid != null) {
                 if (WarpDriveSession.Instance == null)
                     return;
 
@@ -1456,17 +1278,14 @@ namespace WarpDriveMod
             }
         }
 
-        private void InCharge()
-        {
+        private void InCharge() {
             if (grid.MainGrid == null)
                 return;
 
             var MainGrid = grid.MainGrid;
 
-            if (functionalDrives == 0)
-            {
-                if (!MyAPIGateway.Utilities.IsDedicated)
-                {
+            if (functionalDrives == 0) {
+                if (!MyAPIGateway.Utilities.IsDedicated) {
                     sound.PlaySound(WarpConstants.EmergencyDropSound, true);
                     sound.VolumeMultiplier = 1;
                 }
@@ -1475,10 +1294,8 @@ namespace WarpDriveMod
                 return;
             }
 
-            if (!hasEnoughPower)
-            {
-                if (!MyAPIGateway.Utilities.IsDedicated)
-                {
+            if (!hasEnoughPower) {
+                if (!MyAPIGateway.Utilities.IsDedicated) {
                     sound.PlaySound(WarpConstants.EmergencyDropSound, true);
                     sound.VolumeMultiplier = 1;
                 }
@@ -1487,10 +1304,8 @@ namespace WarpDriveMod
                 return;
             }
 
-            if (IsInGravity())
-            {
-                if (!MyAPIGateway.Utilities.IsDedicated)
-                {
+            if (IsInGravity()) {
+                if (!MyAPIGateway.Utilities.IsDedicated) {
                     sound.PlaySound(WarpConstants.EmergencyDropSound, true);
                     sound.VolumeMultiplier = 1;
                 }
@@ -1499,38 +1314,32 @@ namespace WarpDriveMod
                 return;
             }
 
-            if (grid.IsStatic)
-            {
+            if (grid.IsStatic) {
                 SendMessage(warnStatic);
                 Dewarp();
                 return;
             }
 
-            if (ConnectedStatic(MainGrid))
-            {
+            if (ConnectedStatic(MainGrid)) {
                 SendMessage(warnStatic);
                 Dewarp();
                 return;
             }
 
-            if (!MyAPIGateway.Utilities.IsDedicated)
-            {
+            if (!MyAPIGateway.Utilities.IsDedicated) {
                 if (effect != null)
                     effect.WorldMatrix = MatrixD.CreateWorld(effect.WorldMatrix.Translation, -gridMatrix.Forward, gridMatrix.Up);
 
                 UpdateParticleEffect();
             }
 
-            if (WarpDrive.Instance.Settings.AllowToDetectEnemyGrids && WarpDrive.Instance.EnemyProxymityDangerCharge(MainGrid))
-            {
+            if (WarpDrive.Instance.Settings.AllowToDetectEnemyGrids && WarpDrive.Instance.EnemyProxymityDangerCharge(MainGrid)) {
                 var DelayTime = WarpDrive.Instance.Settings.DelayJumpIfEnemyIsNear * 60;
                 var ElapsedTime = Math.Abs(WarpDriveSession.Instance.Runtime - startChargeRuntime);
                 var ElapsedTimeDevided = ElapsedTime / 60;
 
-                if (ElapsedTime >= DelayTime)
-                {
-                    if (MainGrid != null && MainGrid.Physics != null)
-                    {
+                if (ElapsedTime >= DelayTime) {
+                    if (MainGrid != null && MainGrid.Physics != null) {
                         // store ship speed before WARP. so we can restore it when exit warp.
                         GridSpeedLinearVelocity[MainGrid.EntityId] = MainGrid.Physics.LinearVelocity;
                         GridSpeedAngularVelocity[MainGrid.EntityId] = MainGrid.Physics.AngularVelocity;
@@ -1538,21 +1347,16 @@ namespace WarpDriveMod
 
                     StartWarp();
                 }
-                else if (ElapsedTimeDevided == 11 || ElapsedTimeDevided == 21 || ElapsedTimeDevided == 31 || ElapsedTimeDevided == 41 || ElapsedTimeDevided == 51)
-                {
-                    if (!MyAPIGateway.Utilities.IsDedicated)
-                    {
+                else if (ElapsedTimeDevided == 11 || ElapsedTimeDevided == 21 || ElapsedTimeDevided == 31 || ElapsedTimeDevided == 41 || ElapsedTimeDevided == 51) {
+                    if (!MyAPIGateway.Utilities.IsDedicated) {
                         StopParticleEffectNow();
                         PlayParticleEffect();
                     }
                 }
             }
-            else
-            {
-                if (Math.Abs(WarpDriveSession.Instance.Runtime - startChargeRuntime) >= WarpDrive.Instance.Settings.DelayJump * 60)
-                {
-                    if (MainGrid.Physics != null)
-                    {
+            else {
+                if (Math.Abs(WarpDriveSession.Instance.Runtime - startChargeRuntime) >= WarpDrive.Instance.Settings.DelayJump * 60) {
+                    if (MainGrid.Physics != null) {
                         // store ship speed before WARP. so we can restore it when exit warp.
                         GridSpeedLinearVelocity[MainGrid.EntityId] = MainGrid.Physics.LinearVelocity;
                         GridSpeedAngularVelocity[MainGrid.EntityId] = MainGrid.Physics.AngularVelocity;
@@ -1563,8 +1367,7 @@ namespace WarpDriveMod
             }
         }
 
-        bool IsInGravity()
-        {
+        bool IsInGravity() {
             if (grid == null || grid.MainGrid == null)
                 return true;
 
@@ -1574,18 +1377,15 @@ namespace WarpDriveMod
             var gravityVector = MyAPIGateway.Physics.CalculateNaturalGravityAt(position, out gravityVectorTemp);
             var GridGravityCalc = gravityVector.Length() / EARTH_GRAVITY;
 
-            if (WarpDrive.Instance.Settings.AllowInGravity)
-            {
+            if (WarpDrive.Instance.Settings.AllowInGravity) {
                 if (GridGravityCalc > WarpDrive.Instance.Settings.AllowInGravityMax)
                     return true;
 
-                if (GridGravityCalc > 0)
-                {
+                if (GridGravityCalc > 0) {
                     var worldAABB = MainGrid.PositionComp.WorldAABB;
                     var closestPlanet = MyGamePruningStructure.GetClosestPlanet(ref worldAABB);
 
-                    if (closestPlanet != null && MainGrid.Physics != null)
-                    {
+                    if (closestPlanet != null && MainGrid.Physics != null) {
                         var centerOfMassWorld = MainGrid.Physics.CenterOfMassWorld;
                         var closestSurfacePointGlobal = closestPlanet.GetClosestSurfacePointGlobal(ref centerOfMassWorld);
                         var elevation = double.PositiveInfinity;
@@ -1604,8 +1404,7 @@ namespace WarpDriveMod
             return GridGravityCalc > 0.01;
         }
 
-        float GridGravityNow()
-        {
+        float GridGravityNow() {
             if (grid == null || grid.MainGrid == null)
                 return 0;
 
@@ -1617,46 +1416,39 @@ namespace WarpDriveMod
             return GridGravityCalc;
         }
 
-        private void UpdateHeatPower()
-        {
+        private void UpdateHeatPower() {
             float totalPower = 0;
             int numFunctional = 0;
             hasEnoughPower = true;
 
-            try
-            {
+            try {
                 if (warpDrives == null || warpDrives.Count == 0)
                     return;
 
                 HashSet<WarpDrive> controllingDrives = new HashSet<WarpDrive>();
-                if (startWarpSource == null || !warpDrives.TryGetValue(startWarpSource, out controllingDrives))
-                {
+                if (startWarpSource == null || !warpDrives.TryGetValue(startWarpSource, out controllingDrives)) {
                     if (grid.MainGrid == null || !warpDrives.TryGetValue(grid.MainGrid, out controllingDrives))
                         controllingDrives = warpDrives.FirstPair().Value;
                 }
 
-                if (WarpState == State.Charging)
-                {
+                if (WarpState == State.Charging) {
                     if (controllingDrives == null)
                         controllingDrives = new HashSet<WarpDrive>();
 
-                    foreach (WarpDrive drive in controllingDrives)
-                    {
+                    foreach (WarpDrive drive in controllingDrives) {
                         if (drive == null || drive.Block == null || drive.Block.CubeGrid == null)
                             continue;
 
                         float _mass = 0f;
 
-                        if (!GridsMass.ContainsKey(drive.Block.CubeGrid.EntityId))
-                        {
+                        if (!GridsMass.ContainsKey(drive.Block.CubeGrid.EntityId)) {
                             _mass = CulcucateGridGlobalMass(drive.Block.CubeGrid);
                             GridsMass.Add(drive.Block.CubeGrid.EntityId, _mass);
                         }
                         else
                             _mass = GridsMass[drive.Block.CubeGrid.EntityId];
 
-                        if (MassChargeUpdate >= 60)
-                        {
+                        if (MassChargeUpdate >= 60) {
                             MassChargeUpdate = 0;
                             _mass = CulcucateGridGlobalMass(drive.Block.CubeGrid);
                             GridsMass[drive.Block.CubeGrid.EntityId] = _mass;
@@ -1664,36 +1456,30 @@ namespace WarpDriveMod
                         else
                             MassChargeUpdate++;
 
-                        if (_mass == 0)
-                        {
+                        if (_mass == 0) {
                             if (drive.Block.CubeGrid.GridSizeEnum == MyCubeSize.Small)
                                 _mass = 150000f;
                             else
                                 _mass = 500000f;
                         }
 
-                        if (drive.Block.CubeGrid.GridSizeEnum == MyCubeSize.Small)
-                        {
+                        if (drive.Block.CubeGrid.GridSizeEnum == MyCubeSize.Small) {
                             if (drive.Block.BlockDefinition.SubtypeId == "SlipspaceCoreSmall")
                                 totalPower = WarpDrive.Instance.Settings.baseRequiredPowerSmall + (_mass * 2.1f / 100000f);
                         }
-                        else
-                        {
+                        else {
                             if (drive.Block.BlockDefinition.SubtypeId == "SlipspaceCoreLarge")
                                 totalPower = WarpDrive.Instance.Settings.baseRequiredPower + (_mass * 2.1f / 1000000f);
                         }
                     }
                 }
 
-                if (WarpState == State.Active && grid.MainGrid != null)
-                {
+                if (WarpState == State.Active && grid.MainGrid != null) {
                     float _mass;
                     var MainGrid = grid.MainGrid;
 
-                    if (GridsMass.ContainsKey(MainGrid.EntityId))
-                    {
-                        if (MassUpdateTick++ >= 1200)
-                        {
+                    if (GridsMass.ContainsKey(MainGrid.EntityId)) {
+                        if (MassUpdateTick++ >= 1200) {
                             MassUpdateTick = 0;
                             _mass = CulcucateGridGlobalMass(MainGrid);
                             GridsMass[MainGrid.EntityId] = _mass;
@@ -1701,8 +1487,7 @@ namespace WarpDriveMod
                         else
                             _mass = GridsMass[MainGrid.EntityId];
                     }
-                    else
-                    {
+                    else {
                         _mass = CulcucateGridGlobalMass(MainGrid);
                         GridsMass.Add(MainGrid.EntityId, _mass);
                     }
@@ -1721,20 +1506,16 @@ namespace WarpDriveMod
                     if (percent == 0)
                         percent = 1;
 
-                    foreach (WarpDrive drive in controllingDrives)
-                    {
+                    foreach (WarpDrive drive in controllingDrives) {
                         if (drive == null || drive.Block == null || drive.Block.CubeGrid == null)
                             continue;
 
-                        if (drive.Block.IsFunctional && drive.Block.IsWorking)
-                        {
-                            if (drive.Block.CubeGrid.GridSizeEnum == MyCubeSize.Small)
-                            {
+                        if (drive.Block.IsFunctional && drive.Block.IsWorking) {
+                            if (drive.Block.CubeGrid.GridSizeEnum == MyCubeSize.Small) {
                                 if (drive.Block.BlockDefinition.SubtypeId == "SlipspaceCoreSmall")
                                     totalPower = (WarpDrive.Instance.Settings.baseRequiredPowerSmall + percent) / WarpDrive.Instance.Settings.powerRequirementBySpeedDeviderSmall;
                             }
-                            else
-                            {
+                            else {
                                 if (drive.Block.BlockDefinition.SubtypeId == "SlipspaceCoreLarge")
                                     totalPower = (WarpDrive.Instance.Settings.baseRequiredPower + percent) / WarpDrive.Instance.Settings.powerRequirementBySpeedDeviderLarge;
                             }
@@ -1742,56 +1523,44 @@ namespace WarpDriveMod
                     }
                 }
 
-                foreach (WarpDrive drive in controllingDrives)
-                {
+                foreach (WarpDrive drive in controllingDrives) {
                     if (drive == null || drive.Block == null)
                         continue;
 
-                    if (drive.Block.IsFunctional && drive.Block.IsWorking)
-                    {
+                    if (drive.Block.IsFunctional && drive.Block.IsWorking) {
                         numFunctional++;
 
-                        if (functionalDrives == 0)
-                        {
+                        if (functionalDrives == 0) {
                             // First tick
                             drive.RequiredPower = totalPower / controllingDrives.Count;
                         }
-                        else
-                        {
-                            if (WarpState != State.Idle)
-                            {
+                        else {
+                            if (WarpState != State.Idle) {
                                 // give SIM some chance before drop warp if power check missed.
-                                if (PowerCheckTick++ > 20)
-                                {
+                                if (PowerCheckTick++ > 20) {
                                     PowerCheckTick = 0;
                                     var LocalcurrentSpeedPt = currentSpeedPt;
 
-                                    if (!drive.HasPower)
-                                    {
-                                        if (LocalcurrentSpeedPt > 90)
-                                        {
+                                    if (!drive.HasPower) {
+                                        if (LocalcurrentSpeedPt > 90) {
                                             currentSpeedPt -= 90f;
 
-                                            if (MyAPIGateway.Utilities.IsDedicated)
-                                            {
+                                            if (MyAPIGateway.Utilities.IsDedicated) {
                                                 if (WarpDriveSession.Instance.warpDrivesSpeeds.ContainsKey(drive.Block))
                                                     WarpDriveSession.Instance.warpDrivesSpeeds[drive.Block] = currentSpeedPt;
                                             }
-                                            else if (!MyAPIGateway.Utilities.IsDedicated && MyAPIGateway.Multiplayer.IsServer)
-                                            {
+                                            else if (!MyAPIGateway.Utilities.IsDedicated && MyAPIGateway.Multiplayer.IsServer) {
                                                 if (WarpDriveSession.Instance.warpDrivesSpeeds.ContainsKey(drive.Block))
                                                     WarpDriveSession.Instance.warpDrivesSpeeds[drive.Block] = currentSpeedPt;
                                             }
-                                            else if (!MyAPIGateway.Utilities.IsDedicated && !MyAPIGateway.Multiplayer.IsServer)
-                                            {
+                                            else if (!MyAPIGateway.Utilities.IsDedicated && !MyAPIGateway.Multiplayer.IsServer) {
                                                 if (WarpDriveSession.Instance.warpDrivesSpeeds.ContainsKey(drive.Block))
                                                     WarpDriveSession.Instance.warpDrivesSpeeds[drive.Block] = currentSpeedPt;
 
                                                 WarpDriveSession.Instance.TransmitWarpSpeed(drive.Block, currentSpeedPt);
                                             }
                                         }
-                                        else
-                                        {
+                                        else {
                                             hasEnoughPower = false;
                                             drive.RequiredPower = totalPower / functionalDrives;
                                             return;
@@ -1800,15 +1569,13 @@ namespace WarpDriveMod
                                 }
                                 drive.RequiredPower = totalPower / functionalDrives;
                             }
-                            else
-                            {
+                            else {
                                 if (drive.RequiredPower != 0)
                                     drive.RequiredPower = 0;
                             }
                         }
                     }
-                    else
-                    {
+                    else {
                         if (drive.RequiredPower != 0)
                             drive.RequiredPower = 0;
                     }
@@ -1821,10 +1588,8 @@ namespace WarpDriveMod
                 else
                     totalHeat -= WarpDrive.Instance.Settings.heatDissipationDrive * numFunctional;
 
-                if (!MyAPIGateway.Utilities.IsDedicated)
-                {
-                    if (totalHeat <= 0)
-                    {
+                if (!MyAPIGateway.Utilities.IsDedicated) {
+                    if (totalHeat <= 0) {
                         totalHeat = 0;
                         DriveHeat = 0;
                     }
@@ -1835,8 +1600,7 @@ namespace WarpDriveMod
                 if (totalHeat <= 0)
                     totalHeat = 0;
 
-                if (WarpState == State.Charging && grid.MainGrid != null)
-                {
+                if (WarpState == State.Charging && grid.MainGrid != null) {
                     int percentHeat = (int)(totalHeat / WarpDrive.Instance.Settings.maxHeat * 100);
                     var ElapsedTime = Math.Abs(WarpDriveSession.Instance.Runtime - startChargeRuntime) / 60;
 
@@ -1845,8 +1609,7 @@ namespace WarpDriveMod
                     string display = "";
                     string font = "White";
 
-                    if (WarpDrive.Instance.Settings.AllowToDetectEnemyGrids && WarpDrive.Instance.EnemyProxymityDangerCharge(grid.MainGrid))
-                    {
+                    if (WarpDrive.Instance.Settings.AllowToDetectEnemyGrids && WarpDrive.Instance.EnemyProxymityDangerCharge(grid.MainGrid)) {
                         MaxSecondsToWarp = WarpDrive.Instance.Settings.DelayJumpIfEnemyIsNear;
                         SecondsToWarp = MaxSecondsToWarp - ElapsedTime;
 
@@ -1856,8 +1619,7 @@ namespace WarpDriveMod
                         else
                             display = $"Enemy Detected!!!\nPower Usage: {totalPower}Mw\nSeconds to Warp: {SecondsToWarp}";
                     }
-                    else
-                    {
+                    else {
                         SecondsToWarp = MaxSecondsToWarp - ElapsedTime;
                         if (percentHeat > 0)
                             display = $"Heat: {percentHeat}%\nPower Usage: {totalPower}Mw\nSeconds to Warp: {SecondsToWarp}";
@@ -1876,35 +1638,28 @@ namespace WarpDriveMod
                     if (percentHeat >= 95)
                         display += '*';
 
-                    if (MyAPIGateway.Utilities.IsDedicated)
-                    {
-                        if (_updateTicks++ >= 61)
-                        {
+                    if (MyAPIGateway.Utilities.IsDedicated) {
+                        if (_updateTicks++ >= 61) {
                             SendMessage(display, 1f, font);
                             _updateTicks = 0;
                         }
                     }
-                    else
-                    {
-                        if (_updateTicks++ >= 62)
-                        {
+                    else {
+                        if (_updateTicks++ >= 62) {
                             SendMessage(display, 1f, font);
                             _updateTicks = 0;
                         }
                     }
                 }
 
-                if (WarpState == State.Active)
-                {
-                    if (totalHeat > 0)
-                    {
+                if (WarpState == State.Active) {
+                    if (totalHeat > 0) {
                         int percentHeat = (int)(totalHeat / WarpDrive.Instance.Settings.maxHeat * 100);
                         string display = $"Heat: {percentHeat}%\nPower Usage : {totalPower}Mw";
                         string font = "White";
                         if (percentHeat >= 75)
                             display += '!';
-                        if (percentHeat >= 85)
-                        {
+                        if (percentHeat >= 85) {
                             display += '*';
                             font = "Red";
                         }
@@ -1915,39 +1670,30 @@ namespace WarpDriveMod
 
                         string msg = $"Speed: {currentSpeedPt * 60 / 1000:0} km/s\n{display}";
 
-                        if (MyAPIGateway.Utilities.IsDedicated)
-                        {
-                            if (_updateTicks++ >= 61)
-                            {
+                        if (MyAPIGateway.Utilities.IsDedicated) {
+                            if (_updateTicks++ >= 61) {
                                 SendMessage(msg, 1f, font);
                                 _updateTicks = 0;
                             }
                         }
-                        else
-                        {
-                            if (_updateTicks++ >= 62)
-                            {
+                        else {
+                            if (_updateTicks++ >= 62) {
                                 SendMessage(msg, 1f, font);
                                 _updateTicks = 0;
                             }
                         }
                     }
-                    else
-                    {
+                    else {
                         string msg = $"Speed: {currentSpeedPt * 60 / 1000:0} km/s\n Power Usage : {totalPower}Mw";
 
-                        if (MyAPIGateway.Utilities.IsDedicated)
-                        {
-                            if (_updateTicks++ >= 61)
-                            {
+                        if (MyAPIGateway.Utilities.IsDedicated) {
+                            if (_updateTicks++ >= 61) {
                                 SendMessage(msg, 1f, "White");
                                 _updateTicks = 0;
                             }
                         }
-                        else
-                        {
-                            if (_updateTicks++ >= 62)
-                            {
+                        else {
+                            if (_updateTicks++ >= 62) {
                                 SendMessage(msg, 1f, "White");
                                 _updateTicks = 0;
                             }
@@ -1958,10 +1704,8 @@ namespace WarpDriveMod
             catch { }
         }
 
-        private void PlayParticleEffect()
-        {
-            if (effect != null)
-            {
+        private void PlayParticleEffect() {
+            if (effect != null) {
                 effect.Play();
                 return;
             }
@@ -1989,8 +1733,7 @@ namespace WarpDriveMod
                 effect.UserScale = scale;
         }
 
-        private void UpdateParticleEffect()
-        {
+        private void UpdateParticleEffect() {
             if (effect == null || effect.IsStopped || grid.MainGrid == null)
                 return;
 
@@ -2002,8 +1745,7 @@ namespace WarpDriveMod
             effect.SetTranslation(ref origin);
         }
 
-        private void StopParticleEffect()
-        {
+        private void StopParticleEffect() {
             if (effect == null)
                 return;
 
@@ -2011,8 +1753,7 @@ namespace WarpDriveMod
             effect = null;
         }
 
-        private void StopParticleEffectNow()
-        {
+        private void StopParticleEffectNow() {
             if (effect == null)
                 return;
 
@@ -2020,8 +1761,7 @@ namespace WarpDriveMod
             effect = null;
         }
 
-        public float CulcucateGridGlobalMass(IMyCubeGrid Grid)
-        {
+        public float CulcucateGridGlobalMass(IMyCubeGrid Grid) {
             float GlobalMass = 1f;
 
             float mass;
@@ -2038,10 +1778,8 @@ namespace WarpDriveMod
             return GlobalMass;
         }
 
-        private void OnSystemInvalidated(GridSystem system)
-        {
-            if (!MyAPIGateway.Utilities.IsDedicated)
-            {
+        private void OnSystemInvalidated(GridSystem system) {
+            if (!MyAPIGateway.Utilities.IsDedicated) {
                 sound?.StopSound(true);
                 effect?.Stop();
                 BlinkTrailEffect?.Stop();
@@ -2050,17 +1788,13 @@ namespace WarpDriveMod
             OnSystemInvalidatedAction = null;
         }
 
-        public void SendMessage(string msg, float seconds = 5, string font = "Red", long PlayerID = 0L)
-        {
+        public void SendMessage(string msg, float seconds = 5, string font = "Red", long PlayerID = 0L) {
             var Hostplayer = MyAPIGateway.Session?.Player;
             var cockpit = Hostplayer?.Character?.Parent as IMyShipController;
 
-            if (OnlinePlayersList != null && OnlinePlayersList.Count > 0 && PlayerID > 0)
-            {
-                foreach (var SelectedPlayer in OnlinePlayersList)
-                {
-                    if (SelectedPlayer.IdentityId == PlayerID)
-                    {
+            if (OnlinePlayersList != null && OnlinePlayersList.Count > 0 && PlayerID > 0) {
+                foreach (var SelectedPlayer in OnlinePlayersList) {
+                    if (SelectedPlayer.IdentityId == PlayerID) {
                         MyVisualScriptLogicProvider.ShowNotification(msg, (int)(seconds * 1000), font, SelectedPlayer.IdentityId);
                         return;
                     }
@@ -2070,10 +1804,8 @@ namespace WarpDriveMod
             if (Hostplayer != null && cockpit?.CubeGrid != null && grid.Contains((MyCubeGrid)cockpit.CubeGrid))
                 MyVisualScriptLogicProvider.ShowNotification(msg, (int)(seconds * 1000), font, Hostplayer.IdentityId);
 
-            if (OnlinePlayersList != null && OnlinePlayersList.Count > 0)
-            {
-                foreach (var ClientPlayer in OnlinePlayersList)
-                {
+            if (OnlinePlayersList != null && OnlinePlayersList.Count > 0) {
+                foreach (var ClientPlayer in OnlinePlayersList) {
                     if (Hostplayer != null && ClientPlayer.IdentityId == Hostplayer.IdentityId)
                         continue;
 
@@ -2085,8 +1817,7 @@ namespace WarpDriveMod
             }
         }
 
-        private void OnDriveAdded(IMyCubeBlock block)
-        {
+        private void OnDriveAdded(IMyCubeBlock block) {
             WarpDrive drive = block.GameLogic.GetAs<WarpDrive>();
             HashSet<WarpDrive> gridDrives;
             drive.SetWarpSystem(this);
@@ -2098,13 +1829,11 @@ namespace WarpDriveMod
             warpDrives[block.CubeGrid] = gridDrives;
         }
 
-        private void OnDriveRemoved(IMyCubeBlock block)
-        {
+        private void OnDriveRemoved(IMyCubeBlock block) {
             WarpDrive drive = block.GameLogic.GetAs<WarpDrive>();
             HashSet<WarpDrive> gridDrives;
 
-            if (warpDrives.TryGetValue(block.CubeGrid, out gridDrives))
-            {
+            if (warpDrives.TryGetValue(block.CubeGrid, out gridDrives)) {
                 gridDrives.Remove(drive);
 
                 if (GridsMass.ContainsKey(drive.Block.CubeGrid.EntityId))
@@ -2117,19 +1846,16 @@ namespace WarpDriveMod
             }
         }
 
-        public override bool Equals(object obj)
-        {
+        public override bool Equals(object obj) {
             var system = obj as WarpSystem;
             return system != null && Id == system.Id;
         }
 
-        public override int GetHashCode()
-        {
+        public override int GetHashCode() {
             return 2108858624 + Id.GetHashCode();
         }
 
-        public enum State
-        {
+        public enum State {
             Idle, Charging, Active
         }
     }
