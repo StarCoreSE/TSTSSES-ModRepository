@@ -19,8 +19,8 @@ namespace WarpDriveMod
 {
     public static class WarpConstants
     {
-        public static MySoundPair EmergencyDropSound = new MySoundPair("SlipspaceGravity", true);
-        public static MySoundPair chargingSound = new MySoundPair("quantum_charging", true);
+        public static MySoundPair EmergencyDropSound = new MySoundPair("SuperCruiseGravity", true);
+        public static MySoundPair chargingSound = new MySoundPair("ShipPrototechJumpDriveCharging", true);
         public static MySoundPair jumpInSound = new MySoundPair("quantum_jumpin", true);
         public static MySoundPair jumpOutSound = new MySoundPair("quantum_jumpout", true);
 
