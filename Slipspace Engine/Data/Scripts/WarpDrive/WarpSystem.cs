@@ -798,7 +798,7 @@ namespace WarpDriveMod
         {
             Vector4 baseCol = Color.DarkOrange;
             string material = "SciFiEngineThrustMiddle"; // IlluminatingShell ReflectorGlareAlphaBlended
-            float ranf = MyUtils.GetRandomFloat(1.1f * rad, 1.8f * rad);
+            float ranf = MyUtils.GetRandomFloat(0.1f * rad, 0.8f * rad);
             MySimpleObjectDraw.DrawLine(startPos, endPos, MyStringId.GetOrCompute(material), ref baseCol, ranf);
             MySimpleObjectDraw.DrawLine(startPos, endPos, MyStringId.GetOrCompute(material), ref baseCol, ranf * 0.66f);
             MySimpleObjectDraw.DrawLine(startPos, endPos, MyStringId.GetOrCompute(material), ref baseCol, ranf * 0.33f);
@@ -841,7 +841,7 @@ namespace WarpDriveMod
         {
             Vector4 baseCol = Color.Orange;
             string material = "SciFiEngineThrustMiddle"; // IlluminatingShell ReflectorGlareAlphaBlended
-            float ranf = MyUtils.GetRandomFloat(1.1f * rad, 1.8f * rad);
+            float ranf = MyUtils.GetRandomFloat(0.1f * rad, 0.8f * rad);
             MySimpleObjectDraw.DrawLine(startPos, endPos, MyStringId.GetOrCompute(material), ref baseCol, ranf);
             MySimpleObjectDraw.DrawLine(startPos, endPos, MyStringId.GetOrCompute(material), ref baseCol, ranf * 0.66f);
             MySimpleObjectDraw.DrawLine(startPos, endPos, MyStringId.GetOrCompute(material), ref baseCol, ranf * 0.33f);
@@ -884,7 +884,7 @@ namespace WarpDriveMod
         {
             Vector4 baseCol = Color.OrangeRed;
             string material = "SciFiEngineThrustMiddle"; // IlluminatingShell ReflectorGlareAlphaBlended
-            float ranf = MyUtils.GetRandomFloat(1.1f * rad, 1.8f * rad);
+            float ranf = MyUtils.GetRandomFloat(0.1f * rad, 0.8f * rad);
             MySimpleObjectDraw.DrawLine(startPos, endPos, MyStringId.GetOrCompute(material), ref baseCol, ranf);
             MySimpleObjectDraw.DrawLine(startPos, endPos, MyStringId.GetOrCompute(material), ref baseCol, ranf * 0.66f);
             MySimpleObjectDraw.DrawLine(startPos, endPos, MyStringId.GetOrCompute(material), ref baseCol, ranf * 0.33f);
@@ -1983,7 +1983,7 @@ namespace WarpDriveMod
             if (MainGrid.GridSizeEnum == MyCubeSize.Large)
                 scale = gridWidth / 60;
 
-            MyParticlesManager.TryCreateParticleEffect("Warp_Prototech", ref fromDir, ref origin, uint.MaxValue, out effect);
+            MyParticlesManager.TryCreateParticleEffect("Warp_Slipspace", ref fromDir, ref origin, uint.MaxValue, out effect);
 
             if (effect != null)
                 effect.UserScale = scale;
