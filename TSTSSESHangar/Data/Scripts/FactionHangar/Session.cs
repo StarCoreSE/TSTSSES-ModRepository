@@ -2358,9 +2358,9 @@ namespace CustomHangar
                     MyAPIGateway.Multiplayer.UnregisterMessageHandler(NetworkHandle, Comms.MessageHandler);
                 }
 
-                if (!isDedicated) {
-                    Sandbox.ModAPI.MyAPIGateway.Utilities.ShowMessage("FactionHangar", "Mod Unloaded");
-                }
+                //if (!isDedicated) {
+                //    Sandbox.ModAPI.MyAPIGateway.Utilities.ShowMessage("FactionHangar", "Mod Unloaded");
+                //}
 
                 Instance = null;
             }
