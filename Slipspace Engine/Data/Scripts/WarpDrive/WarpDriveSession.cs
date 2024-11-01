@@ -488,8 +488,7 @@ namespace WarpDriveMod
                 if (Instance == null)
                     return;
 
-                if (WarpDrive.Instance != null)
-                    MyVisualScriptLogicProvider.PlayerLeftCockpit -= WarpDrive.Instance.PlayerLeftCockpit;
+                MyVisualScriptLogicProvider.PlayerLeftCockpit -= WarpDrive.Instance.PlayerLeftCockpit;
 
                 MyAPIGateway.Multiplayer.UnregisterSecureMessageHandler(toggleWarpPacketId, ReceiveToggleWarp);
                 MyAPIGateway.Multiplayer.UnregisterSecureMessageHandler(toggleWarpPacketIdSpeed, ReceiveWarpSpeed);
