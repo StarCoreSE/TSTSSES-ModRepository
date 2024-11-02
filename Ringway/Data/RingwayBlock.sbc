@@ -2,9 +2,9 @@
 <Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <CubeBlocks>
 
-    <Definition xsi:type="MyObjectBuilder_BatteryBlockDefinition">
+    <Definition xsi:type="MyObjectBuilder_UpgradeModuleDefinition">
       <Id>
-        <TypeId>BatteryBlock</TypeId>
+        <TypeId>UpgradeModule</TypeId>
         <SubtypeId>RingwayCore</SubtypeId>
       </Id>
       <DisplayName>Ringway Core</DisplayName>
@@ -38,24 +38,14 @@
       <BlockPairName>RingwayCore</BlockPairName>
       <EdgeType>Light</EdgeType>
       <BuildTimeSeconds>40</BuildTimeSeconds>
-
-      <ResourceSourceGroup>Battery</ResourceSourceGroup>
-
-      <ResourceSinkGroup>BatteryBlock</ResourceSinkGroup>
-      <AdaptibleInput>true</AdaptibleInput>
-
-      <MaxPowerOutput>300</MaxPowerOutput>
-      <RequiredPowerInput>12</RequiredPowerInput>
-      <MaxStoredPower>1000</MaxStoredPower>
-      <!-- 1 GWh storage -->
-      <InitialStoredPowerRatio>0.3</InitialStoredPowerRatio>
-      <RechargeMultiplier>0.8</RechargeMultiplier>
-
-      <InventorySize>
-        <X>1</X>
-        <Y>1</Y>
-        <Z>1</Z>
-      </InventorySize>
+      <MountPoints>
+        <MountPoint Side="Front" StartX="0" StartY="0" EndX="1" EndY="1" />
+        <MountPoint Side="Back" StartX="0" StartY="0" EndX="1" EndY="1" />
+        <MountPoint Side="Top" StartX="0" StartY="0" EndX="1" EndY="1" />
+        <MountPoint Side="Bottom" StartX="0" StartY="0" EndX="1" EndY="1" />
+        <MountPoint Side="Left" StartX="0" StartY="0" EndX="1" EndY="1" />
+        <MountPoint Side="Right" StartX="0" StartY="0" EndX="1" EndY="1" />
+      </MountPoints>
       <Public>true</Public>
       <DamageEffectName>Damage_Electrical_Damaged</DamageEffectName>
       <DamagedSound>ParticleElectrical</DamagedSound>
@@ -66,9 +56,10 @@
       <IsAirTight>true</IsAirTight>
       <MirroringZ>Y</MirroringZ>
       <MirroringY>Z</MirroringY>
-      <TargetingGroups>
-        <string>PowerSystems</string>
-      </TargetingGroups>
+
+      <Upgrades>
+      </Upgrades>
+
       <ActionList>
         <Action>
           <Id>Jump</Id>
