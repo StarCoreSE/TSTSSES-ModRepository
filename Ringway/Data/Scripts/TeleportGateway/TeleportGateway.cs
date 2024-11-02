@@ -59,7 +59,7 @@ namespace TeleportMechanisms {
             }
 
             Settings = Load(RingwayBlock);
-            //RingwayBlock.AppendingCustomInfo += AppendingCustomInfo;
+            RingwayBlock.AppendingCustomInfo += AppendingCustomInfo;
 
             // Initialize power sink for charging
             Sink = RingwayBlock.Components.Get<MyResourceSinkComponent>();
@@ -93,6 +93,98 @@ namespace TeleportMechanisms {
             return powerPerSecond * 1000f; // Convert to watts
         }
 
+        private void AppendingCustomInfo(IMyTerminalBlock block, StringBuilder sb) {
+            try {
+                if (!block.IsWorking) {
+                    sb.Append("--- Gateway Offline ---\n");
+                    sb.Append("The gateway is not functional. Check power and block integrity.\n");
+                    return;
+                }
+
+                sb.Append("--- Teleport Gateway Status ---\n");
+
+
+                if (Sink != null) {
+                    // Current and max stored power
+                    float currentStoredPower = (float)Settings.StoredPower;
+                    float maxStoredPower = Settings.MaxStoredPower;
+
+                    // Calculate the percentage
+                    float chargePercentage = (currentStoredPower / maxStoredPower) * 100f;
+                    sb.Append($"Charge: {chargePercentage:F1}% ({currentStoredPower:F2}/{maxStoredPower:F2} MWh)\n");
+
+                    // Display status based on charge level
+                    sb.Append(chargePercentage >= 99 ? "Status: Ready to Jump\n" : "Status: Charging...\n");
+
+                    // Calculate remaining charge time if charging
+                    if (chargePercentage < 100) {
+                        float remainingPower = maxStoredPower - currentStoredPower;
+                        float chargeRate = CHARGE_RATE; // MWh per second
+                        float timeToFullCharge = remainingPower / chargeRate; // in seconds
+
+                        sb.Append($"Time to Full Charge: {timeToFullCharge:F1} seconds\n");
+                    }
+                }
+
+                // Display linked gateways info (Unchanged)
+                var linkedGateways = TeleportCore._TeleportLinks.ContainsKey(Settings.GatewayName)
+                    ? TeleportCore._TeleportLinks[Settings.GatewayName]
+                    : new List<long>();
+                int linkedCount = linkedGateways.Count;
+                sb.Append($"Linked Gateways: {linkedCount}\n");
+
+                if (linkedCount > 2) {
+                    sb.Append($"WARNING: More than two gateways on channel '{Settings.GatewayName}'.\n");
+                    sb.Append("         Only the nearest gateway will be used.\n");
+                }
+
+                if (linkedCount > 0) {
+                    sb.Append("Linked To:\n");
+                    var sourcePosition = RingwayBlock.GetPosition();
+
+                    IMyCollector nearestGateway = null;
+                    double nearestDistance = double.MaxValue;
+
+                    foreach (var gatewayId in linkedGateways) {
+                        if (gatewayId != RingwayBlock.EntityId) {
+                            var linkedGateway = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyCollector;
+                            if (linkedGateway != null) {
+                                var distance = Vector3D.Distance(sourcePosition, linkedGateway.GetPosition());
+                                string distanceStr = $"{distance / 1000:F1} km";
+
+                                if (distance < nearestDistance) {
+                                    nearestDistance = distance;
+                                    nearestGateway = linkedGateway;
+                                }
+
+                                sb.Append($"  - {linkedGateway.CustomName}: {distanceStr}\n");
+                            }
+                            else {
+                                sb.Append($"  - Unknown (ID: {gatewayId})\n");
+                            }
+                        }
+                    }
+
+                    if (nearestGateway != null && linkedCount > 1) {
+                        sb.Append($"Active Destination: {nearestGateway.CustomName}\n");
+                    }
+                }
+                else {
+                    sb.Append("Status: Not linked to any other gateways\n");
+                }
+
+                // Settings Info (unchanged)
+                sb.Append($"Allow Players: {(Settings.AllowPlayers ? "Yes" : "No")}\n");
+                sb.Append($"Allow Ships: {(Settings.AllowShips ? "Yes" : "No")}\n");
+                sb.Append($"Show Sphere: {(Settings.ShowSphere ? "Yes" : "No")}\n");
+                sb.Append($"Sphere Diameter: {Settings.SphereDiameter} m\n");
+            }
+            catch (Exception e) {
+                MyLog.Default.WriteLineAndConsole($"Error in AppendingCustomInfo: {e}");
+
+            }
+        }
+
         public override void UpdateOnceBeforeFrame() {
             try {
                 base.UpdateOnceBeforeFrame();
@@ -101,17 +193,20 @@ namespace TeleportMechanisms {
 
                 Sink = RingwayBlock.Components.Get<MyResourceSinkComponent>();
                 if (Sink != null) {
-                    float initialPowerDraw = CalculatePowerDraw();
                     var powerReq = new MyResourceSinkInfo() {
                         ResourceTypeId = MyResourceDistributorComponent.ElectricityId,
-                        MaxRequiredInput = 1000f, // 1 GW max input
+                        MaxRequiredInput = 1000f,
                         RequiredInputFunc = CalculatePowerDraw
                     };
-                    Sink.AddType(ref powerReq);
+                    Sink.AddType(ref powerReq); // This is the critical line we were missing
                     Sink.SetRequiredInputFuncByType(MyResourceDistributorComponent.ElectricityId, CalculatePowerDraw);
                     Sink.Update();
+
+                    MyLog.Default.WriteLineAndConsole($"TPGate: UpdateOnceBeforeFrame: Initialized power sink for {RingwayBlock.EntityId}");
                 }
 
+                NeedsUpdate |= MyEntityUpdateEnum.EACH_FRAME;
+                NeedsUpdate |= MyEntityUpdateEnum.EACH_10TH_FRAME;
             }
             catch (Exception e) {
                 MyLog.Default.WriteLineAndConsole($"Ringway.UpdateOnceBeforeFrame: {e}");
