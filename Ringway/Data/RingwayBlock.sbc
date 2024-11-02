@@ -9,7 +9,7 @@
       </Id>
       <DisplayName>Ringway Core</DisplayName>
       <Icon>Textures\GUI\Icons\Cubes\Battery.dds</Icon>
-      <Description>Use the [REDACTED] within Saturn's magnetic field to create temporary wormholes. Power consumption scales with distance.</Description>
+      <Description>Use the [REDACTED] within Saturn's magnetic field to transport you across space. Power consumption scales with distance. 1GW continuous power is needed to charge.</Description>
       <CubeSize>Large</CubeSize>
       <BlockTopology>TriangleMesh</BlockTopology>
       <Size x="1" y="1" z="1" />

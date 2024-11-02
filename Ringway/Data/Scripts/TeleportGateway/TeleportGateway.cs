@@ -46,6 +46,7 @@ namespace TeleportMechanisms {
         private const float BASE_COUNTDOWN_SECONDS = 5; // Minimum countdown time
         private const float SECONDS_PER_100KM = 1.0f; // Additional second per 100km
         private const float POWER_PER_100KM = 1.0f; // 1 MWh per 100km
+        private const float MIN_TELEPORT_CHARGE_PERCENTAGE = 0.1f; // 10% charge threshold
 
         static TeleportGateway() {
             CreateControls();
@@ -110,6 +111,7 @@ namespace TeleportMechanisms {
 
                     // Display power level
                     sb.Append($"Charge: {chargePercentage:F1}% ({currentStoredPower:F2}/{maxStoredPower:F2} MWh)\n");
+                    sb.Append($"Minimum Charge for Teleport: {MIN_TELEPORT_CHARGE_PERCENTAGE * 100}%\n");
 
                     // Status based on charging and power availability
                     if (_isTeleporting) {
@@ -233,8 +235,6 @@ namespace TeleportMechanisms {
             return Settings.StoredPower < Settings.MaxStoredPower ? CHARGE_RATE * 1000f : 0f;
         }
 
-
-
         private float _targetPowerDrain = 0f;
         private float _initialPower;
 
@@ -243,21 +243,22 @@ namespace TeleportMechanisms {
 
             if (RingwayBlock == null) return;
 
+            // Draw a debug line to the nearest linked gateway, if one exists
+            DrawDebugLineToNearestLinkedGateway();
+
             if (_isTeleporting) {
+                // Teleport logic with adjusted power requirement
                 float powerRequired = CalculatePowerRequired(_jumpDistance);
                 float powerDrainPerTick = powerRequired / _teleportCountdown;
 
-                // Draw power requirement during teleport
                 if (Sink != null) {
                     float powerDrawPerSecond = (powerRequired * 100f) / (_teleportCountdown / 60f);
                     Sink.SetRequiredInputByType(MyResourceDistributorComponent.ElectricityId, powerDrawPerSecond * 1000f);
                     Sink.Update();
                 }
 
-                // Drain stored power
                 Settings.StoredPower = Math.Max(0, Settings.StoredPower - powerDrainPerTick);
                 Settings.Changed = true;
-
                 _teleportCountdown--;
 
                 if (_teleportCountdown % 60 == 0) {
@@ -269,8 +270,9 @@ namespace TeleportMechanisms {
                     );
                 }
 
-                // Check if power is too low or countdown finished
-                if (Settings.StoredPower < powerRequired * POWER_THRESHOLD || _teleportCountdown <= 0) {
+                // Adjusted minimum power threshold to 10% of MaxStoredPower
+                float minRequiredPower = Settings.MaxStoredPower * MIN_TELEPORT_CHARGE_PERCENTAGE;
+                if (Settings.StoredPower < minRequiredPower || _teleportCountdown <= 0) {
                     _isTeleporting = false;
 
                     // Reset sink
@@ -279,9 +281,9 @@ namespace TeleportMechanisms {
                         Sink.Update();
                     }
 
-                    if (Settings.StoredPower < powerRequired * POWER_THRESHOLD) {
+                    if (Settings.StoredPower < minRequiredPower) {
                         MyAPIGateway.Utilities.ShowNotification(
-                            $"Jump failed - Power depleted during charging",
+                            $"Jump failed - Insufficient power",
                             2000,
                             MyFontEnum.Red
                         );
@@ -305,38 +307,32 @@ namespace TeleportMechanisms {
                 }
             }
             else {
-                // Charge when not teleporting
+                // Charging logic remains unchanged
                 if (RingwayBlock.IsWorking && Settings.StoredPower < Settings.MaxStoredPower) {
                     if (Sink != null && Sink.IsPowerAvailable(MyResourceDistributorComponent.ElectricityId, CHARGE_RATE * 1000f)) {
-                        // Charge at constant rate when power is available
                         Settings.StoredPower = Math.Min(Settings.MaxStoredPower, Settings.StoredPower + (CHARGE_RATE / 60f));
                         Settings.Changed = true;
-
-                        // Update sink to draw charging power
                         Sink.SetRequiredInputByType(MyResourceDistributorComponent.ElectricityId, CHARGE_RATE * 1000f);
                         Sink.Update();
                     }
                     else {
-                        // Reset sink when no charging is needed or no power available
                         Sink?.SetRequiredInputByType(MyResourceDistributorComponent.ElectricityId, 0f);
                         Sink?.Update();
                     }
                 }
             }
 
-            // Periodically save settings
+
             if (++_frameCounter >= SAVE_INTERVAL_FRAMES) {
                 _frameCounter = 0;
                 TrySave();
             }
 
-            // Update GUI details if the terminal screen is open
             if (MyAPIGateway.Gui.GetCurrentScreen == MyTerminalPageEnum.ControlPanel) {
                 RingwayBlock.RefreshCustomInfo();
                 RingwayBlock.SetDetailedInfoDirty();
             }
 
-            // Display teleport bubble if in a client session
             if (!MyAPIGateway.Utilities.IsDedicated && MyAPIGateway.Session != null) {
                 TeleportBubbleManager.CreateOrUpdateBubble(RingwayBlock);
                 TeleportBubbleManager.DrawBubble(RingwayBlock);
@@ -448,6 +444,39 @@ namespace TeleportMechanisms {
 
             base.Close();
         }
+
+        private void DrawDebugLineToNearestLinkedGateway() {
+            // Check if there are linked gateways for the current gateway
+            List<long> linkedGateways;
+            if (!TeleportCore._TeleportLinks.TryGetValue(Settings.GatewayName, out linkedGateways) || linkedGateways.Count <= 1) {
+                return; // No links or only linked to itself
+            }
+
+            Vector3D sourcePosition = RingwayBlock.GetPosition();
+            IMyCollector nearestGateway = null;
+            double nearestDistance = double.MaxValue;
+
+            foreach (var gatewayId in linkedGateways) {
+                if (gatewayId == RingwayBlock.EntityId) continue; // Skip self
+
+                var linkedGateway = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyCollector;
+                if (linkedGateway != null) {
+                    double distance = Vector3D.Distance(sourcePosition, linkedGateway.GetPosition());
+                    if (distance < nearestDistance) {
+                        nearestDistance = distance;
+                        nearestGateway = linkedGateway;
+                    }
+                }
+            }
+
+            // Draw the line if a nearest gateway was found
+            if (nearestGateway != null) {
+                Vector3D destinationPosition = nearestGateway.GetPosition();
+                Vector4 green = Color.Green;
+                MySimpleObjectDraw.DrawLine(sourcePosition, destinationPosition, MyStringId.GetOrCompute("Square"), ref green, 0.1f);
+            }
+        }
+
 
         public override bool IsSerialized() {
             Save();
