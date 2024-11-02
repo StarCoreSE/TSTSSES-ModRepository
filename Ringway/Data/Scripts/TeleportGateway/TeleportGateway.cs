@@ -15,17 +15,17 @@ using Sandbox.Game.EntityComponents;
 using VRage.ModAPI;
 using Sandbox.ModAPI.Ingame;
 using IMyShipController = Sandbox.ModAPI.IMyShipController;
-using IMyUpgradeModule = Sandbox.ModAPI.IMyUpgradeModule;
+using IMyCollector = Sandbox.ModAPI.IMyCollector;
 using Sandbox.Game.GameSystems.Electricity;
 using VRage.Game.ObjectBuilders.Definitions;
 using IMyTerminalBlock = Sandbox.ModAPI.IMyTerminalBlock;
 
 namespace TeleportMechanisms {
-    [MyEntityComponentDescriptor(typeof(MyObjectBuilder_UpgradeModule), false,
+    [MyEntityComponentDescriptor(typeof(MyObjectBuilder_Collector), false,
         "RingwayCore", "SmallRingwayCore")]
     public class TeleportGateway : MyGameLogicComponent {
         public TeleportGatewaySettings Settings { get; private set; } = new TeleportGatewaySettings();
-        public IMyUpgradeModule RingwayBlock;
+        public IMyCollector RingwayBlock;
 
         private static bool _controlsCreated = false;
         private static readonly Guid StorageGuid = new Guid("7F995845-BCEF-4E37-9B47-A035AC2A8E0B");
@@ -52,14 +52,14 @@ namespace TeleportMechanisms {
         }
 
         public override void Init(MyObjectBuilder_EntityBase objectBuilder) {
-            RingwayBlock = Entity as IMyUpgradeModule;
+            RingwayBlock = Entity as IMyCollector;
             if (RingwayBlock == null) {
                 MyLogger.Log($"TPGate: Init: Entity is not an upgrade module. EntityId: {Entity?.EntityId}");
                 return;
             }
 
             Settings = Load(RingwayBlock);
-            RingwayBlock.AppendingCustomInfo += AppendingCustomInfo;
+            //RingwayBlock.AppendingCustomInfo += AppendingCustomInfo;
 
             // Initialize power sink for charging
             Sink = RingwayBlock.Components.Get<MyResourceSinkComponent>();
@@ -68,6 +68,7 @@ namespace TeleportMechanisms {
             }
 
             NeedsUpdate |= MyEntityUpdateEnum.EACH_FRAME;
+            NeedsUpdate |= MyEntityUpdateEnum.EACH_10TH_FRAME;
             NeedsUpdate |= MyEntityUpdateEnum.EACH_100TH_FRAME;
 
             lock (TeleportCore._lock) {
@@ -93,103 +94,50 @@ namespace TeleportMechanisms {
         }
 
         public override void UpdateOnceBeforeFrame() {
-            if (RingwayBlock == null || RingwayBlock.CubeGrid?.Physics == null) return;
-
-            var battery = RingwayBlock as IMyUpgradeModule;
-            if (battery == null) return;
-
-
-        }
-
-        private void AppendingCustomInfo(IMyTerminalBlock block, StringBuilder sb) {
             try {
-                if (!block.IsWorking) {
-                    sb.Append("--- Gateway Offline ---\n");
-                    sb.Append("The gateway is not functional. Check power and block integrity.\n");
+                base.UpdateOnceBeforeFrame();
+                if (RingwayBlock?.CubeGrid?.Physics == null)
                     return;
-                }
 
-                sb.Append("--- Teleport Gateway Status ---\n");
-
+                Sink = RingwayBlock.Components.Get<MyResourceSinkComponent>();
                 if (Sink != null) {
-                    // Current and max stored power
-                    float currentStoredPower = (float)Settings.StoredPower;
-                    float maxStoredPower = Settings.MaxStoredPower;
-
-                    // Calculate the percentage
-                    float chargePercentage = (currentStoredPower / maxStoredPower) * 100f;
-                    sb.Append($"Charge: {chargePercentage:F1}% ({currentStoredPower:F2}/{maxStoredPower:F2} MWh)\n");
-
-                    // Display status based on charge level
-                    sb.Append(chargePercentage >= 99 ? "Status: Ready to Jump\n" : "Status: Charging...\n");
-
-                    // Calculate remaining charge time if charging
-                    if (chargePercentage < 100) {
-                        float remainingPower = maxStoredPower - currentStoredPower;
-                        float chargeRate = CHARGE_RATE; // MWh per second
-                        float timeToFullCharge = remainingPower / chargeRate; // in seconds
-
-                        sb.Append($"Time to Full Charge: {timeToFullCharge:F1} seconds\n");
-                    }
+                    float initialPowerDraw = CalculatePowerDraw();
+                    var powerReq = new MyResourceSinkInfo() {
+                        ResourceTypeId = MyResourceDistributorComponent.ElectricityId,
+                        MaxRequiredInput = 1000f, // 1 GW max input
+                        RequiredInputFunc = CalculatePowerDraw
+                    };
+                    Sink.AddType(ref powerReq);
+                    Sink.SetRequiredInputFuncByType(MyResourceDistributorComponent.ElectricityId, CalculatePowerDraw);
+                    Sink.Update();
                 }
 
-                // Display linked gateways info (Unchanged)
-                var linkedGateways = TeleportCore._TeleportLinks.ContainsKey(Settings.GatewayName)
-                    ? TeleportCore._TeleportLinks[Settings.GatewayName]
-                    : new List<long>();
-                int linkedCount = linkedGateways.Count;
-                sb.Append($"Linked Gateways: {linkedCount}\n");
-
-                if (linkedCount > 2) {
-                    sb.Append($"WARNING: More than two gateways on channel '{Settings.GatewayName}'.\n");
-                    sb.Append("         Only the nearest gateway will be used.\n");
-                }
-
-                if (linkedCount > 0) {
-                    sb.Append("Linked To:\n");
-                    var sourcePosition = RingwayBlock.GetPosition();
-
-                    IMyUpgradeModule nearestGateway = null;
-                    double nearestDistance = double.MaxValue;
-
-                    foreach (var gatewayId in linkedGateways) {
-                        if (gatewayId != RingwayBlock.EntityId) {
-                            var linkedGateway = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyUpgradeModule;
-                            if (linkedGateway != null) {
-                                var distance = Vector3D.Distance(sourcePosition, linkedGateway.GetPosition());
-                                string distanceStr = $"{distance / 1000:F1} km";
-
-                                if (distance < nearestDistance) {
-                                    nearestDistance = distance;
-                                    nearestGateway = linkedGateway;
-                                }
-
-                                sb.Append($"  - {linkedGateway.CustomName}: {distanceStr}\n");
-                            }
-                            else {
-                                sb.Append($"  - Unknown (ID: {gatewayId})\n");
-                            }
-                        }
-                    }
-
-                    if (nearestGateway != null && linkedCount > 1) {
-                        sb.Append($"Active Destination: {nearestGateway.CustomName}\n");
-                    }
-                }
-                else {
-                    sb.Append("Status: Not linked to any other gateways\n");
-                }
-
-                // Settings Info (unchanged)
-                sb.Append($"Allow Players: {(Settings.AllowPlayers ? "Yes" : "No")}\n");
-                sb.Append($"Allow Ships: {(Settings.AllowShips ? "Yes" : "No")}\n");
-                sb.Append($"Show Sphere: {(Settings.ShowSphere ? "Yes" : "No")}\n");
-                sb.Append($"Sphere Diameter: {Settings.SphereDiameter} m\n");
             }
             catch (Exception e) {
-                MyLog.Default.WriteLineAndConsole($"Error in AppendingCustomInfo: {e}");
+                MyLog.Default.WriteLineAndConsole($"Ringway.UpdateOnceBeforeFrame: {e}");
             }
         }
+
+        private float CalculatePowerDraw() {
+            try {
+                if (!RingwayBlock.IsWorking || !RingwayBlock.IsFunctional)
+                    return 0f;
+
+                if (_isTeleporting) {
+                    float powerRequired = CalculatePowerRequired(_jumpDistance);
+                    float powerPerSecond = powerRequired / (_teleportCountdown / 60f);
+                    return powerPerSecond * 1000f; // Convert to MW
+                }
+
+                // When not teleporting, draw minimal power
+                return 0.001f; // 1kW idle draw
+            }
+            catch (Exception e) {
+                MyLog.Default.WriteLineAndConsole($"Ringway.CalculatePowerDraw: {e}");
+                return 0f;
+            }
+        }
+        
 
         private float _targetPowerDrain = 0f;
         private float _initialPower;
@@ -351,7 +299,7 @@ namespace TeleportMechanisms {
             MyLogger.Log($"TPGate: ApplySettings: Applied settings for EntityId: {RingwayBlock.EntityId}, GatewayName: {Settings.GatewayName}");
         }
 
-        private static TeleportGatewaySettings Load(IMyUpgradeModule block) {
+        private static TeleportGatewaySettings Load(IMyCollector block) {
             MyLogger.Log($"TPGate: Load: Called. Attempting to load with StorageGuid: {StorageGuid}");
             if (block == null) {
                 MyLogger.Log($"TPGate: Load: RingwayBlock is null.");
@@ -432,13 +380,13 @@ namespace TeleportMechanisms {
             };
 
             MyAPIGateway.TerminalControls.CustomControlGetter += (block, blockControls) => {
-                if (block is IMyUpgradeModule && (block.BlockDefinition.SubtypeName == "RingwayCore" || block.BlockDefinition.SubtypeName == "SmallRingwayCore")) {
+                if (block is IMyCollector && (block.BlockDefinition.SubtypeName == "RingwayCore" || block.BlockDefinition.SubtypeName == "SmallRingwayCore")) {
                     blockControls.AddRange(controls);
                 }
             };
 
             MyAPIGateway.TerminalControls.CustomActionGetter += (block, blockActions) => {
-                if (block is IMyUpgradeModule && (block.BlockDefinition.SubtypeName == "RingwayCore" || block.BlockDefinition.SubtypeName == "SmallRingwayCore")) {
+                if (block is IMyCollector && (block.BlockDefinition.SubtypeName == "RingwayCore" || block.BlockDefinition.SubtypeName == "SmallRingwayCore")) {
                     blockActions.AddRange(actions);
                 }
             };
@@ -448,7 +396,7 @@ namespace TeleportMechanisms {
         }
 
         private static IMyTerminalControl CreateGatewayNameControl() {
-            var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlTextbox, IMyUpgradeModule>("GatewayName");
+            var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlTextbox, IMyCollector>("GatewayName");
             control.Title = MyStringId.GetOrCompute("Gateway Name");
             control.Getter = (block) => {
                 var gateway = block.GameLogic.GetAs<TeleportGateway>();
@@ -467,7 +415,7 @@ namespace TeleportMechanisms {
         }
 
         private static IMyTerminalControl CreateAllowPlayersCheckbox() {
-            var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyUpgradeModule>("AllowPlayers");
+            var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyCollector>("AllowPlayers");
             control.Title = MyStringId.GetOrCompute("Allow Players");
             control.Getter = (block) => {
                 var gateway = block.GameLogic.GetAs<TeleportGateway>();
@@ -487,7 +435,7 @@ namespace TeleportMechanisms {
         }
 
         private static IMyTerminalControl CreateAllowShipsCheckbox() {
-            var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyUpgradeModule>("AllowShips");
+            var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyCollector>("AllowShips");
             control.Title = MyStringId.GetOrCompute("Allow Ships");
             control.Getter = (block) => {
                 var gateway = block.GameLogic.GetAs<TeleportGateway>();
@@ -507,30 +455,30 @@ namespace TeleportMechanisms {
         }
 
         private static IMyTerminalControl CreateJumpButton() {
-            var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlButton, IMyUpgradeModule>("JumpButton");
+            var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlButton, IMyCollector>("JumpButton");
             control.Title = MyStringId.GetOrCompute("Jump");
             control.Visible = (block) => true;
             control.Action = (block) => {
                 var gateway = block.GameLogic.GetAs<TeleportGateway>();
-                if (gateway != null) gateway.JumpAction(block as IMyUpgradeModule);
+                if (gateway != null) gateway.JumpAction(block as IMyCollector);
             };
             return control;
         }
 
         private static IMyTerminalAction CreateJumpAction() {
-            var action = MyAPIGateway.TerminalControls.CreateAction<IMyUpgradeModule>("Jump");
+            var action = MyAPIGateway.TerminalControls.CreateAction<IMyCollector>("Jump");
             action.Name = new StringBuilder("Jump");
             action.Icon = @"Textures\GUI\Icons\Actions\Jump.dds";
             action.Action = (block) => {
                 var gateway = block.GameLogic.GetAs<TeleportGateway>();
-                if (gateway != null) gateway.JumpAction(block as IMyUpgradeModule);
+                if (gateway != null) gateway.JumpAction(block as IMyCollector);
             };
             action.Writer = (b, sb) => sb.Append("Initiate Jump");
             return action;
         }
 
         private static IMyTerminalControl CreateShowSphereCheckbox() {
-            var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyUpgradeModule>("ShowSphere");
+            var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyCollector>("ShowSphere");
             control.Title = MyStringId.GetOrCompute("Show Sphere");
             control.Getter = (block) => {
                 var gateway = block.GameLogic.GetAs<TeleportGateway>();
@@ -550,7 +498,7 @@ namespace TeleportMechanisms {
         }
 
         private static IMyTerminalControl CreateSphereDiameterSlider() {
-            var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyUpgradeModule>("SphereDiameter");
+            var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyCollector>("SphereDiameter");
             control.Title = MyStringId.GetOrCompute("Sphere Diameter");
             control.SetLimits(1, 100); // Set the range from 1 to 300
             control.Getter = (block) => {
@@ -576,7 +524,7 @@ namespace TeleportMechanisms {
         }
 
         private static IMyTerminalAction CreateToggleShowSphereAction() {
-            var action = MyAPIGateway.TerminalControls.CreateAction<IMyUpgradeModule>("ToggleShowSphere");
+            var action = MyAPIGateway.TerminalControls.CreateAction<IMyCollector>("ToggleShowSphere");
             action.Name = new StringBuilder("Toggle Show Sphere");
             action.Icon = @"Textures\GUI\Icons\Actions\SwitchOn.dds"; // You may want to use a different icon
             action.Action = (block) => {
@@ -593,7 +541,7 @@ namespace TeleportMechanisms {
         }
 
         private static IMyTerminalAction CreateShowSphereOnAction() {
-            var action = MyAPIGateway.TerminalControls.CreateAction<IMyUpgradeModule>("ShowSphereOn");
+            var action = MyAPIGateway.TerminalControls.CreateAction<IMyCollector>("ShowSphereOn");
             action.Name = new StringBuilder("Show Sphere On");
             action.Icon = @"Textures\GUI\Icons\Actions\SwitchOn.dds"; // You may want to use a different icon
             action.Action = (block) => {
@@ -610,7 +558,7 @@ namespace TeleportMechanisms {
         }
 
         private static IMyTerminalAction CreateShowSphereOffAction() {
-            var action = MyAPIGateway.TerminalControls.CreateAction<IMyUpgradeModule>("ShowSphereOff");
+            var action = MyAPIGateway.TerminalControls.CreateAction<IMyCollector>("ShowSphereOff");
             action.Name = new StringBuilder("Show Sphere Off");
             action.Icon = @"Textures\GUI\Icons\Actions\SwitchOff.dds"; // You may want to use a different icon
             action.Action = (block) => {
@@ -638,7 +586,7 @@ namespace TeleportMechanisms {
             return (distanceInKm / 100) * POWER_PER_100KM;
         }
 
-        private void JumpAction(IMyUpgradeModule block) {
+        private void JumpAction(IMyCollector block) {
             MyLogger.Log($"TPGate: JumpAction: Jump action triggered for EntityId: {block.EntityId}");
 
             var link = Settings.GatewayName;
@@ -654,7 +602,7 @@ namespace TeleportMechanisms {
             }
 
             // Calculate distance to destination
-            var destGateway = MyAPIGateway.Entities.GetEntityById(destGatewayId) as IMyUpgradeModule;
+            var destGateway = MyAPIGateway.Entities.GetEntityById(destGatewayId) as IMyCollector;
             if (destGateway == null) return;
 
             _jumpDistance = Vector3D.Distance(block.GetPosition(), destGateway.GetPosition());
@@ -689,7 +637,7 @@ namespace TeleportMechanisms {
         public static void ProcessJumpRequest(long gatewayId, string link) {
             MyLogger.Log($"TPGate: ProcessJumpRequest: Processing jump request for gateway {gatewayId}, link {link}");
 
-            var block = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyUpgradeModule;
+            var block = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyCollector;
             if (block == null || !block.IsWorking) // Add functional check here
             {
                 MyLogger.Log($"TPCore: ProcessJumpRequest: Gateway {gatewayId} is null or not functional");
@@ -721,7 +669,7 @@ namespace TeleportMechanisms {
             }
 
             var destGatewayId = TeleportCore.GetDestinationGatewayId(link, block.EntityId);
-            var destGateway = MyAPIGateway.Entities.GetEntityById(destGatewayId) as IMyUpgradeModule;
+            var destGateway = MyAPIGateway.Entities.GetEntityById(destGatewayId) as IMyCollector;
             if (destGateway != null) {
                 var unpilotedShipsCount = TeleportCore.TeleportNearbyShips(block, destGateway);
                 shipsToTeleport += unpilotedShipsCount;

@@ -14,7 +14,7 @@ namespace TeleportMechanisms
         private static readonly object _lock = new object();
         private static readonly Color _bubbleColor = new Color(0, 0, 255, 64);  // Blue with 25% opacity
 
-        public static void CreateOrUpdateBubble(IMyUpgradeModule gateway)
+        public static void CreateOrUpdateBubble(IMyCollector gateway)
         {
             var gatewayLogic = gateway.GameLogic.GetAs<TeleportGateway>();
             if (gatewayLogic == null || !gatewayLogic.Settings.ShowSphere)
@@ -31,7 +31,7 @@ namespace TeleportMechanisms
             }
         }
 
-        public static void DrawBubble(IMyUpgradeModule gateway)
+        public static void DrawBubble(IMyCollector gateway)
         {
             try
             {
@@ -78,7 +78,7 @@ namespace TeleportMechanisms
             }
         }
 
-        public static void RemoveBubble(IMyUpgradeModule gateway)
+        public static void RemoveBubble(IMyCollector gateway)
         {
             lock (_lock)
             {

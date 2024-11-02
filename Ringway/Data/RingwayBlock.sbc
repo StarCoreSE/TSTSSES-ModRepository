@@ -2,14 +2,14 @@
 <Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <CubeBlocks>
 
-    <Definition xsi:type="MyObjectBuilder_UpgradeModuleDefinition">
+    <Definition xsi:type="MyObjectBuilder_PoweredCargoContainerDefinition">
       <Id>
-        <TypeId>UpgradeModule</TypeId>
+        <TypeId>Collector</TypeId>
         <SubtypeId>RingwayCore</SubtypeId>
       </Id>
       <DisplayName>Ringway Core</DisplayName>
       <Icon>Textures\GUI\Icons\Cubes\Battery.dds</Icon>
-      <Description>Use the [REDACTED] within Saturn's magnetic field to...</Description>
+      <Description>Use the [REDACTED] within Saturn's magnetic field to create temporary wormholes. Power consumption scales with distance.</Description>
       <CubeSize>Large</CubeSize>
       <BlockTopology>TriangleMesh</BlockTopology>
       <Size x="1" y="1" z="1" />
@@ -38,14 +38,13 @@
       <BlockPairName>RingwayCore</BlockPairName>
       <EdgeType>Light</EdgeType>
       <BuildTimeSeconds>40</BuildTimeSeconds>
-      <MountPoints>
-        <MountPoint Side="Front" StartX="0" StartY="0" EndX="1" EndY="1" />
-        <MountPoint Side="Back" StartX="0" StartY="0" EndX="1" EndY="1" />
-        <MountPoint Side="Top" StartX="0" StartY="0" EndX="1" EndY="1" />
-        <MountPoint Side="Bottom" StartX="0" StartY="0" EndX="1" EndY="1" />
-        <MountPoint Side="Left" StartX="0" StartY="0" EndX="1" EndY="1" />
-        <MountPoint Side="Right" StartX="0" StartY="0" EndX="1" EndY="1" />
-      </MountPoints>
+      <ResourceSinkGroup>Conveyors</ResourceSinkGroup>
+      <RequiredPowerInput>0.002</RequiredPowerInput>
+      <InventorySize>
+        <X>1</X>
+        <Y>1</Y>
+        <Z>1</Z>
+      </InventorySize>
       <Public>true</Public>
       <DamageEffectName>Damage_Electrical_Damaged</DamageEffectName>
       <DamagedSound>ParticleElectrical</DamagedSound>
@@ -56,9 +55,6 @@
       <IsAirTight>true</IsAirTight>
       <MirroringZ>Y</MirroringZ>
       <MirroringY>Z</MirroringY>
-
-      <Upgrades>
-      </Upgrades>
 
       <ActionList>
         <Action>

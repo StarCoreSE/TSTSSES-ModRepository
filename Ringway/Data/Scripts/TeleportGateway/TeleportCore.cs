@@ -29,7 +29,7 @@ namespace TeleportMechanisms {
                 _TeleportLinks.Clear();
                 MyLogger.Log($"TPCore: UpdateTeleportLinks: Updating Teleport links. Total instances: {_instances.Count}");
 
-                var gateways = new HashSet<IMyUpgradeModule>();
+                var gateways = new HashSet<IMyCollector>();
                 foreach (var instance in _instances.Values) {
                     if (instance.RingwayBlock != null &&
                         instance.RingwayBlock.IsWorking &&
@@ -67,7 +67,7 @@ namespace TeleportMechanisms {
             }
         }
 
-        public static string GetTeleportLink(IMyUpgradeModule gateway) {
+        public static string GetTeleportLink(IMyCollector gateway) {
             var gatewayLogic = gateway.GameLogic.GetAs<TeleportGateway>();
             if (gatewayLogic != null) {
                 MyLogger.Log($"TPCore: GetTeleportLink: GatewayName: {gatewayLogic.Settings.GatewayName}, AllowPlayers: {gatewayLogic.Settings.AllowPlayers}, AllowShips: {gatewayLogic.Settings.AllowShips}");
@@ -101,7 +101,7 @@ namespace TeleportMechanisms {
                 }
             }
 
-            var sourceGateway = MyAPIGateway.Entities.GetEntityById(message.SourceGatewayId) as IMyUpgradeModule;
+            var sourceGateway = MyAPIGateway.Entities.GetEntityById(message.SourceGatewayId) as IMyCollector;
             if (sourceGateway == null) {
                 MyLogger.Log($"TPCore: ProcessTeleportRequest: Source gateway {message.SourceGatewayId} not found");
                 return;
@@ -114,7 +114,7 @@ namespace TeleportMechanisms {
             foreach (var gatewayId in linkedGateways) {
                 if (gatewayId == message.SourceGatewayId) continue;
 
-                var candidateGateway = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyUpgradeModule;
+                var candidateGateway = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyCollector;
                 if (candidateGateway == null) continue;
 
                 var distance = Vector3D.Distance(sourcePosition, candidateGateway.GetPosition());
@@ -129,7 +129,7 @@ namespace TeleportMechanisms {
                 return;
             }
 
-            var destGateway = MyAPIGateway.Entities.GetEntityById(nearestGatewayId) as IMyUpgradeModule;
+            var destGateway = MyAPIGateway.Entities.GetEntityById(nearestGatewayId) as IMyCollector;
             if (destGateway == null) {
                 MyLogger.Log($"TPCore: ProcessTeleportRequest: Destination gateway {nearestGatewayId} not found");
                 return;
@@ -175,7 +175,7 @@ namespace TeleportMechanisms {
             }
         }
 
-        private static void TeleportEntity(IMyEntity entity, IMyUpgradeModule sourceGateway, IMyUpgradeModule destGateway) {
+        private static void TeleportEntity(IMyEntity entity, IMyCollector sourceGateway, IMyCollector destGateway) {
             MyLogger.Log($"TPCore: TeleportEntity: Teleporting entity {entity.EntityId}");
 
             var relativePosition = entity.GetPosition() - sourceGateway.GetPosition();
@@ -321,7 +321,7 @@ namespace TeleportMechanisms {
                 }
             }
 
-            var sourceGateway = MyAPIGateway.Entities.GetEntityById(sourceGatewayId) as IMyUpgradeModule;
+            var sourceGateway = MyAPIGateway.Entities.GetEntityById(sourceGatewayId) as IMyCollector;
             if (sourceGateway == null) {
                 MyLogger.Log($"TPCore: GetDestinationGatewayId: Source gateway {sourceGatewayId} not found");
                 return 0;
@@ -335,7 +335,7 @@ namespace TeleportMechanisms {
             foreach (var gatewayId in linkedGateways) {
                 if (gatewayId == sourceGatewayId) continue;
 
-                var destinationGateway = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyUpgradeModule;
+                var destinationGateway = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyCollector;
                 if (destinationGateway == null) continue;
 
                 var distance = Vector3D.Distance(sourcePosition, destinationGateway.GetPosition());
@@ -352,7 +352,7 @@ namespace TeleportMechanisms {
             return nearestGatewayId;
         }
 
-        public static int TeleportNearbyShips(IMyUpgradeModule sourceGateway, IMyUpgradeModule destGateway) {
+        public static int TeleportNearbyShips(IMyCollector sourceGateway, IMyCollector destGateway) {
             if (!sourceGateway.IsWorking || !destGateway.IsWorking) {
                 MyLogger.Log($"TPCore: TeleportNearbyShips: Source or destination gateway not functional");
                 return 0;
