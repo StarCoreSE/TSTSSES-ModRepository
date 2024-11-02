@@ -214,25 +214,15 @@ namespace TeleportMechanisms {
         }
 
         private float CalculatePowerDraw() {
-            try {
-                if (!RingwayBlock.IsWorking || !RingwayBlock.IsFunctional)
-                    return 0f;
-
-                if (_isTeleporting) {
-                    float powerRequired = CalculatePowerRequired(_jumpDistance);
-                    float powerPerSecond = powerRequired / (_teleportCountdown / 60f);
-                    return powerPerSecond * 1000f; // Convert to MW
-                }
-
-                // When not teleporting, draw minimal power
-                return 0.001f; // 1kW idle draw
+            if (!RingwayBlock.IsWorking) return 0f;
+            if (_isTeleporting) {
+                float powerRequired = CalculatePowerRequired(_jumpDistance);
+                return (powerRequired / (_teleportCountdown / 60f)) * 1000f;
             }
-            catch (Exception e) {
-                MyLog.Default.WriteLineAndConsole($"Ringway.CalculatePowerDraw: {e}");
-                return 0f;
-            }
+            return Settings.StoredPower < Settings.MaxStoredPower ? CHARGE_RATE * 1000f : 0f;
         }
-        
+
+
 
         private float _targetPowerDrain = 0f;
         private float _initialPower;
@@ -306,10 +296,9 @@ namespace TeleportMechanisms {
             else {
                 // Charge when not teleporting
                 if (RingwayBlock.IsWorking && Settings.StoredPower < Settings.MaxStoredPower) {
-                    if (Sink != null && Sink.CurrentInputByType(MyResourceDistributorComponent.ElectricityId) > 0) {
+                    if (Sink != null && Sink.IsPowerAvailable(MyResourceDistributorComponent.ElectricityId, CHARGE_RATE * 1000f)) {
                         // Charge at constant rate when power is available
-                        Settings.StoredPower = Math.Min(Settings.MaxStoredPower,
-                            Settings.StoredPower + (CHARGE_RATE / 60f));
+                        Settings.StoredPower = Math.Min(Settings.MaxStoredPower, Settings.StoredPower + (CHARGE_RATE / 60f));
                         Settings.Changed = true;
 
                         // Update sink to draw charging power
@@ -317,23 +306,26 @@ namespace TeleportMechanisms {
                         Sink.Update();
                     }
                     else {
-                        // Reset sink when no charging is needed
+                        // Reset sink when no charging is needed or no power available
                         Sink?.SetRequiredInputByType(MyResourceDistributorComponent.ElectricityId, 0f);
                         Sink?.Update();
                     }
                 }
             }
 
+            // Periodically save settings
             if (++_frameCounter >= SAVE_INTERVAL_FRAMES) {
                 _frameCounter = 0;
                 TrySave();
             }
 
+            // Update GUI details if the terminal screen is open
             if (MyAPIGateway.Gui.GetCurrentScreen == MyTerminalPageEnum.ControlPanel) {
                 RingwayBlock.RefreshCustomInfo();
                 RingwayBlock.SetDetailedInfoDirty();
             }
 
+            // Display teleport bubble if in a client session
             if (!MyAPIGateway.Utilities.IsDedicated && MyAPIGateway.Session != null) {
                 TeleportBubbleManager.CreateOrUpdateBubble(RingwayBlock);
                 TeleportBubbleManager.DrawBubble(RingwayBlock);
