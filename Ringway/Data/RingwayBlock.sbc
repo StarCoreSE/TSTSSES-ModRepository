@@ -1,43 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <CubeBlocks>
-
     <Definition xsi:type="MyObjectBuilder_PoweredCargoContainerDefinition">
       <Id>
         <TypeId>Collector</TypeId>
         <SubtypeId>RingwayCore</SubtypeId>
       </Id>
       <DisplayName>Ringway Core</DisplayName>
-      <Icon>Textures\GUI\Icons\Cubes\Battery.dds</Icon>
+      <Icon>Textures\GUI\Icons\Cubes\RingwayCore.dds</Icon>
       <Description>Use the [REDACTED] within Saturn's magnetic field to transport you across space. Power consumption scales with distance. 1GW continuous power is needed to charge.</Description>
       <CubeSize>Large</CubeSize>
       <BlockTopology>TriangleMesh</BlockTopology>
-      <Size x="1" y="1" z="1" />
+      <Size x="3" y="3" z="3" />
       <ModelOffset x="0" y="0" z="0" />
-      <Model>Models\Cubes\Large\BatteryLarge.mwm</Model>
+      <Model>Models\RingwayCore.mwm</Model>
       <Components>
-        <Component Subtype="RedactedComponent" Count="1" />
-        <Component Subtype="SteelPlate" Count="20" />
-        <Component Subtype="Construction" Count="10" />
-        <Component Subtype="PowerCell" Count="80">
+        <Component Subtype="RedactedComponent" Count="1" >
           <DeconstructId>
             <TypeId>Ore</TypeId>
             <SubtypeId>Scrap</SubtypeId>
           </DeconstructId>
         </Component>
-        <Component Subtype="Computer" Count="25" />
-        <Component Subtype="Construction" Count="20" />
-        <Component Subtype="SteelPlate" Count="60" />
+        <Component Subtype="SteelPlate" Count="20000" />
+        <Component Subtype="Construction" Count="1000" />
+        <Component Subtype="Computer" Count="2500" />
+        <Component Subtype="Construction" Count="2000" />
+        <Component Subtype="SteelPlate" Count="6000" />
       </Components>
       <CriticalComponent Subtype="RedactedComponent" Index="0" />
       <BuildProgressModels>
-        <Model BuildPercentUpperBound="0.33" File="Models\Cubes\Large\BatteryLargeConstruction_1.mwm" />
-        <Model BuildPercentUpperBound="0.66" File="Models\Cubes\Large\BatteryLargeConstruction_2.mwm" />
-        <Model BuildPercentUpperBound="1.00" File="Models\Cubes\Large\BatteryLargeConstruction_3.mwm" />
       </BuildProgressModels>
       <BlockPairName>RingwayCore</BlockPairName>
       <EdgeType>Light</EdgeType>
-      <BuildTimeSeconds>40</BuildTimeSeconds>
+      <BuildTimeSeconds>400</BuildTimeSeconds>
       <ResourceSinkGroup>Conveyors</ResourceSinkGroup>
       <RequiredPowerInput>0.002</RequiredPowerInput>
       <InventorySize>
@@ -53,9 +48,6 @@
       <DestroySound>WepSmallWarheadExpl</DestroySound>
       <PCU>15</PCU>
       <IsAirTight>true</IsAirTight>
-      <MirroringZ>Y</MirroringZ>
-      <MirroringY>Z</MirroringY>
-
       <ActionList>
         <Action>
           <Id>Jump</Id>
@@ -67,9 +59,7 @@
         </Action>
       </ActionList>
     </Definition>
-
   </CubeBlocks>
-
   <BlockVariantGroups>
     <BlockVariantGroup>
       <Id>RingwayBlockGroup</Id>
