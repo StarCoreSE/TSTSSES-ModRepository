@@ -194,6 +194,13 @@ namespace WarpDriveMod
                 System.GridsMass.Remove(Block.CubeGrid.EntityId);
         }
 
+        public override void MarkForClose()
+        {
+            base.MarkForClose();
+           
+            MyVisualScriptLogicProvider.PlayerLeftCockpit -= PlayerLeftCockpit;
+        }
+
         private void InitPowerSystem()
         {
             MyResourceSinkComponent powerSystem = new MyResourceSinkComponent();
