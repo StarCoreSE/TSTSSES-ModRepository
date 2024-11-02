@@ -13,13 +13,20 @@ using VRage.Game;
 using System;
 using Sandbox.Game.EntityComponents;
 using VRage.ModAPI;
+using Sandbox.ModAPI.Ingame;
+using IMyBatteryBlock = Sandbox.ModAPI.IMyBatteryBlock;
+using IMyShipController = Sandbox.ModAPI.IMyShipController;
+using IMyTerminalBlock = Sandbox.ModAPI.IMyTerminalBlock;
+using Sandbox.Game.GameSystems.Electricity;
+using VRage.Game.ObjectBuilders.Definitions;
 
 namespace TeleportMechanisms {
     [MyEntityComponentDescriptor(typeof(MyObjectBuilder_BatteryBlock), false,
-        "LargeTeleportGateway", "SmallTeleportGateway")]
+        "RingwayCore", "SmallTeleportGateway")]
     public class TeleportGateway : MyGameLogicComponent {
         public IMyTerminalBlock Block { get; private set; }
         public TeleportGatewaySettings Settings { get; private set; } = new TeleportGatewaySettings();
+        private MyResourceSinkComponent Sink = null;
 
         private static bool _controlsCreated = false;
         private static readonly Guid StorageGuid = new Guid("7F995845-BCEF-4E37-9B47-A035AC2A8E0B");
@@ -46,6 +53,13 @@ namespace TeleportMechanisms {
 
             // Set up the custom info append event
             Block.AppendingCustomInfo += AppendingCustomInfo;
+
+            // Set up the resource sink
+            Sink = Block.Components.Get<MyResourceSinkComponent>();
+            if (Sink == null) {
+                MyLogger.Log($"TPGate: Init: No ResourceSinkComponent found for EntityId: {Block.EntityId}");
+                return;
+            }
 
             // Request updates
             NeedsUpdate = MyEntityUpdateEnum.EACH_FRAME;
@@ -77,8 +91,39 @@ namespace TeleportMechanisms {
         //    return true;
         //}
 
+        private bool ConsumeAllPower() {
+            var battery = Block as IMyBatteryBlock;
+            if (battery == null) {
+                MyLogger.Log($"TPGate: ConsumeAllPower: Block is not a battery!");
+                return false;
+            }
+
+            // Check if the battery is at 100% charge (allowing for small margin)
+            if (battery.CurrentStoredPower < battery.MaxStoredPower * 0.99) {
+                MyLogger.Log($"TPGate: ConsumeAllPower: Battery not fully charged. Current: {battery.CurrentStoredPower}, Max: {battery.MaxStoredPower}");
+                return false;
+            }
+
+            float initialCharge = battery.CurrentStoredPower;
+
+            // Set an extremely high power requirement to drain instantly
+            Sink.SetRequiredInputByType(MyResourceDistributorComponent.ElectricityId, battery.MaxStoredPower * 1000); // 1000x max capacity should drain it instantly
+            Sink.Update();
+
+            // Reset the power requirement
+            Sink.SetRequiredInputByType(MyResourceDistributorComponent.ElectricityId, 0f);
+            Sink.Update();
+
+            float consumedPower = initialCharge - battery.CurrentStoredPower;
+            MyLogger.Log($"TPGate: ConsumeAllPower: Consumed {consumedPower} MW for jump. Remaining: {battery.CurrentStoredPower} MW");
+
+            return consumedPower > 0;
+        }
+
         private void AppendingCustomInfo(IMyTerminalBlock block, StringBuilder sb) {
             try {
+                var battery = block as IMyBatteryBlock;
+
                 if (!block.IsFunctional) {
                     sb.Append("--- Gateway Offline ---\n");
                     sb.Append("The gateway is not functional. Check power and block integrity.\n");
@@ -86,7 +131,12 @@ namespace TeleportMechanisms {
                 }
 
                 sb.Append("--- Teleport Gateway Status ---\n");
-                sb.Append($"Gateway Name: {Settings.GatewayName}\n");
+                if (battery != null)
+                {
+                    float chargePercentage = (float)(battery.CurrentStoredPower / battery.MaxStoredPower * 100);
+                    sb.Append($"Charge: {chargePercentage:F1}% ({battery.CurrentStoredPower:F2}/{battery.MaxStoredPower:F2} MWh)\n");
+                    sb.Append(chargePercentage >= 99 ? "Status: Ready to Jump\n" : "Status: Charging...\n");
+                }
 
                 var linkedGateways = TeleportCore._TeleportLinks.ContainsKey(Settings.GatewayName)
                     ? TeleportCore._TeleportLinks[Settings.GatewayName]
@@ -149,7 +199,12 @@ namespace TeleportMechanisms {
         public override void UpdateAfterSimulation() {
             base.UpdateAfterSimulation();
 
-            if (!Block.IsFunctional) return;
+            var battery = Block as IMyBatteryBlock;
+            if (battery == null) return;
+
+            if (battery.ChargeMode != ChargeMode.Recharge) {
+                battery.ChargeMode = ChargeMode.Recharge;
+            }
 
             if (++_frameCounter >= SAVE_INTERVAL_FRAMES) {
                 _frameCounter = 0;
@@ -303,13 +358,13 @@ namespace TeleportMechanisms {
             };
 
             MyAPIGateway.TerminalControls.CustomControlGetter += (block, blockControls) => {
-                if (block is IMyTerminalBlock && (block.BlockDefinition.SubtypeName == "LargeTeleportGateway" || block.BlockDefinition.SubtypeName == "SmallTeleportGateway")) {
+                if (block is IMyTerminalBlock && (block.BlockDefinition.SubtypeName == "RingwayCore" || block.BlockDefinition.SubtypeName == "SmallTeleportGateway")) {
                     blockControls.AddRange(controls);
                 }
             };
 
             MyAPIGateway.TerminalControls.CustomActionGetter += (block, blockActions) => {
-                if (block is IMyTerminalBlock && (block.BlockDefinition.SubtypeName == "LargeTeleportGateway" || block.BlockDefinition.SubtypeName == "SmallTeleportGateway")) {
+                if (block is IMyTerminalBlock && (block.BlockDefinition.SubtypeName == "RingwayCore" || block.BlockDefinition.SubtypeName == "SmallTeleportGateway")) {
                     blockActions.AddRange(actions);
                 }
             };
@@ -500,6 +555,26 @@ namespace TeleportMechanisms {
         private void JumpAction(IMyTerminalBlock block) {
             if (!block.IsFunctional) {
                 MyLogger.Log($"TPGate: JumpAction: Gateway {block.EntityId} is not functional. Jump aborted.");
+                return;
+            }
+
+            var battery = block as IMyBatteryBlock;
+            if (battery == null) {
+                MyLogger.Log($"TPGate: JumpAction: Block is not a battery!");
+                return;
+            }
+
+            // Ensure the battery is in recharge mode
+            if (battery.ChargeMode != ChargeMode.Recharge) {
+                MyLogger.Log($"TPGate: JumpAction: Battery not in recharge mode, setting to recharge");
+                battery.ChargeMode = ChargeMode.Recharge;
+                return;
+            }
+
+            // Check and consume all power
+            if (!ConsumeAllPower()) {
+                MyLogger.Log($"TPGate: JumpAction: Not enough power for jump");
+                MyAPIGateway.Utilities.ShowNotification("Gateway requires full charge to jump", 2000, MyFontEnum.Red);
                 return;
             }
 

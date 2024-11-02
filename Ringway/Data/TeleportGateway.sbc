@@ -5,11 +5,11 @@
     <Definition xsi:type="MyObjectBuilder_BatteryBlockDefinition">
       <Id>
         <TypeId>BatteryBlock</TypeId>
-        <SubtypeId>LargeTeleportGateway</SubtypeId>
+        <SubtypeId>RingwayCore</SubtypeId>
       </Id>
-      <DisplayName>DisplayName_Block_Battery</DisplayName>
+      <DisplayName>Ringway Core</DisplayName>
       <Icon>Textures\GUI\Icons\Cubes\Battery.dds</Icon>
-      <Description>Description_Battery</Description>
+      <Description>Use the [REDACTED] within Saturn's magnetic field to...</Description>
       <CubeSize>Large</CubeSize>
       <BlockTopology>TriangleMesh</BlockTopology>
       <Size x="1" y="1" z="1" />
@@ -35,7 +35,7 @@
         <Model BuildPercentUpperBound="0.66" File="Models\Cubes\Large\BatteryLargeConstruction_2.mwm" />
         <Model BuildPercentUpperBound="1.00" File="Models\Cubes\Large\BatteryLargeConstruction_3.mwm" />
       </BuildProgressModels>
-      <BlockPairName>BatteryBlock</BlockPairName>
+      <BlockPairName>RingwayCore</BlockPairName>
       <EdgeType>Light</EdgeType>
       <BuildTimeSeconds>40</BuildTimeSeconds>
 
@@ -88,7 +88,7 @@
       <DisplayName>Teleport Gateway</DisplayName>
       <Description>Teleport Gateway blocks for large and small grids</Description>
       <Blocks>
-        <Block Type="MyObjectBuilder_TerminalBlock" Subtype="LargeTeleportGateway"/>
+        <Block Type="MyObjectBuilder_TerminalBlock" Subtype="RingwayCore"/>
         <Block Type="MyObjectBuilder_TerminalBlock" Subtype="SmallTeleportGateway"/>
       </Blocks>
     </BlockVariantGroup>

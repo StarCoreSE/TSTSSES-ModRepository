@@ -9,7 +9,7 @@
       <DisplayName>Teleport Gateway Blocks</DisplayName>
       <Name>TeleportBlocks</Name>
       <ItemIds>
-        <string>TerminalBlock/LargeTeleportGateway</string>
+        <string>TerminalBlock/RingwayCore</string>
         <string>TerminalBlock/SmallTeleportGateway</string>
       </ItemIds>
     </Category>

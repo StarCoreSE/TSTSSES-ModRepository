@@ -33,7 +33,7 @@ namespace TeleportMechanisms {
                 foreach (var instance in _instances.Values) {
                     if (instance.Block != null &&
                         instance.Block.IsFunctional &&
-                        (instance.Block.BlockDefinition.SubtypeName == "LargeTeleportGateway" ||
+                        (instance.Block.BlockDefinition.SubtypeName == "RingwayCore" ||
                          instance.Block.BlockDefinition.SubtypeName == "SmallTeleportGateway")) {
                         MyLogger.Log($"TPCore: UpdateTeleportLinks: Found instance gateway: {instance.Block.CustomName}, EntityId: {instance.Block.EntityId}, IsWorking: {instance.Block.IsWorking}");
                         gateways.Add(instance.Block);
