@@ -29,14 +29,14 @@ namespace TeleportMechanisms {
                 _TeleportLinks.Clear();
                 MyLogger.Log($"TPCore: UpdateTeleportLinks: Updating Teleport links. Total instances: {_instances.Count}");
 
-                var gateways = new HashSet<IMyTerminalBlock>();
+                var gateways = new HashSet<IMyBatteryBlock>();
                 foreach (var instance in _instances.Values) {
-                    if (instance.Block != null &&
-                        instance.Block.IsFunctional &&
-                        (instance.Block.BlockDefinition.SubtypeName == "RingwayCore" ||
-                         instance.Block.BlockDefinition.SubtypeName == "SmallRingwayCore")) {
-                        MyLogger.Log($"TPCore: UpdateTeleportLinks: Found instance gateway: {instance.Block.CustomName}, EntityId: {instance.Block.EntityId}, IsWorking: {instance.Block.IsWorking}");
-                        gateways.Add(instance.Block);
+                    if (instance.RingwayBlock != null &&
+                        instance.RingwayBlock.IsFunctional &&
+                        (instance.RingwayBlock.BlockDefinition.SubtypeName == "RingwayCore" ||
+                         instance.RingwayBlock.BlockDefinition.SubtypeName == "SmallRingwayCore")) {
+                        MyLogger.Log($"TPCore: UpdateTeleportLinks: Found instance gateway: {instance.RingwayBlock.CustomName}, EntityId: {instance.RingwayBlock.EntityId}, IsWorking: {instance.RingwayBlock.IsWorking}");
+                        gateways.Add(instance.RingwayBlock);
                     }
                     else {
                         MyLogger.Log($"TPCore: UpdateTeleportLinks: Instance has null or invalid gateway");
@@ -67,7 +67,7 @@ namespace TeleportMechanisms {
             }
         }
 
-        public static string GetTeleportLink(IMyTerminalBlock gateway) {
+        public static string GetTeleportLink(IMyBatteryBlock gateway) {
             var gatewayLogic = gateway.GameLogic.GetAs<TeleportGateway>();
             if (gatewayLogic != null) {
                 MyLogger.Log($"TPCore: GetTeleportLink: GatewayName: {gatewayLogic.Settings.GatewayName}, AllowPlayers: {gatewayLogic.Settings.AllowPlayers}, AllowShips: {gatewayLogic.Settings.AllowShips}");
@@ -101,7 +101,7 @@ namespace TeleportMechanisms {
                 }
             }
 
-            var sourceGateway = MyAPIGateway.Entities.GetEntityById(message.SourceGatewayId) as IMyTerminalBlock;
+            var sourceGateway = MyAPIGateway.Entities.GetEntityById(message.SourceGatewayId) as IMyBatteryBlock;
             if (sourceGateway == null) {
                 MyLogger.Log($"TPCore: ProcessTeleportRequest: Source gateway {message.SourceGatewayId} not found");
                 return;
@@ -114,7 +114,7 @@ namespace TeleportMechanisms {
             foreach (var gatewayId in linkedGateways) {
                 if (gatewayId == message.SourceGatewayId) continue;
 
-                var candidateGateway = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyTerminalBlock;
+                var candidateGateway = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyBatteryBlock;
                 if (candidateGateway == null) continue;
 
                 var distance = Vector3D.Distance(sourcePosition, candidateGateway.GetPosition());
@@ -129,7 +129,7 @@ namespace TeleportMechanisms {
                 return;
             }
 
-            var destGateway = MyAPIGateway.Entities.GetEntityById(nearestGatewayId) as IMyTerminalBlock;
+            var destGateway = MyAPIGateway.Entities.GetEntityById(nearestGatewayId) as IMyBatteryBlock;
             if (destGateway == null) {
                 MyLogger.Log($"TPCore: ProcessTeleportRequest: Destination gateway {nearestGatewayId} not found");
                 return;
@@ -175,7 +175,7 @@ namespace TeleportMechanisms {
             }
         }
 
-        private static void TeleportEntity(IMyEntity entity, IMyTerminalBlock sourceGateway, IMyTerminalBlock destGateway) {
+        private static void TeleportEntity(IMyEntity entity, IMyBatteryBlock sourceGateway, IMyBatteryBlock destGateway) {
             MyLogger.Log($"TPCore: TeleportEntity: Teleporting entity {entity.EntityId}");
 
             var relativePosition = entity.GetPosition() - sourceGateway.GetPosition();
@@ -321,7 +321,7 @@ namespace TeleportMechanisms {
                 }
             }
 
-            var sourceGateway = MyAPIGateway.Entities.GetEntityById(sourceGatewayId) as IMyTerminalBlock;
+            var sourceGateway = MyAPIGateway.Entities.GetEntityById(sourceGatewayId) as IMyBatteryBlock;
             if (sourceGateway == null) {
                 MyLogger.Log($"TPCore: GetDestinationGatewayId: Source gateway {sourceGatewayId} not found");
                 return 0;
@@ -335,7 +335,7 @@ namespace TeleportMechanisms {
             foreach (var gatewayId in linkedGateways) {
                 if (gatewayId == sourceGatewayId) continue;
 
-                var destinationGateway = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyTerminalBlock;
+                var destinationGateway = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyBatteryBlock;
                 if (destinationGateway == null) continue;
 
                 var distance = Vector3D.Distance(sourcePosition, destinationGateway.GetPosition());
@@ -352,7 +352,7 @@ namespace TeleportMechanisms {
             return nearestGatewayId;
         }
 
-        public static int TeleportNearbyShips(IMyTerminalBlock sourceGateway, IMyTerminalBlock destGateway) {
+        public static int TeleportNearbyShips(IMyBatteryBlock sourceGateway, IMyBatteryBlock destGateway) {
             if (!sourceGateway.IsFunctional || !destGateway.IsFunctional) {
                 MyLogger.Log($"TPCore: TeleportNearbyShips: Source or destination gateway not functional");
                 return 0;
