@@ -11,6 +11,7 @@ using ProtoBuf;
 using VRage.Game.ModAPI;
 using VRage.Game;
 using System;
+using Sandbox.Game;
 using Sandbox.Game.EntityComponents;
 using VRage.ModAPI;
 using Sandbox.ModAPI.Ingame;
@@ -19,6 +20,7 @@ using IMyCollector = Sandbox.ModAPI.IMyCollector;
 using Sandbox.Game.GameSystems.Electricity;
 using VRage.Game.ObjectBuilders.Definitions;
 using IMyTerminalBlock = Sandbox.ModAPI.IMyTerminalBlock;
+using VRage.Noise.Patterns;
 
 namespace TeleportMechanisms
 {
@@ -51,6 +53,7 @@ namespace TeleportMechanisms
         private const float MIN_TELEPORT_CHARGE_PERCENTAGE = 0.1f; // 10% charge threshold
 
         private const double MAX_TELEPORT_DISTANCE = 100000.0 * 1000; // 100,000 km in meters
+        private static MyParticleEffect teleportEffect;
 
         static TeleportGateway()
         {
@@ -278,9 +281,9 @@ namespace TeleportMechanisms
 
         private float _targetPowerDrain = 0f;
         private float _initialPower;
+        private bool _showSphereDuringCountdown;
 
-        public override void UpdateAfterSimulation()
-        {
+        public override void UpdateAfterSimulation() {
             base.UpdateAfterSimulation();
 
             if (RingwayBlock == null) return;
@@ -288,46 +291,55 @@ namespace TeleportMechanisms
             // Draw a debug line to the nearest linked gateway, if one exists
             DrawDebugLineToNearestLinkedGateway();
 
-            if (_isTeleporting)
-            {
-                // Calculate required power based on the jump distance, scaling up to a maximum distance of 100,000 km
-                float powerRequired = CalculatePowerRequired(_jumpDistance);
+            // Retrieve destination position for teleport effects
+            var destGatewayId = TeleportCore.GetDestinationGatewayId(Settings.GatewayName, RingwayBlock.EntityId);
+            var destGateway = MyAPIGateway.Entities.GetEntityById(destGatewayId) as IMyCollector;
+            Vector3D destinationPosition = destGateway?.GetPosition() ?? Vector3D.Zero;
 
-                // Deduct power in a single chunk based on the calculated requirement
-                Settings.StoredPower = Math.Max(0, Settings.StoredPower - powerRequired);
-                Settings.Changed = true;
+            if (_isTeleporting) {
+                // Countdown processing
+                if (_teleportCountdown > 0) {
+                    _teleportCountdown--;
 
-                // Check if power is sufficient for teleportation
-                float minRequiredPower = Settings.MaxStoredPower * MIN_TELEPORT_CHARGE_PERCENTAGE;
-                if (Settings.StoredPower < minRequiredPower)
-                {
-                    _isTeleporting = false; // Stop teleportation due to insufficient power
+                    // Show countdown text notification each second
+                    if (_teleportCountdown % 60 == 0) {
+                        int secondsLeft = _teleportCountdown / 60;
+                        NotifyPlayersInRange(
+                            $"Jump in {secondsLeft}s... Distance: {_jumpDistance / 1000:F1}km",
+                            RingwayBlock.GetPosition(),
+                            100,
+                            "White"
+                        );
+                    }
 
-                    // Notify players within 100m
-                    NotifyPlayersInRange("Jump failed - Insufficient power", RingwayBlock.GetPosition(), 100, "Red");
-
-                    // Reset power sink
-                    if (Sink != null)
-                    {
-                        Sink.SetRequiredInputByType(MyResourceDistributorComponent.ElectricityId, 0f);
-                        Sink.Update();
+                    // Render the sphere in transparent yellow during countdown
+                    if (Settings.ShowSphere) {
+                        Color countdownColor = new Color(255, 255, 0, 10); // Yellow with 30 alpha for transparency
+                        TeleportBubbleManager.CreateOrUpdateBubble(RingwayBlock, countdownColor);
+                        TeleportBubbleManager.DrawBubble(RingwayBlock, countdownColor);
                     }
 
                     return;
                 }
 
-                // If power is sufficient, execute teleport
-                _isTeleporting = false; // End teleportation phase as power is deducted
+                // Teleportation completion
+                float powerRequired = CalculatePowerRequired(_jumpDistance);
+                Settings.StoredPower = Math.Max(0, Settings.StoredPower - powerRequired);
+                Settings.Changed = true;
 
-                // Notify players within 100m of successful jump
-                NotifyPlayersInRange($"Initiating jump of {_jumpDistance / 1000:F1}km", RingwayBlock.GetPosition(), 100,
-                    "White");
+                NotifyPlayersInRange(
+                    $"Jump completed to destination {_jumpDistance / 1000:F1}km away.",
+                    RingwayBlock.GetPosition(),
+                    100,
+                    "White"
+                );
 
-                // Execute the actual teleport (server or client-side request)
-                if (!MyAPIGateway.Multiplayer.IsServer)
-                {
-                    var message = new JumpRequestMessage
-                    {
+                PlayTeleportCompleteEffects(destinationPosition); // Pass destinationPosition
+                _isTeleporting = false;
+                _showSphereDuringCountdown = false;
+
+                if (!MyAPIGateway.Multiplayer.IsServer) {
+                    var message = new JumpRequestMessage {
                         GatewayId = RingwayBlock.EntityId,
                         Link = Settings.GatewayName
                     };
@@ -336,27 +348,25 @@ namespace TeleportMechanisms
                         MyAPIGateway.Utilities.SerializeToBinary(message)
                     );
                 }
-                else
-                {
+                else {
                     ProcessJumpRequest(RingwayBlock.EntityId, Settings.GatewayName);
                 }
+
+                StopTeleportParticleEffect(); // Stop particle effect after teleport
             }
-            else
-            {
-                // Charging logic remains unchanged
-                if (RingwayBlock.IsWorking && Settings.StoredPower < Settings.MaxStoredPower)
-                {
-                    if (Sink != null && Sink.IsPowerAvailable(MyResourceDistributorComponent.ElectricityId,
-                            CHARGE_RATE * 1000f))
-                    {
-                        Settings.StoredPower = Math.Min(Settings.MaxStoredPower,
-                            Settings.StoredPower + (CHARGE_RATE / 60f));
+            else {
+                if (RingwayBlock.IsWorking && Settings.StoredPower < Settings.MaxStoredPower) {
+                    if (Sink != null && Sink.IsPowerAvailable(MyResourceDistributorComponent.ElectricityId, CHARGE_RATE * 1000f)) {
+                        if (Settings.StoredPower == 0) {
+                            StartChargingEffects(destinationPosition); // Pass destinationPosition
+                        }
+
+                        Settings.StoredPower = Math.Min(Settings.MaxStoredPower, Settings.StoredPower + (CHARGE_RATE / 60f));
                         Settings.Changed = true;
                         Sink.SetRequiredInputByType(MyResourceDistributorComponent.ElectricityId, CHARGE_RATE * 1000f);
                         Sink.Update();
                     }
-                    else
-                    {
+                    else {
                         Sink?.SetRequiredInputByType(MyResourceDistributorComponent.ElectricityId, 0f);
                         Sink?.Update();
                     }
@@ -364,24 +374,24 @@ namespace TeleportMechanisms
             }
 
             // Save settings periodically
-            if (++_frameCounter >= SAVE_INTERVAL_FRAMES)
-            {
+            if (++_frameCounter >= SAVE_INTERVAL_FRAMES) {
                 _frameCounter = 0;
                 TrySave();
             }
 
-            // Update terminal info if control panel is open
-            if (MyAPIGateway.Gui.GetCurrentScreen == MyTerminalPageEnum.ControlPanel)
-            {
+            if (MyAPIGateway.Gui.GetCurrentScreen == MyTerminalPageEnum.ControlPanel) {
                 RingwayBlock.RefreshCustomInfo();
                 RingwayBlock.SetDetailedInfoDirty();
             }
 
             // Display teleport bubble if in a client session
-            if (!MyAPIGateway.Utilities.IsDedicated && MyAPIGateway.Session != null)
-            {
-                TeleportBubbleManager.CreateOrUpdateBubble(RingwayBlock);
-                TeleportBubbleManager.DrawBubble(RingwayBlock);
+            if (!MyAPIGateway.Utilities.IsDedicated && MyAPIGateway.Session != null) {
+                // Render the sphere in its default transparent blue color when not in countdown
+                if (!_showSphereDuringCountdown && Settings.ShowSphere) {
+                    Color defaultColor = new Color(0, 0, 255, 10); // Blue with transparency
+                    TeleportBubbleManager.CreateOrUpdateBubble(RingwayBlock, defaultColor);
+                    TeleportBubbleManager.DrawBubble(RingwayBlock, defaultColor);
+                }
             }
         }
 
@@ -921,15 +931,11 @@ namespace TeleportMechanisms
             }
         }
 
-
-        // New method to process jump requests on the server
-        public static void ProcessJumpRequest(long gatewayId, string link)
-        {
+        public static void ProcessJumpRequest(long gatewayId, string link) {
             MyLogger.Log($"TPGate: ProcessJumpRequest: Processing jump request for gateway {gatewayId}, link {link}");
 
             var block = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyCollector;
-            if (block == null || !block.IsWorking)
-            {
+            if (block == null || !block.IsWorking) {
                 MyLogger.Log($"TPCore: ProcessJumpRequest: Gateway {gatewayId} is null or not functional");
                 return;
             }
@@ -944,39 +950,48 @@ namespace TeleportMechanisms
             int playersToTeleport = 0;
             int shipsToTeleport = 0;
 
-            foreach (var player in playerList)
-            {
-                float sphereRadius = block.GameLogic.GetAs<TeleportGateway>()?.Settings.SphereDiameter / 2.0f ?? 25.0f;
-                var distance = Vector3D.Distance(player.GetPosition(),
-                    block.GetPosition() + block.WorldMatrix.Forward * sphereRadius);
+            // Get destination gateway position
+            var destGatewayId = TeleportCore.GetDestinationGatewayId(link, block.EntityId);
+            var destGateway = MyAPIGateway.Entities.GetEntityById(destGatewayId) as IMyCollector;
+            if (destGateway == null) return;
+            Vector3D destinationPosition = destGateway.GetPosition();
 
-                if (distance <= sphereRadius)
-                {
+            // Define the teleport sphere for range-based operations
+            float sphereRadius = block.GameLogic.GetAs<TeleportGateway>()?.Settings.SphereDiameter / 2.0f ?? 25.0f;
+            Vector3D sphereCenter = block.GetPosition() + block.WorldMatrix.Forward * sphereRadius;
+            BoundingSphereD sphere = new BoundingSphereD(sphereCenter, sphereRadius);
+
+            // Teleport each player in range and play effects
+            foreach (var player in playerList) {
+                var distance = Vector3D.Distance(player.GetPosition(), sphereCenter);
+
+                if (distance <= sphereRadius) {
                     TeleportCore.RequestTeleport(player.IdentityId, block.EntityId, link);
                     teleportAttempted = true;
                     playersToTeleport++;
 
-                    if (player.Controller.ControlledEntity is IMyShipController)
-                    {
+                    // Play directional particle effect for player teleport
+                    StartTeleportParticleEffect(player.GetPosition(), destinationPosition);
+
+                    if (player.Controller.ControlledEntity is IMyShipController) {
                         shipsToTeleport++;
                     }
                 }
             }
 
-            var destGatewayId = TeleportCore.GetDestinationGatewayId(link, block.EntityId);
-            var destGateway = MyAPIGateway.Entities.GetEntityById(destGatewayId) as IMyCollector;
-            if (destGateway != null)
-            {
-                var unpilotedShipsCount = TeleportCore.TeleportNearbyShips(block, destGateway);
-                shipsToTeleport += unpilotedShipsCount;
-                if (unpilotedShipsCount > 0)
-                {
-                    teleportAttempted = true;
+            // Teleport unpiloted ships in range and play directional effects
+            List<IMyEntity> potentialEntities = MyAPIGateway.Entities.GetEntitiesInSphere(ref sphere);
+            foreach (var entity in potentialEntities) {
+                var grid = entity as IMyCubeGrid;
+                if (grid != null && !grid.IsStatic && grid.EntityId != block.CubeGrid.EntityId) {
+                    // Teleport ship and play particle effect
+                    TeleportCore.TeleportEntity(grid, block, destGateway);  // Fixed to use TeleportCore
+                    StartTeleportParticleEffect(grid.GetPosition(), destinationPosition);
+                    shipsToTeleport++;
                 }
             }
 
-            if (teleportAttempted)
-            {
+            if (teleportAttempted) {
                 MyLogger.Log($"TPGate: ProcessJumpRequest: Teleport attempted");
                 NotifyPlayersInRange(
                     $"TPGate: Teleporting {playersToTeleport} player(s) and {shipsToTeleport} ship(s)",
@@ -986,5 +1001,54 @@ namespace TeleportMechanisms
                 );
             }
         }
+
+        private Vector3D GetSphereCenter() {
+            float sphereRadius = Settings.SphereDiameter / 2.0f;
+            return RingwayBlock.GetPosition() + RingwayBlock.WorldMatrix.Forward * sphereRadius;
+        }
+
+        private void StartChargingEffects(Vector3D destinationPosition) {
+            Vector3D position = GetSphereCenter();
+            StartTeleportParticleEffect(position, destinationPosition);  // Pass destinationPosition
+            MyVisualScriptLogicProvider.PlaySingleSoundAtPosition("ShipPrototechJumpDriveCharging", position);
+        }
+
+        private void PlayTeleportCompleteEffects(Vector3D destinationPosition) {
+            Vector3D position = GetSphereCenter();
+            StartTeleportParticleEffect(position, destinationPosition);  // Pass destinationPosition
+            MyVisualScriptLogicProvider.PlaySingleSoundAtPosition("ShipPrototechJumpDriveJumpIn", position);
+        }
+
+
+        // Start the teleport particle effect
+        private static void StartTeleportParticleEffect(Vector3D sourcePosition, Vector3D destinationPosition) {
+            if (teleportEffect != null) {
+                teleportEffect.Play();
+                return;
+            }
+
+            // Calculate direction from source to destination
+            Vector3D direction = Vector3D.Normalize(destinationPosition - sourcePosition);
+
+            // Create the orientation matrix aligned with the direction
+            MatrixD matrix = MatrixD.CreateWorld(sourcePosition, direction, Vector3D.Up); // Adjust Vector3D.Up as needed for orientation
+
+            // Create the particle effect with the correct orientation
+            MyParticlesManager.TryCreateParticleEffect("Warp_Prototech", ref matrix, ref sourcePosition, uint.MaxValue, out teleportEffect);
+
+            if (teleportEffect != null) {
+                teleportEffect.UserScale = 1.0f;  // Set scale as desired
+            }
+        }
+
+
+        // Stop the teleport particle effect
+        private void StopTeleportParticleEffect() {
+            teleportEffect?.Stop();
+            teleportEffect = null;
+        }
+
+
+
     }
 }

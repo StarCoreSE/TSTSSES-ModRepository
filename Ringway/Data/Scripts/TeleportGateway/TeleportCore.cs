@@ -17,6 +17,7 @@ using Sandbox.Game.Entities.Cube;
 using SpaceEngineers.Game.ModAPI.Ingame;
 using Sandbox.Game.Entities;
 using System.Reflection.Emit;
+using Sandbox.Game;
 
 namespace TeleportMechanisms {
     public static class TeleportCore {
@@ -175,7 +176,7 @@ namespace TeleportMechanisms {
             }
         }
 
-        private static void TeleportEntity(IMyEntity entity, IMyCollector sourceGateway, IMyCollector destGateway) {
+        public static void TeleportEntity(IMyEntity entity, IMyCollector sourceGateway, IMyCollector destGateway) {
             MyLogger.Log($"TPCore: TeleportEntity: Teleporting entity {entity.EntityId}");
 
             var relativePosition = entity.GetPosition() - sourceGateway.GetPosition();
@@ -357,6 +358,7 @@ namespace TeleportMechanisms {
                 MyLogger.Log($"TPCore: TeleportNearbyShips: Source or destination gateway not functional");
                 return 0;
             }
+
             var teleportGatewayLogic = sourceGateway.GameLogic.GetAs<TeleportGateway>();
             if (teleportGatewayLogic == null) {
                 MyLogger.Log($"TPCore: TeleportNearbyShips: TeleportGateway logic not found for source gateway {sourceGateway.EntityId}");
@@ -416,13 +418,21 @@ namespace TeleportMechanisms {
                     continue;
                 }
 
+                // Teleport the ship and play effects at its position
                 TeleportEntity(grid, sourceGateway, destGateway);
+                PlayEffectsAtPosition(grid.GetPosition()); // Play particle and sound effects at the ship's position
                 MyLogger.Log($"  Teleported grid {grid.DisplayName}");
                 teleportedShipsCount++;
             }
 
             MyLogger.Log($"TPCore: TeleportNearbyShips: Total teleported ships: {teleportedShipsCount}");
             return teleportedShipsCount;
+        }
+
+        // Separate method to play effects at a specific position
+        private static void PlayEffectsAtPosition(Vector3D position) {
+            MyVisualScriptLogicProvider.CreateParticleEffectAtPosition("TeleportEntityEffect", position);
+            MyVisualScriptLogicProvider.PlaySingleSoundAtPosition("TeleportEntitySound", position);
         }
 
         private static bool IsControlledByPlayer(IMyCubeGrid grid) {
