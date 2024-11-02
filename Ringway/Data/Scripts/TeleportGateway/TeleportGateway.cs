@@ -60,10 +60,6 @@ namespace TeleportMechanisms
             }
         }
 
-        public override void UpdateOnceBeforeFrame() {
-            Block.AppendingCustomInfo += AppendingCustomInfo;
-        }
-
         private void AppendingCustomInfo(IMyTerminalBlock block, StringBuilder sb) {
             try {
                 sb.Append("--- Teleport Gateway Status ---\n");
@@ -76,28 +72,47 @@ namespace TeleportMechanisms
                 int linkedCount = linkedGateways.Count;
                 sb.Append($"Linked Gateways: {linkedCount}\n");
 
+                if (linkedCount > 2) {
+                    sb.Append($"WARNING: More than two gateways on channel '{Settings.GatewayName}'.\n");
+                    sb.Append("         Only the nearest gateway will be used.\n");
+                }
+
                 if (linkedCount > 0) {
                     sb.Append("Linked To:\n");
                     var sourcePosition = Block.GetPosition();
+
+                    IMyTerminalBlock nearestGateway = null;
+                    double nearestDistance = double.MaxValue;
 
                     foreach (var gatewayId in linkedGateways) {
                         if (gatewayId != Block.EntityId) {
                             var linkedGateway = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyTerminalBlock;
                             if (linkedGateway != null) {
                                 var distance = Vector3D.Distance(sourcePosition, linkedGateway.GetPosition());
-                                sb.Append($"  - {linkedGateway.CustomName}: {distance / 1000:F1} km\n");
+                                string distanceStr = $"{distance / 1000:F1} km";
+
+                                if (distance < nearestDistance) {
+                                    nearestDistance = distance;
+                                    nearestGateway = linkedGateway;
+                                }
+
+                                sb.Append($"  - {linkedGateway.CustomName}: {distanceStr}\n");
                             }
                             else {
                                 sb.Append($"  - Unknown (ID: {gatewayId})\n");
                             }
                         }
                     }
+
+                    if (nearestGateway != null && linkedCount > 1) {
+                        sb.Append($"Active Destination: {nearestGateway.CustomName}\n");
+                    }
                 }
                 else {
                     sb.Append("Status: Not linked to any other gateways\n");
                 }
 
-                // Settings Info
+                // Settings Info (unchanged)
                 sb.Append($"Allow Players: {(Settings.AllowPlayers ? "Yes" : "No")}\n");
                 sb.Append($"Allow Ships: {(Settings.AllowShips ? "Yes" : "No")}\n");
                 sb.Append($"Show Sphere: {(Settings.ShowSphere ? "Yes" : "No")}\n");
