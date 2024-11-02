@@ -36,7 +36,7 @@ namespace TeleportMechanisms {
         private int _linkUpdateCounter = 0;
         private const int LINK_UPDATE_INTERVAL = 1;
 
-        private const float CHARGE_RATE = 0.5f; // 0.5 MWh per second when charging
+        private const float CHARGE_RATE = 1.0f; // 0.5 MWh per second when charging
         private MyResourceSinkComponent Sink = null;
         private bool _isTeleporting = false;
         private int _teleportCountdown = 0;
@@ -103,30 +103,41 @@ namespace TeleportMechanisms {
 
                 sb.Append("--- Teleport Gateway Status ---\n");
 
-
                 if (Sink != null) {
-                    // Current and max stored power
                     float currentStoredPower = (float)Settings.StoredPower;
                     float maxStoredPower = Settings.MaxStoredPower;
-
-                    // Calculate the percentage
                     float chargePercentage = (currentStoredPower / maxStoredPower) * 100f;
+
+                    // Display power level
                     sb.Append($"Charge: {chargePercentage:F1}% ({currentStoredPower:F2}/{maxStoredPower:F2} MWh)\n");
 
-                    // Display status based on charge level
-                    sb.Append(chargePercentage >= 99 ? "Status: Ready to Jump\n" : "Status: Charging...\n");
+                    // Status based on charging and power availability
+                    if (_isTeleporting) {
+                        sb.Append("Status: Teleporting...\n");
+                    }
+                    else if (Settings.StoredPower >= maxStoredPower) {
+                        sb.Append("Status: Fully Charged - Ready to Jump\n");
+                    }
+                    else if (Sink.IsPowerAvailable(MyResourceDistributorComponent.ElectricityId, CHARGE_RATE * 1000f)) {
+                        sb.Append("Status: Charging...\n");
 
-                    // Calculate remaining charge time if charging
-                    if (chargePercentage < 100) {
                         float remainingPower = maxStoredPower - currentStoredPower;
-                        float chargeRate = CHARGE_RATE; // MWh per second
-                        float timeToFullCharge = remainingPower / chargeRate; // in seconds
-
+                        float timeToFullCharge = remainingPower / CHARGE_RATE; // in seconds
                         sb.Append($"Time to Full Charge: {timeToFullCharge:F1} seconds\n");
+                    }
+                    else {
+                        sb.Append("Status: Insufficient Power for Charging\n");
+                        sb.Append("Check reactor output or power supply.\n");
+                    }
+
+                    // Warning if power level is low and teleport cannot proceed
+                    if (Settings.StoredPower < maxStoredPower * POWER_THRESHOLD && !_isTeleporting) {
+                        sb.Append("Warning: Power below safe teleport threshold\n");
+                        sb.Append("Charge to at least 10% to ensure successful teleport.\n");
                     }
                 }
 
-                // Display linked gateways info (Unchanged)
+                // Display linked gateways info (unchanged)
                 var linkedGateways = TeleportCore._TeleportLinks.ContainsKey(Settings.GatewayName)
                     ? TeleportCore._TeleportLinks[Settings.GatewayName]
                     : new List<long>();
@@ -178,10 +189,10 @@ namespace TeleportMechanisms {
                 sb.Append($"Allow Ships: {(Settings.AllowShips ? "Yes" : "No")}\n");
                 sb.Append($"Show Sphere: {(Settings.ShowSphere ? "Yes" : "No")}\n");
                 sb.Append($"Sphere Diameter: {Settings.SphereDiameter} m\n");
+
             }
             catch (Exception e) {
                 MyLog.Default.WriteLineAndConsole($"Error in AppendingCustomInfo: {e}");
-
             }
         }
 

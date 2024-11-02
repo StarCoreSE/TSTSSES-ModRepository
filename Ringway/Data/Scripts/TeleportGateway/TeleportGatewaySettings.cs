@@ -24,7 +24,7 @@ namespace TeleportMechanisms
         [ProtoMember(6)]
         public float StoredPower { get; set; } = 0f;
         [ProtoMember(7)]
-        public float MaxStoredPower { get; set; } = 1000f; // 1 GWh capacity
+        public float MaxStoredPower { get; set; } = 1000f;
 
         [ProtoIgnore]
         public bool Changed { get; set; } = false;
