@@ -322,7 +322,7 @@
 
 
     <MaximumOxygen>0</MaximumOxygen>
-    <SurfaceGravity>0.3</SurfaceGravity>
+    <SurfaceGravity>0.1</SurfaceGravity>
     <MaterialsMaxDepth Min="4000" Max="4000"/>
     <MaterialsMinDepth Min="20" Max="20"/>
 
