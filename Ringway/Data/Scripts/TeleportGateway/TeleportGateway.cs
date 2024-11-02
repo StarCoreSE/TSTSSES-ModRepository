@@ -198,16 +198,61 @@ namespace TeleportMechanisms {
             }
         }
 
+        private float _targetPowerDrain = 0f;
+
         public override void UpdateAfterSimulation() {
             base.UpdateAfterSimulation();
-             
+
             var battery = RingwayBlock as IMyBatteryBlock;
             if (battery == null) return;
+
+            if (_isTeleporting) {
+                if (Sink != null) {
+                    // Calculate and set power drain
+                    float currentPower = battery.CurrentStoredPower;
+                    float drainPerTick = (battery.MaxStoredPower * 0.99f) / TELEPORT_DURATION;
+                    _targetPowerDrain = drainPerTick * 1000f; // Convert to watts (MW to kW)
+                    Sink.SetRequiredInputByType(MyResourceDistributorComponent.ElectricityId, _targetPowerDrain);
+                    Sink.Update();
+
+                    _teleportCountdown--;
+
+                    if (_teleportCountdown % 60 == 0) { // Update notification every second
+                        int secondsLeft = _teleportCountdown / 60;
+                        MyAPIGateway.Utilities.ShowNotification($"Teleport in {secondsLeft} seconds... Power: {currentPower:F1}/{battery.MaxStoredPower:F1} MWh", 1000, MyFontEnum.White);
+                    }
+
+                    if (_teleportCountdown <= 0 || currentPower <= 0) {
+                        _isTeleporting = false;
+                        Sink.SetRequiredInputByType(MyResourceDistributorComponent.ElectricityId, 0f);
+                        Sink.Update();
+
+                        if (currentPower <= 0) {
+                            MyAPIGateway.Utilities.ShowNotification("Teleport failed - Power depleted", 2000, MyFontEnum.Red);
+                            return;
+                        }
+
+                        // Execute actual teleport
+                        if (!MyAPIGateway.Multiplayer.IsServer) {
+                            var message = new JumpRequestMessage {
+                                GatewayId = battery.EntityId,
+                                Link = Settings.GatewayName
+                            };
+                            MyAPIGateway.Multiplayer.SendMessageToServer(NetworkHandler.JumpRequestId,
+                                MyAPIGateway.Utilities.SerializeToBinary(message));
+                        }
+                        else {
+                            ProcessJumpRequest(battery.EntityId, Settings.GatewayName);
+                        }
+                    }
+                }
+            }
 
             if (battery.ChargeMode != ChargeMode.Recharge) {
                 MyLogger.Log($"TPGate: UpdateAfterSimulation - Forcing recharge mode. Was: {battery.ChargeMode}");
                 battery.ChargeMode = ChargeMode.Recharge;
             }
+
             if (++_frameCounter >= SAVE_INTERVAL_FRAMES) {
                 _frameCounter = 0;
                 TrySave();
@@ -487,7 +532,7 @@ namespace TeleportMechanisms {
         private static IMyTerminalControl CreateSphereDiameterSlider() {
             var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBatteryBlock>("SphereDiameter");
             control.Title = MyStringId.GetOrCompute("Sphere Diameter");
-            control.SetLimits(1, 300); // Set the range from 1 to 300
+            control.SetLimits(1, 100); // Set the range from 1 to 300
             control.Getter = (block) => {
                 var gateway = block.GameLogic.GetAs<TeleportGateway>();
                 return gateway != null ? gateway.Settings.SphereDiameter : 50.0f;
@@ -561,6 +606,11 @@ namespace TeleportMechanisms {
             return action;
         }
 
+        private bool _isTeleporting = false;
+        private int _teleportCountdown = 0;
+        private const int TELEPORT_DURATION = 600; // 10 seconds at 60 frames per second
+        private float _initialPower = 0f;
+
         private void JumpAction(IMyBatteryBlock block) {
             MyLogger.Log($"TPGate: JumpAction: Jump action triggered for EntityId: {block.EntityId}");
 
@@ -576,25 +626,19 @@ namespace TeleportMechanisms {
                 return;
             }
 
-            // Only consume power if there's a valid destination
-            if (!ConsumeAllPower()) {
+            if (block.CurrentStoredPower < block.MaxStoredPower * 0.99) {
                 MyLogger.Log($"TPGate: JumpAction: Not enough power for jump");
                 MyAPIGateway.Utilities.ShowNotification("Gateway requires full charge to jump", 2000, MyFontEnum.Red);
                 return;
             }
 
-            // Proceed with jump
-            if (!MyAPIGateway.Multiplayer.IsServer) {
-                MyLogger.Log($"TPGate: JumpAction: Sending jump request to server");
-                var message = new JumpRequestMessage {
-                    GatewayId = block.EntityId,
-                    Link = link
-                };
-                MyAPIGateway.Multiplayer.SendMessageToServer(NetworkHandler.JumpRequestId, MyAPIGateway.Utilities.SerializeToBinary(message));
-            }
-            else {
-                ProcessJumpRequest(block.EntityId, link);
-            }
+            // Start teleport sequence
+            _isTeleporting = true;
+            _teleportCountdown = TELEPORT_DURATION;
+            _targetPowerDrain = 0f;
+            block.ChargeMode = ChargeMode.Recharge;
+
+            MyAPIGateway.Utilities.ShowNotification("Initiating teleport sequence - 10 seconds", 2000, MyFontEnum.White);
         }
 
         // New method to process jump requests on the server
