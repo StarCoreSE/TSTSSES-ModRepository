@@ -25,7 +25,6 @@ namespace TeleportMechanisms {
         "RingwayCore", "SmallRingwayCore")]
     public class TeleportGateway : MyGameLogicComponent {
         public TeleportGatewaySettings Settings { get; private set; } = new TeleportGatewaySettings();
-        private MyResourceSinkComponent Sink = null;
         public IMyBatteryBlock RingwayBlock;
 
         private static bool _controlsCreated = false;
@@ -36,6 +35,17 @@ namespace TeleportMechanisms {
 
         private int _linkUpdateCounter = 0;
         private const int LINK_UPDATE_INTERVAL = 1;
+
+
+        private MyResourceSinkComponent Sink = null;
+        private bool _isTeleporting = false;
+        private int _teleportCountdown = 0;
+        private double _jumpDistance = 0;
+
+        private const float POWER_THRESHOLD = 0.1f; // 10% power threshold for failure
+        private const float BASE_COUNTDOWN_SECONDS = 5; // Minimum countdown time
+        private const float SECONDS_PER_100KM = 1.0f; // Additional second per 100km
+        private const float POWER_PER_100KM = 1.0f; // 1 MWh per 100km
 
         static TeleportGateway() {
             CreateControls();
@@ -49,26 +59,29 @@ namespace TeleportMechanisms {
             }
 
             Settings = Load(RingwayBlock);
-            MyLogger.Log($"TPGate: Init: Initialized for EntityId: {RingwayBlock.EntityId}, GatewayName: {Settings.GatewayName}");
-
-            // Set up the custom info append event
             RingwayBlock.AppendingCustomInfo += AppendingCustomInfo;
 
-            // Set up the resource sink
+            // Initialize power sink
             Sink = RingwayBlock.Components.Get<MyResourceSinkComponent>();
-            if (Sink == null) {
-                MyLogger.Log($"TPGate: Init: No ResourceSinkComponent found for EntityId: {RingwayBlock.EntityId}");
-                return;
+            if (Sink != null) {
+                Sink.SetRequiredInputFuncByType(MyResourceDistributorComponent.ElectricityId, ComputeRequiredPower);
+                MyLogger.Log($"TPGate: Init: Power sink initialized for EntityId: {RingwayBlock.EntityId}");
             }
 
             NeedsUpdate |= MyEntityUpdateEnum.EACH_FRAME;
             NeedsUpdate |= MyEntityUpdateEnum.EACH_100TH_FRAME;
-                     
-            // Add this instance to the TeleportCore instances
+
             lock (TeleportCore._lock) {
                 TeleportCore._instances[RingwayBlock.EntityId] = this;
-                MyLogger.Log($"TPGate: Init: Added instance for EntityId {Entity.EntityId}. Total instances: {TeleportCore._instances.Count}");
             }
+        }
+
+        private float ComputeRequiredPower() {
+            if (!_isTeleporting || RingwayBlock == null) return 0f;
+
+            float powerRequired = CalculatePowerRequired(_jumpDistance);
+            float powerPerSecond = powerRequired / (_teleportCountdown / 60f);
+            return powerPerSecond * 1000f; // Convert to watts
         }
 
         public override void UpdateOnceBeforeFrame() {
@@ -199,6 +212,7 @@ namespace TeleportMechanisms {
         }
 
         private float _targetPowerDrain = 0f;
+        private float _initialPower;
 
         public override void UpdateAfterSimulation() {
             base.UpdateAfterSimulation();
@@ -207,50 +221,77 @@ namespace TeleportMechanisms {
             if (battery == null) return;
 
             if (_isTeleporting) {
+                if (battery.ChargeMode != ChargeMode.Discharge) {
+                    battery.ChargeMode = ChargeMode.Discharge;
+                }
+
+                float powerRequired = CalculatePowerRequired(_jumpDistance);
+                // Calculate massive power draw per second (100x the total required power)
+                float powerDrawPerSecond = (powerRequired * 100f) / (_teleportCountdown / 60f);
+
+                // Update sink with massive power requirement
                 if (Sink != null) {
-                    // Calculate and set power drain
-                    float currentPower = battery.CurrentStoredPower;
-                    float drainPerTick = (battery.MaxStoredPower * 0.99f) / TELEPORT_DURATION;
-                    _targetPowerDrain = drainPerTick * 1000f; // Convert to watts (MW to kW)
-                    Sink.SetRequiredInputByType(MyResourceDistributorComponent.ElectricityId, _targetPowerDrain);
+                    Sink.SetRequiredInputByType(MyResourceDistributorComponent.ElectricityId, powerDrawPerSecond * 1000f); // Convert to watts
                     Sink.Update();
+                }
 
-                    _teleportCountdown--;
+                float currentPowerPercentage = battery.CurrentStoredPower / battery.MaxStoredPower;
 
-                    if (_teleportCountdown % 60 == 0) { // Update notification every second
-                        int secondsLeft = _teleportCountdown / 60;
-                        MyAPIGateway.Utilities.ShowNotification($"Teleport in {secondsLeft} seconds... Power: {currentPower:F1}/{battery.MaxStoredPower:F1} MWh", 1000, MyFontEnum.White);
-                    }
+                _teleportCountdown--;
 
-                    if (_teleportCountdown <= 0 || currentPower <= 0) {
-                        _isTeleporting = false;
+                if (_teleportCountdown % 60 == 0) {
+                    int secondsLeft = _teleportCountdown / 60;
+                    MyAPIGateway.Utilities.ShowNotification(
+                        $"Jump in {secondsLeft}s... Distance: {_jumpDistance / 1000:F1}km, Power: {battery.CurrentStoredPower:F1}/{powerRequired:F1}MWh",
+                        50,
+                        MyFontEnum.White
+                    );
+                }
+
+                // Check if power is too low or countdown finished
+                if (battery.CurrentStoredPower < powerRequired * POWER_THRESHOLD || _teleportCountdown <= 0) {
+                    _isTeleporting = false;
+                    battery.ChargeMode = ChargeMode.Recharge;
+
+                    // Reset sink
+                    if (Sink != null) {
                         Sink.SetRequiredInputByType(MyResourceDistributorComponent.ElectricityId, 0f);
                         Sink.Update();
+                    }
 
-                        if (currentPower <= 0) {
-                            MyAPIGateway.Utilities.ShowNotification("Teleport failed - Power depleted", 2000, MyFontEnum.Red);
-                            return;
-                        }
+                    if (battery.CurrentStoredPower < powerRequired * POWER_THRESHOLD) {
+                        MyAPIGateway.Utilities.ShowNotification(
+                            $"Jump failed - Power depleted during charging",
+                            2000,
+                            MyFontEnum.Red
+                        );
+                        return;
+                    }
 
-                        // Execute actual teleport
-                        if (!MyAPIGateway.Multiplayer.IsServer) {
-                            var message = new JumpRequestMessage {
-                                GatewayId = battery.EntityId,
-                                Link = Settings.GatewayName
-                            };
-                            MyAPIGateway.Multiplayer.SendMessageToServer(NetworkHandler.JumpRequestId,
-                                MyAPIGateway.Utilities.SerializeToBinary(message));
-                        }
-                        else {
-                            ProcessJumpRequest(battery.EntityId, Settings.GatewayName);
-                        }
+                    // Execute actual teleport
+                    if (!MyAPIGateway.Multiplayer.IsServer) {
+                        var message = new JumpRequestMessage {
+                            GatewayId = battery.EntityId,
+                            Link = Settings.GatewayName
+                        };
+                        MyAPIGateway.Multiplayer.SendMessageToServer(
+                            NetworkHandler.JumpRequestId,
+                            MyAPIGateway.Utilities.SerializeToBinary(message)
+                        );
+                    }
+                    else {
+                        ProcessJumpRequest(battery.EntityId, Settings.GatewayName);
                     }
                 }
             }
-
-            if (battery.ChargeMode != ChargeMode.Recharge) {
-                MyLogger.Log($"TPGate: UpdateAfterSimulation - Forcing recharge mode. Was: {battery.ChargeMode}");
+            else if (battery.ChargeMode != ChargeMode.Recharge) {
                 battery.ChargeMode = ChargeMode.Recharge;
+
+                // Ensure sink is reset when not teleporting
+                if (Sink != null) {
+                    Sink.SetRequiredInputByType(MyResourceDistributorComponent.ElectricityId, 0f);
+                    Sink.Update();
+                }
             }
 
             if (++_frameCounter >= SAVE_INTERVAL_FRAMES) {
@@ -258,7 +299,6 @@ namespace TeleportMechanisms {
                 TrySave();
             }
 
-            // Refresh custom info only when the terminal is open
             if (MyAPIGateway.Gui.GetCurrentScreen == MyTerminalPageEnum.ControlPanel) {
                 RingwayBlock.RefreshCustomInfo();
                 RingwayBlock.SetDetailedInfoDirty();
@@ -290,6 +330,26 @@ namespace TeleportMechanisms {
             }
             catch (Exception e) {
                 MyLogger.Log($"TPGate: UpdateAfterSimulation100: Exception - {e}");
+            }
+        }
+
+        private void CancelTeleport() {
+            if (_isTeleporting) {
+                _isTeleporting = false;
+                _teleportCountdown = 0;
+
+                var battery = RingwayBlock as IMyBatteryBlock;
+                if (battery != null) {
+                    battery.ChargeMode = ChargeMode.Recharge;
+                }
+
+                // Reset sink
+                if (Sink != null) {
+                    Sink.SetRequiredInputByType(MyResourceDistributorComponent.ElectricityId, 0f);
+                    Sink.Update();
+                }
+
+                MyAPIGateway.Utilities.ShowNotification("Teleport sequence cancelled", 2000, MyFontEnum.Red);
             }
         }
 
@@ -606,10 +666,17 @@ namespace TeleportMechanisms {
             return action;
         }
 
-        private bool _isTeleporting = false;
-        private int _teleportCountdown = 0;
-        private const int TELEPORT_DURATION = 600; // 10 seconds at 60 frames per second
-        private float _initialPower = 0f;
+        private int CalculateCountdown(double distanceInMeters) {
+            float distanceInKm = (float)(distanceInMeters / 1000);
+            float additionalSeconds = (distanceInKm / 100) * SECONDS_PER_100KM;
+            float totalSeconds = BASE_COUNTDOWN_SECONDS + additionalSeconds;
+            return (int)(totalSeconds * 60); // Convert to ticks (60 ticks per second)
+        }
+
+        private float CalculatePowerRequired(double distanceInMeters) {
+            float distanceInKm = (float)(distanceInMeters / 1000);
+            return (distanceInKm / 100) * POWER_PER_100KM;
+        }
 
         private void JumpAction(IMyBatteryBlock block) {
             MyLogger.Log($"TPGate: JumpAction: Jump action triggered for EntityId: {block.EntityId}");
@@ -626,19 +693,33 @@ namespace TeleportMechanisms {
                 return;
             }
 
-            if (block.CurrentStoredPower < block.MaxStoredPower * 0.99) {
-                MyLogger.Log($"TPGate: JumpAction: Not enough power for jump");
-                MyAPIGateway.Utilities.ShowNotification("Gateway requires full charge to jump", 2000, MyFontEnum.Red);
+            // Calculate distance to destination
+            var destGateway = MyAPIGateway.Entities.GetEntityById(destGatewayId) as IMyBatteryBlock;
+            if (destGateway == null) return;
+
+            _jumpDistance = Vector3D.Distance(block.GetPosition(), destGateway.GetPosition());
+            float powerRequired = CalculatePowerRequired(_jumpDistance);
+
+            MyLogger.Log($"TPGate: JumpAction: Distance: {_jumpDistance / 1000:F1}km, Power Required: {powerRequired:F1}MWh");
+
+            if (block.CurrentStoredPower < powerRequired) {
+                MyLogger.Log($"TPGate: JumpAction: Not enough power for jump. Required: {powerRequired:F1}MWh, Available: {block.CurrentStoredPower:F1}MWh");
+                MyAPIGateway.Utilities.ShowNotification($"Insufficient power for {_jumpDistance / 1000:F1}km jump. Need {powerRequired:F1}MWh", 2000, MyFontEnum.Red);
                 return;
             }
 
             // Start teleport sequence
             _isTeleporting = true;
-            _teleportCountdown = TELEPORT_DURATION;
-            _targetPowerDrain = 0f;
-            block.ChargeMode = ChargeMode.Recharge;
+            _teleportCountdown = CalculateCountdown(_jumpDistance);
+            _initialPower = block.CurrentStoredPower;
+            block.ChargeMode = ChargeMode.Discharge;
 
-            MyAPIGateway.Utilities.ShowNotification("Initiating teleport sequence - 10 seconds", 2000, MyFontEnum.White);
+            float totalSeconds = _teleportCountdown / 60f;
+            MyAPIGateway.Utilities.ShowNotification(
+                $"Initiating {_jumpDistance / 1000:F1}km jump - {totalSeconds:F1} seconds",
+                2000,
+                MyFontEnum.White
+            );
         }
 
         // New method to process jump requests on the server

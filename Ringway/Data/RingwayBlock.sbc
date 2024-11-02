@@ -40,12 +40,14 @@
       <BuildTimeSeconds>40</BuildTimeSeconds>
 
       <ResourceSourceGroup>Battery</ResourceSourceGroup>
-      <MaxPowerOutput>12</MaxPowerOutput>
 
       <ResourceSinkGroup>BatteryBlock</ResourceSinkGroup>
-      <RequiredPowerInput>12</RequiredPowerInput>
       <AdaptibleInput>true</AdaptibleInput>
-      <MaxStoredPower>3</MaxStoredPower>
+
+      <MaxPowerOutput>300</MaxPowerOutput>
+      <RequiredPowerInput>12</RequiredPowerInput>
+      <MaxStoredPower>1000</MaxStoredPower>
+      <!-- 1 GWh storage -->
       <InitialStoredPowerRatio>0.3</InitialStoredPowerRatio>
       <RechargeMultiplier>0.8</RechargeMultiplier>
 
@@ -83,7 +85,7 @@
 
   <BlockVariantGroups>
     <BlockVariantGroup>
-      <Id>TeleportGatewayGroup</Id>
+      <Id>RingwayBlockGroup</Id>
       <Icon>Textures\GUI\Icons\Cubes\TeleportGatewayIcon.dds</Icon>
       <DisplayName>Ringway</DisplayName>
       <Description>Ringway</Description>
