@@ -33,13 +33,9 @@ namespace TeleportMechanisms
             CreateControls();
         }
 
-        public override void Init(MyObjectBuilder_EntityBase objectBuilder)
-        {
-            base.Init(objectBuilder);
-
+        public override void Init(MyObjectBuilder_EntityBase objectBuilder) {
             Block = Entity as IMyTerminalBlock;
-            if (Block == null)
-            {
+            if (Block == null) {
                 MyLogger.Log($"TPGate: Init: Entity is not a terminal block. EntityId: {Entity?.EntityId}");
                 return;
             }
@@ -47,30 +43,76 @@ namespace TeleportMechanisms
             Settings = Load(Block);
             MyLogger.Log($"TPGate: Init: Initialized for EntityId: {Block.EntityId}, GatewayName: {Settings.GatewayName}");
 
-            CreateControls();
+            // Set up the custom info append event
+            Block.AppendingCustomInfo += AppendingCustomInfo;
 
-            lock (TeleportCore._lock)
-            {
+            // Request updates
+            NeedsUpdate = MyEntityUpdateEnum.EACH_FRAME;
+            NeedsUpdate = MyEntityUpdateEnum.EACH_100TH_FRAME;
+
+            // Add this instance to the TeleportCore instances
+            lock (TeleportCore._lock) {
                 TeleportCore._instances[Block.EntityId] = this;
                 MyLogger.Log($"TPGate: Init: Added instance for EntityId {Entity.EntityId}. Total instances: {TeleportCore._instances.Count}");
             }
-
-            NeedsUpdate = MyEntityUpdateEnum.EACH_FRAME;
         }
 
-        public override void UpdateAfterSimulation()
-        {
+        public override void UpdateOnceBeforeFrame() {
+            Block.AppendingCustomInfo += AppendingCustomInfo;
+        }
+
+        private void AppendingCustomInfo(IMyTerminalBlock block, StringBuilder sb) {
+            try {
+                sb.Append("--- Teleport Gateway Status ---\n");
+
+                // Gateway Name and Link Status
+                sb.Append($"Gateway Name: {Settings.GatewayName}\n");
+                var linkedGateways = TeleportCore._TeleportLinks.ContainsKey(Settings.GatewayName)
+                    ? TeleportCore._TeleportLinks[Settings.GatewayName]
+                    : new List<long>();
+
+                int linkedCount = linkedGateways.Count;
+                sb.Append($"Linked Gateways: {linkedCount}\n");
+
+                if (linkedCount > 0) {
+                    sb.Append("Linked To:\n");
+                    foreach (var gatewayId in linkedGateways) {
+                        if (gatewayId != Block.EntityId) {
+                            var linkedGateway = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyTerminalBlock;
+                            sb.Append($"  - {linkedGateway?.CustomName ?? "Unknown"}\n");
+                        }
+                    }
+                }
+                else {
+                    sb.Append("Status: Not linked to any other gateways\n");
+                }
+
+                // Settings Info
+                sb.Append($"Allow Players: {(Settings.AllowPlayers ? "Yes" : "No")}\n");
+                sb.Append($"Allow Ships: {(Settings.AllowShips ? "Yes" : "No")}\n");
+                sb.Append($"Show Sphere: {(Settings.ShowSphere ? "Yes" : "No")}\n");
+                sb.Append($"Sphere Diameter: {Settings.SphereDiameter} m\n");
+            }
+            catch (Exception e) {
+                MyLog.Default.WriteLineAndConsole($"Error in AppendingCustomInfo: {e}");
+            }
+        }
+
+        public override void UpdateAfterSimulation() {
             base.UpdateAfterSimulation();
 
-            if (++_frameCounter >= SAVE_INTERVAL_FRAMES)
-            {
+            if (++_frameCounter >= SAVE_INTERVAL_FRAMES) {
                 _frameCounter = 0;
                 TrySave();
             }
 
-            // Only update and draw the bubble if we're not on a dedicated server and the session is available
-            if (!MyAPIGateway.Utilities.IsDedicated && MyAPIGateway.Session != null)
-            {
+            // Refresh custom info only when the terminal is open
+            if (MyAPIGateway.Gui.GetCurrentScreen == MyTerminalPageEnum.ControlPanel) {
+                Block.RefreshCustomInfo();
+                Block.SetDetailedInfoDirty();
+            }
+
+            if (!MyAPIGateway.Utilities.IsDedicated && MyAPIGateway.Session != null) {
                 TeleportBubbleManager.CreateOrUpdateBubble(Block);
                 TeleportBubbleManager.DrawBubble(Block);
             }
