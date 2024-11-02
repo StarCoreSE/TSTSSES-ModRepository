@@ -47,10 +47,6 @@ namespace TeleportMechanisms
                     }
                 }
 
-                foreach (var link in _TeleportLinks.Keys.ToList()) {
-                    WarnMultipleGateways(link);
-                }
-
                 MyLogger.Log($"TPCore: UpdateTeleportLinks: Total gateways found: {gateways.Count}");
 
                 foreach (var gateway in gateways)
@@ -107,104 +103,87 @@ namespace TeleportMechanisms
             MyAPIGateway.Multiplayer.SendMessageToServer(NetworkHandler.TeleportRequestId, data);
         }
 
-        public static void ServerProcessTeleportRequest(TeleportRequestMessage message)
-        {
+        public static void ServerProcessTeleportRequest(TeleportRequestMessage message) {
             MyLogger.Log($"TPCore: ProcessTeleportRequest: Player {message.PlayerId}, Link {message.TeleportLink}");
-            MyLogger.Log($"TPCore: ProcessTeleportRequest: Current Teleport links: {string.Join(", ", _TeleportLinks.Keys)}");
 
             List<long> linkedGateways;
-            lock (_lock)
-            {
-                if (!_TeleportLinks.TryGetValue(message.TeleportLink, out linkedGateways))
-                {
+            lock (_lock) {
+                if (!_TeleportLinks.TryGetValue(message.TeleportLink, out linkedGateways)) {
                     MyLogger.Log($"TPCore: ProcessTeleportRequest: No linked gateways found for link {message.TeleportLink}");
                     return;
                 }
             }
 
-            MyLogger.Log($"TPCore: ProcessTeleportRequest: Found {linkedGateways.Count} linked gateways for link {message.TeleportLink}");
-
-            if (linkedGateways.Count < 2)
-            {
-                MyLogger.Log("TPCore: ProcessTeleportRequest: At least two linked gateways are required for teleportation. Aborting.");
-                return;
-            }
-
-            var sourceIndex = linkedGateways.IndexOf(message.SourceGatewayId);
-            if (sourceIndex == -1)
-            {
-                MyLogger.Log($"TPCore: ProcessTeleportRequest: Source gateway {message.SourceGatewayId} not found in linked gateways");
-                return;
-            }
-
-            var destIndex = (sourceIndex + 1) % linkedGateways.Count;
-            var destGatewayId = linkedGateways[destIndex];
-
-            var destGateway = MyAPIGateway.Entities.GetEntityById(destGatewayId) as IMyTerminalBlock;
-            if (destGateway == null)
-            {
-                MyLogger.Log($"TPCore: ProcessTeleportRequest: Destination gateway {destGatewayId} not found");
-                return;
-            }
-
-            var player = GetPlayerById((long)message.PlayerId);
-            if (player == null || player.Character == null)
-            {
-                MyLogger.Log($"TPCore: ProcessTeleportRequest: Player {message.PlayerId} or their character not found");
-                return;
-            }
-
             var sourceGateway = MyAPIGateway.Entities.GetEntityById(message.SourceGatewayId) as IMyTerminalBlock;
-            if (sourceGateway == null)
-            {
+            if (sourceGateway == null) {
                 MyLogger.Log($"TPCore: ProcessTeleportRequest: Source gateway {message.SourceGatewayId} not found");
                 return;
             }
 
-            // Check the source gateway settings
+            var sourcePosition = sourceGateway.GetPosition();
+            long nearestGatewayId = 0;
+            double nearestDistance = double.MaxValue;
+
+            foreach (var gatewayId in linkedGateways) {
+                if (gatewayId == message.SourceGatewayId) continue;
+
+                var candidateGateway = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyTerminalBlock;
+                if (candidateGateway == null) continue;
+
+                var distance = Vector3D.Distance(sourcePosition, candidateGateway.GetPosition());
+                if (distance < nearestDistance) {
+                    nearestDistance = distance;
+                    nearestGatewayId = gatewayId;
+                }
+            }
+
+            if (nearestGatewayId == 0) {
+                MyLogger.Log($"TPCore: ProcessTeleportRequest: No valid destination gateway found for link {message.TeleportLink}");
+                return;
+            }
+
+            var destGateway = MyAPIGateway.Entities.GetEntityById(nearestGatewayId) as IMyTerminalBlock;
+            if (destGateway == null) {
+                MyLogger.Log($"TPCore: ProcessTeleportRequest: Destination gateway {nearestGatewayId} not found");
+                return;
+            }
+
+            var player = GetPlayerById((long)message.PlayerId);
+            if (player == null || player.Character == null) {
+                MyLogger.Log($"TPCore: ProcessTeleportRequest: Player {message.PlayerId} or their character not found");
+                return;
+            }
+
             var sourceGatewayLogic = sourceGateway.GameLogic.GetAs<TeleportGateway>();
-            if (sourceGatewayLogic == null)
-            {
+            if (sourceGatewayLogic == null) {
                 MyLogger.Log($"TPCore: ProcessTeleportRequest: Could not retrieve TeleportGateway for source gateway {sourceGateway.EntityId}");
                 return;
             }
 
             var sourceGatewaySettings = sourceGatewayLogic.Settings;
-            MyLogger.Log($"TPCore: ProcessTeleportRequest: Source gateway settings - AllowPlayers: {sourceGatewaySettings.AllowPlayers}, AllowShips: {sourceGatewaySettings.AllowShips}");
-
-            if (!sourceGatewaySettings.AllowPlayers)
-            {
+            if (!sourceGatewaySettings.AllowPlayers) {
                 MyLogger.Log($"TPCore: ProcessTeleportRequest: Player teleportation is not allowed for source gateway {sourceGateway.EntityId}");
                 return;
             }
 
             var isShip = player.Controller.ControlledEntity is IMyCubeBlock;
-            if (isShip && !sourceGatewaySettings.AllowShips)
-            {
+            if (isShip && !sourceGatewaySettings.AllowShips) {
                 MyLogger.Log($"TPCore: ProcessTeleportRequest: Ship teleportation is not allowed for source gateway {sourceGateway.EntityId}");
                 return;
             }
 
-            // Perform teleportation
             TeleportEntity(player.Character, sourceGateway, destGateway);
 
             var grid = player.Controller.ControlledEntity?.Entity.GetTopMostParent() as IMyCubeGrid;
-            if (grid != null)
-            {
-                // Ensure the grid is not static
-                if (grid.IsStatic)
-                {
+            if (grid != null) {
+                if (grid.IsStatic) {
                     MyLogger.Log($"TPCore: ProcessTeleportRequest: Grid {grid.DisplayName} is static, teleportation aborted");
                     return;
                 }
-
-                // Ensure the grid is not locked to a static grid
-                if (HasLockedLandingGear(grid))
-                {
+                if (HasLockedLandingGear(grid)) {
                     MyLogger.Log($"TPCore: ProcessTeleportRequest: Grid {grid.DisplayName} has locked landing gear, teleportation aborted");
                     return;
                 }
-
                 TeleportEntity(grid, sourceGateway, destGateway);
             }
         }
@@ -402,24 +381,6 @@ namespace TeleportMechanisms
             }
 
             return nearestGatewayId;
-        }
-
-        private static void WarnMultipleGateways(string link) {
-            var linkedGateways = _TeleportLinks[link];
-            if (linkedGateways.Count > 2) {
-                foreach (var gatewayId in linkedGateways) {
-                    var gateway = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyTerminalBlock;
-                    if (gateway != null) {
-                        // Show a warning notification to all players
-                        string message = $"Warning: More than two gateways detected on channel '{link}'. " +
-                                         "Only the nearest gateway will be used for teleportation.";
-                        MyAPIGateway.Utilities.ShowNotification(message, 10000, "Red");
-
-                        // Log the warning
-                        MyLogger.Log($"TPCore: Multiple gateways warning - Gateway: {gateway.CustomName}, Channel: {link}");
-                    }
-                }
-            }
         }
 
         public static int TeleportNearbyShips(IMyTerminalBlock sourceGateway, IMyTerminalBlock destGateway)
