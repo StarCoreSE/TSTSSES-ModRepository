@@ -39,9 +39,6 @@ Heat Loss Per Second: 1.5
         <MountPoint Side="Bottom" StartX="0.00" StartY="0.76" EndX="1.00" EndY="1.00" />
       </MountPoints>
       <BuildProgressModels>
-        <Model BuildPercentUpperBound="0.33" File="Models\Cubes\Large\InteriorTurretConstruction_1.mwm"/>
-        <Model BuildPercentUpperBound="0.66" File="Models\Cubes\Large\InteriorTurretConstruction_2.mwm"/>
-        <Model BuildPercentUpperBound="1.00" File="Models\Cubes\Large\InteriorTurretConstruction_3.mwm"/>
       </BuildProgressModels>
       <VoxelPlacement>
         <StaticMode>
@@ -125,8 +122,6 @@ Can Radar Lock: false
         <MountPoint Side="Bottom" StartX="0.00" StartY="0.00" EndX="1.00" EndY="1.00"/>
       </MountPoints>
       <BuildProgressModels>
-        <Model BuildPercentUpperBound="0.50" File="Models\Cubes\Large\LCDPanel_Construction_1.mwm" />
-        <Model BuildPercentUpperBound="1.00" File="Models\Cubes\Large\LCDPanel_Construction_2.mwm" />
       </BuildProgressModels>
       <BlockPairName>DeltaV_Search_Radar</BlockPairName>
       <MirroringY>Z</MirroringY>
@@ -197,8 +192,6 @@ Can Radar Lock: true
         <MountPoint Side="Bottom" StartX="0.00" StartY="0.00" EndX="1.00" EndY="1.00"/>
       </MountPoints>
       <BuildProgressModels>
-        <Model BuildPercentUpperBound="0.50" File="Models\Cubes\Large\LCDPanel_Construction_1.mwm" />
-        <Model BuildPercentUpperBound="1.00" File="Models\Cubes\Large\LCDPanel_Construction_2.mwm" />
       </BuildProgressModels>
       <BlockPairName>DeltaV_Track_Radar</BlockPairName>
       <MirroringY>Z</MirroringY>
@@ -269,8 +262,6 @@ Can Radar Lock: false
         <MountPoint Side="Bottom" StartX="0.00" StartY="0.00" EndX="1.00" EndY="1.00"/>
       </MountPoints>
       <BuildProgressModels>
-        <Model BuildPercentUpperBound="0.50" File="Models\Cubes\Large\LCDPanel_Construction_1.mwm" />
-        <Model BuildPercentUpperBound="1.00" File="Models\Cubes\Large\LCDPanel_Construction_2.mwm" />
       </BuildProgressModels>
       <BlockPairName>DeltaV_Search_Radar</BlockPairName>
       <MirroringY>Z</MirroringY>
@@ -341,8 +332,6 @@ Can Radar Lock: true
         <MountPoint Side="Bottom" StartX="0.00" StartY="0.00" EndX="1.00" EndY="1.00"/>
       </MountPoints>
       <BuildProgressModels>
-        <Model BuildPercentUpperBound="0.50" File="Models\Cubes\Large\LCDPanel_Construction_1.mwm" />
-        <Model BuildPercentUpperBound="1.00" File="Models\Cubes\Large\LCDPanel_Construction_2.mwm" />
       </BuildProgressModels>
       <BlockPairName>DeltaV_Track_Radar</BlockPairName>
       <MirroringY>Z</MirroringY>
@@ -405,9 +394,6 @@ Can Radar Lock: true
         <MountPoint Side="Back" StartX="0.175" StartY="0.1" EndX="0.825" EndY="0.9" />
       </MountPoints>
       <BuildProgressModels>
-        <Model BuildPercentUpperBound="0.33" File="Models\Cubes\Large\BeaconConstruction_1.mwm" />
-        <Model BuildPercentUpperBound="0.66" File="Models\Cubes\Large\BeaconConstruction_2.mwm" />
-        <Model BuildPercentUpperBound="1.00" File="Models\Cubes\Large\BeaconConstruction_3.mwm" />
       </BuildProgressModels>
       <BlockPairName>IFFBeacon</BlockPairName>
       <EdgeType>Light</EdgeType>
@@ -454,8 +440,6 @@ Can Radar Lock: true
       </Components>
       <CriticalComponent Subtype="RadioCommunication" Index="0" />
       <BuildProgressModels>
-        <Model BuildPercentUpperBound="0.50" File="Models\Cubes\Small\BeaconConstruction_1.mwm" />
-        <Model BuildPercentUpperBound="1.00" File="Models\Cubes\Small\BeaconConstruction_2.mwm" />
       </BuildProgressModels>
       <BlockPairName>IFFBeacon</BlockPairName>
       <MirroringY>Z</MirroringY>
