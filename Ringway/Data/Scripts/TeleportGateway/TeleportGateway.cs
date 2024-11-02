@@ -48,6 +48,8 @@ namespace TeleportMechanisms {
         private const float POWER_PER_100KM = 1.0f; // 1 MWh per 100km
         private const float MIN_TELEPORT_CHARGE_PERCENTAGE = 0.1f; // 10% charge threshold
 
+        private const double MAX_TELEPORT_DISTANCE = 100000.0 * 1000; // 100,000 km in meters
+
         static TeleportGateway() {
             CreateControls();
         }
@@ -247,63 +249,47 @@ namespace TeleportMechanisms {
             DrawDebugLineToNearestLinkedGateway();
 
             if (_isTeleporting) {
-                // Teleport logic with adjusted power requirement
+                // Calculate required power based on the jump distance, scaling up to a maximum distance of 100,000 km
                 float powerRequired = CalculatePowerRequired(_jumpDistance);
-                float powerDrainPerTick = powerRequired / _teleportCountdown;
 
-                if (Sink != null) {
-                    float powerDrawPerSecond = (powerRequired * 100f) / (_teleportCountdown / 60f);
-                    Sink.SetRequiredInputByType(MyResourceDistributorComponent.ElectricityId, powerDrawPerSecond * 1000f);
-                    Sink.Update();
-                }
-
-                Settings.StoredPower = Math.Max(0, Settings.StoredPower - powerDrainPerTick);
+                // Deduct power in a single chunk based on the calculated requirement
+                Settings.StoredPower = Math.Max(0, Settings.StoredPower - powerRequired);
                 Settings.Changed = true;
-                _teleportCountdown--;
 
-                if (_teleportCountdown % 60 == 0) {
-                    int secondsLeft = _teleportCountdown / 60;
-                    MyAPIGateway.Utilities.ShowNotification(
-                        $"Jump in {secondsLeft}s... Distance: {_jumpDistance / 1000:F1}km, Power: {Settings.StoredPower:F1}/{powerRequired:F1}MWh",
-                        50,
-                        MyFontEnum.White
-                    );
-                }
-
-                // Adjusted minimum power threshold to 10% of MaxStoredPower
+                // Check if power is sufficient for teleportation
                 float minRequiredPower = Settings.MaxStoredPower * MIN_TELEPORT_CHARGE_PERCENTAGE;
-                if (Settings.StoredPower < minRequiredPower || _teleportCountdown <= 0) {
-                    _isTeleporting = false;
+                if (Settings.StoredPower < minRequiredPower) {
+                    _isTeleporting = false; // Stop teleportation due to insufficient power
+                    MyAPIGateway.Utilities.ShowNotification(
+                        $"Jump failed - Insufficient power",
+                        2000,
+                        MyFontEnum.Red
+                    );
 
-                    // Reset sink
+                    // Reset power sink
                     if (Sink != null) {
                         Sink.SetRequiredInputByType(MyResourceDistributorComponent.ElectricityId, 0f);
                         Sink.Update();
                     }
+                    return;
+                }
 
-                    if (Settings.StoredPower < minRequiredPower) {
-                        MyAPIGateway.Utilities.ShowNotification(
-                            $"Jump failed - Insufficient power",
-                            2000,
-                            MyFontEnum.Red
-                        );
-                        return;
-                    }
+                // If power is sufficient, execute teleport
+                _isTeleporting = false; // End teleportation phase as power is deducted
 
-                    // Execute actual teleport
-                    if (!MyAPIGateway.Multiplayer.IsServer) {
-                        var message = new JumpRequestMessage {
-                            GatewayId = RingwayBlock.EntityId,
-                            Link = Settings.GatewayName
-                        };
-                        MyAPIGateway.Multiplayer.SendMessageToServer(
-                            NetworkHandler.JumpRequestId,
-                            MyAPIGateway.Utilities.SerializeToBinary(message)
-                        );
-                    }
-                    else {
-                        ProcessJumpRequest(RingwayBlock.EntityId, Settings.GatewayName);
-                    }
+                // Execute the actual teleport (server or client-side request)
+                if (!MyAPIGateway.Multiplayer.IsServer) {
+                    var message = new JumpRequestMessage {
+                        GatewayId = RingwayBlock.EntityId,
+                        Link = Settings.GatewayName
+                    };
+                    MyAPIGateway.Multiplayer.SendMessageToServer(
+                        NetworkHandler.JumpRequestId,
+                        MyAPIGateway.Utilities.SerializeToBinary(message)
+                    );
+                }
+                else {
+                    ProcessJumpRequest(RingwayBlock.EntityId, Settings.GatewayName);
                 }
             }
             else {
@@ -322,17 +308,19 @@ namespace TeleportMechanisms {
                 }
             }
 
-
+            // Save settings periodically
             if (++_frameCounter >= SAVE_INTERVAL_FRAMES) {
                 _frameCounter = 0;
                 TrySave();
             }
 
+            // Update terminal info if control panel is open
             if (MyAPIGateway.Gui.GetCurrentScreen == MyTerminalPageEnum.ControlPanel) {
                 RingwayBlock.RefreshCustomInfo();
                 RingwayBlock.SetDetailedInfoDirty();
             }
 
+            // Display teleport bubble if in a client session
             if (!MyAPIGateway.Utilities.IsDedicated && MyAPIGateway.Session != null) {
                 TeleportBubbleManager.CreateOrUpdateBubble(RingwayBlock);
                 TeleportBubbleManager.DrawBubble(RingwayBlock);
@@ -710,8 +698,11 @@ namespace TeleportMechanisms {
 
         private float CalculatePowerRequired(double distanceInMeters) {
             float distanceInKm = (float)(distanceInMeters / 1000);
-            return (distanceInKm / 100) * POWER_PER_100KM;
+            float maxDistanceInKm = (float)(MAX_TELEPORT_DISTANCE / 1000);
+            float chargePercentage = MathHelper.Clamp(distanceInKm / maxDistanceInKm, MIN_TELEPORT_CHARGE_PERCENTAGE, 1.0f);
+            return Settings.MaxStoredPower * chargePercentage;
         }
+
 
         private void JumpAction(IMyCollector block) {
             MyLogger.Log($"TPGate: JumpAction: Jump action triggered for EntityId: {block.EntityId}");
@@ -759,6 +750,21 @@ namespace TeleportMechanisms {
                 MyFontEnum.White
             );
         }
+
+        private void NotifyPlayersInRange(string text, Vector3D position, double radius, string font = "White") {
+            BoundingSphereD bound = new BoundingSphereD(position, radius);
+            List<IMyEntity> nearbyEntities = MyAPIGateway.Entities.GetEntitiesInSphere(ref bound);
+
+            foreach (var entity in nearbyEntities)
+            {
+                IMyCharacter character = entity as IMyCharacter;
+                if (character != null && character.IsPlayer) {
+                    var notification = MyAPIGateway.Utilities.CreateNotification(text, 2000, font);
+                    notification.Show();
+                }
+            }
+        }
+
 
         // New method to process jump requests on the server
         public static void ProcessJumpRequest(long gatewayId, string link) {
