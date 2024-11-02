@@ -1,87 +1,96 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-	<CubeBlocks>
-		<Definition xsi:type="MyObjectBuilder_TerminalBlockDefinition">
-			<Id>
-				<TypeId>TerminalBlock</TypeId>
-				<SubtypeId>LargeTeleportGateway</SubtypeId>
-			</Id>
-			<DisplayName>Large Teleport Gateway</DisplayName>
-			<Icon>Textures\GUI\Icons\Cubes\TeleportGatewayIcon.dds</Icon>
-			<Description>A gateway for teleportation</Description>
-			<CubeSize>Large</CubeSize>
-			<BlockTopology>TriangleMesh</BlockTopology>
-			<Size x="1" y="1" z="1" />
-			<Model>Models\Cubes\Large\FlightMovementBlock.mwm</Model>
-			<ModelOffset x="0" y="0" z="0" />
-			<Components>
-				<Component Subtype="RedactedComponent" Count="1" />
-				<Component Subtype="SteelPlate" Count="80" />
-				<Component Subtype="Construction" Count="30" />
-				<Component Subtype="LargeTube" Count="10" />
-				<Component Subtype="Computer" Count="10" />
-				<Component Subtype="RadioCommunication" Count="40" />
-				<Component Subtype="SteelPlate" Count="20" />
-			</Components>
-			<CriticalComponent Subtype="RedactedComponent" Index="0" />
-			<MountPoints>
-				<MountPoint Side="Bottom" StartX="0" StartY="0" EndX="0.3" EndY="1" Default="true" />
-				<MountPoint Side="Bottom" StartX="0.7" StartY="0" EndX="1" EndY="1" />
-				<MountPoint Side="Bottom" StartX="0.3" StartY="0.15" EndX="0.7" EndY="0.85" />
-				<MountPoint Side="Left" StartX="0" StartY="0" EndX="1" EndY="1" />
-				<MountPoint Side="Right" StartX="0" StartY="0" EndX="1" EndY="1" />
-				<MountPoint Side="Back" StartX="0" StartY="0" EndX="0.3" EndY="1" />
-				<MountPoint Side="Back" StartX="0.7" StartY="0" EndX="1" EndY="1" />
-				<MountPoint Side="Back" StartX="0.3" StartY="0.15" EndX="0.7" EndY="0.85" />
-				<MountPoint Side="Front" StartX="0" StartY="0" EndX="0.3" EndY="1" />
-				<MountPoint Side="Front" StartX="0.7" StartY="0" EndX="1" EndY="1" />
-				<MountPoint Side="Front" StartX="0.3" StartY="0.15" EndX="0.7" EndY="0.85" />
-				<MountPoint Side="Top" StartX="0" StartY="0" EndX="0.3" EndY="1" />
-				<MountPoint Side="Top" StartX="0.7" StartY="0" EndX="1" EndY="1" />
-				<MountPoint Side="Top" StartX="0.3" StartY="0.15" EndX="0.7" EndY="0.85" />
-			</MountPoints>
-			<BuildProgressModels>
-				<Model BuildPercentUpperBound="0.33" File="Models\Cubes\Large\DroneFeatureBlockConstruction_1.mwm" />
-				<Model BuildPercentUpperBound="0.66" File="Models\Cubes\Large\DroneFeatureBlockConstruction_2.mwm" />
-				<Model BuildPercentUpperBound="1.00" File="Models\Cubes\Large\DroneFeatureBlockConstruction_3.mwm" />
-			</BuildProgressModels>
-			<BlockPairName>TeleportGateway</BlockPairName>
-			<MirroringZ>Y</MirroringZ>
-			<MirroringY>Z</MirroringY>
-			<EdgeType>Light</EdgeType>
-			<BuildTimeSeconds>24</BuildTimeSeconds>
-			<DamageEffectName>Damage_Electrical_Damaged</DamageEffectName>
-			<DamagedSound>ParticleElectrical</DamagedSound>
-			<ResourceSinkGroup>Utility</ResourceSinkGroup>
-			<RequiredPowerInput>0.001</RequiredPowerInput>
-			<EmissiveColorPreset>Extended</EmissiveColorPreset>
-			<PCU>25</PCU>
-			<IsAirTight>false</IsAirTight>
-			<GuiVisible>true</GuiVisible>
-			<Public>true</Public>
-			<ActionList>
-				<Action>
-					<Id>Jump</Id>
-					<Name>Jump</Name>
-				</Action>
-				<Action>
-					<Id>ToggleShowSphere</Id>
-					<Name>Toggle Show Sphere</Name>
-				</Action>
-			</ActionList>
-		</Definition>
-	</CubeBlocks>
+  <CubeBlocks>
 
-	<BlockVariantGroups>
-		<BlockVariantGroup>
-			<Id>TeleportGatewayGroup</Id>
-			<Icon>Textures\GUI\Icons\Cubes\TeleportGatewayIcon.dds</Icon>
-			<DisplayName>Teleport Gateway</DisplayName>
-			<Description>Teleport Gateway blocks for large and small grids</Description>
-			<Blocks>
-				<Block Type="MyObjectBuilder_TerminalBlock" Subtype="LargeTeleportGateway"/>
-				<Block Type="MyObjectBuilder_TerminalBlock" Subtype="SmallTeleportGateway"/>
-			</Blocks>
-		</BlockVariantGroup>
-	</BlockVariantGroups>
+    <Definition xsi:type="MyObjectBuilder_BatteryBlockDefinition">
+      <Id>
+        <TypeId>BatteryBlock</TypeId>
+        <SubtypeId>LargeTeleportGateway</SubtypeId>
+      </Id>
+      <DisplayName>DisplayName_Block_Battery</DisplayName>
+      <Icon>Textures\GUI\Icons\Cubes\Battery.dds</Icon>
+      <Description>Description_Battery</Description>
+      <CubeSize>Large</CubeSize>
+      <BlockTopology>TriangleMesh</BlockTopology>
+      <Size x="1" y="1" z="1" />
+      <ModelOffset x="0" y="0" z="0" />
+      <Model>Models\Cubes\Large\BatteryLarge.mwm</Model>
+      <Components>
+        <Component Subtype="RedactedComponent" Count="1" />
+        <Component Subtype="SteelPlate" Count="20" />
+        <Component Subtype="Construction" Count="10" />
+        <Component Subtype="PowerCell" Count="80">
+          <DeconstructId>
+            <TypeId>Ore</TypeId>
+            <SubtypeId>Scrap</SubtypeId>
+          </DeconstructId>
+        </Component>
+        <Component Subtype="Computer" Count="25" />
+        <Component Subtype="Construction" Count="20" />
+        <Component Subtype="SteelPlate" Count="60" />
+      </Components>
+      <CriticalComponent Subtype="RedactedComponent" Index="0" />
+      <BuildProgressModels>
+        <Model BuildPercentUpperBound="0.33" File="Models\Cubes\Large\BatteryLargeConstruction_1.mwm" />
+        <Model BuildPercentUpperBound="0.66" File="Models\Cubes\Large\BatteryLargeConstruction_2.mwm" />
+        <Model BuildPercentUpperBound="1.00" File="Models\Cubes\Large\BatteryLargeConstruction_3.mwm" />
+      </BuildProgressModels>
+      <BlockPairName>BatteryBlock</BlockPairName>
+      <EdgeType>Light</EdgeType>
+      <BuildTimeSeconds>40</BuildTimeSeconds>
+
+      <ResourceSourceGroup>Battery</ResourceSourceGroup>
+      <MaxPowerOutput>12</MaxPowerOutput>
+
+      <ResourceSinkGroup>BatteryBlock</ResourceSinkGroup>
+      <RequiredPowerInput>12</RequiredPowerInput>
+      <AdaptibleInput>true</AdaptibleInput>
+      <MaxStoredPower>3</MaxStoredPower>
+      <InitialStoredPowerRatio>0.3</InitialStoredPowerRatio>
+      <RechargeMultiplier>0.8</RechargeMultiplier>
+
+      <InventorySize>
+        <X>1</X>
+        <Y>1</Y>
+        <Z>1</Z>
+      </InventorySize>
+      <Public>true</Public>
+      <DamageEffectName>Damage_Electrical_Damaged</DamageEffectName>
+      <DamagedSound>ParticleElectrical</DamagedSound>
+      <EmissiveColorPreset>Extended</EmissiveColorPreset>
+      <DestroyEffect>BlockDestroyedExplosion_Large</DestroyEffect>
+      <DestroySound>WepSmallWarheadExpl</DestroySound>
+      <PCU>15</PCU>
+      <IsAirTight>true</IsAirTight>
+      <MirroringZ>Y</MirroringZ>
+      <MirroringY>Z</MirroringY>
+      <TargetingGroups>
+        <string>PowerSystems</string>
+      </TargetingGroups>
+      <ActionList>
+        <Action>
+          <Id>Jump</Id>
+          <Name>Jump</Name>
+        </Action>
+        <Action>
+          <Id>ToggleShowSphere</Id>
+          <Name>Toggle Show Sphere</Name>
+        </Action>
+      </ActionList>
+    </Definition>
+
+  </CubeBlocks>
+
+  <BlockVariantGroups>
+    <BlockVariantGroup>
+      <Id>TeleportGatewayGroup</Id>
+      <Icon>Textures\GUI\Icons\Cubes\TeleportGatewayIcon.dds</Icon>
+      <DisplayName>Teleport Gateway</DisplayName>
+      <Description>Teleport Gateway blocks for large and small grids</Description>
+      <Blocks>
+        <Block Type="MyObjectBuilder_TerminalBlock" Subtype="LargeTeleportGateway"/>
+        <Block Type="MyObjectBuilder_TerminalBlock" Subtype="SmallTeleportGateway"/>
+      </Blocks>
+    </BlockVariantGroup>
+  </BlockVariantGroups>
 </Definitions>

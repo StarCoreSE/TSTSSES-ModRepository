@@ -14,11 +14,10 @@ using System;
 using Sandbox.Game.EntityComponents;
 using VRage.ModAPI;
 
-namespace TeleportMechanisms
-{
-    [MyEntityComponentDescriptor(typeof(MyObjectBuilder_TerminalBlock), false, "LargeTeleportGateway", "SmallTeleportGateway")]
-    public class TeleportGateway : MyGameLogicComponent
-    {
+namespace TeleportMechanisms {
+    [MyEntityComponentDescriptor(typeof(MyObjectBuilder_BatteryBlock), false,
+        "LargeTeleportGateway", "SmallTeleportGateway")]
+    public class TeleportGateway : MyGameLogicComponent {
         public IMyTerminalBlock Block { get; private set; }
         public TeleportGatewaySettings Settings { get; private set; } = new TeleportGatewaySettings();
 
@@ -31,8 +30,7 @@ namespace TeleportMechanisms
         private int _linkUpdateCounter = 0;
         private const int LINK_UPDATE_INTERVAL = 1;
 
-        static TeleportGateway()
-        {
+        static TeleportGateway() {
             CreateControls();
         }
 
@@ -60,8 +58,33 @@ namespace TeleportMechanisms
             }
         }
 
+        //public bool ConsumePower(float amount) {
+        //    var battery = Block as IMyBatteryBlock;
+        //    if (battery == null) {
+        //        MyLogger.Log($"TPGate: ConsumePower: Block is not a battery");
+        //        return false;
+        //    }
+        //
+        //    float currentCharge = battery.CurrentStoredPower;
+        //    if (currentCharge < amount) {
+        //        MyLogger.Log($"TPGate: ConsumePower: Not enough power. Required: {amount} MWh, Available: {currentCharge} MWh");
+        //        return false;
+        //    }
+        //
+        //    // Consume power
+        //    battery.CurrentStoredPower -= amount;
+        //    MyLogger.Log($"TPGate: ConsumePower: Consumed {amount} MWh. Remaining: {battery.CurrentStoredPower} MWh");
+        //    return true;
+        //}
+
         private void AppendingCustomInfo(IMyTerminalBlock block, StringBuilder sb) {
             try {
+                if (!block.IsFunctional) {
+                    sb.Append("--- Gateway Offline ---\n");
+                    sb.Append("The gateway is not functional. Check power and block integrity.\n");
+                    return;
+                }
+
                 sb.Append("--- Teleport Gateway Status ---\n");
                 sb.Append($"Gateway Name: {Settings.GatewayName}\n");
 
@@ -126,6 +149,8 @@ namespace TeleportMechanisms
         public override void UpdateAfterSimulation() {
             base.UpdateAfterSimulation();
 
+            if (!Block.IsFunctional) return;
+
             if (++_frameCounter >= SAVE_INTERVAL_FRAMES) {
                 _frameCounter = 0;
                 TrySave();
@@ -144,6 +169,8 @@ namespace TeleportMechanisms
         }
 
         public override void UpdateAfterSimulation100() {
+            if (!Block.IsFunctional) return;
+
             try {
 
                 // New link update logic
@@ -164,18 +191,15 @@ namespace TeleportMechanisms
             }
         }
 
-        private void TrySave()
-        {
+        private void TrySave() {
             if (!Settings.Changed) return;
 
             Save();
             MyLogger.Log($"TPGate: TrySave: Settings saved for EntityId: {Block.EntityId}");
         }
 
-        private void Save()
-        {
-            if (Block.Storage == null)
-            {
+        private void Save() {
+            if (Block.Storage == null) {
                 Block.Storage = new MyModStorageComponent();
             }
 
@@ -193,52 +217,42 @@ namespace TeleportMechanisms
         }
 
 
-        public void ApplySettings(TeleportGatewaySettings settings)
-        {
+        public void ApplySettings(TeleportGatewaySettings settings) {
             this.Settings = settings;
             MyLogger.Log($"TPGate: ApplySettings: Applied settings for EntityId: {Block.EntityId}, GatewayName: {Settings.GatewayName}");
         }
 
-        private static TeleportGatewaySettings Load(IMyTerminalBlock block)
-        {
+        private static TeleportGatewaySettings Load(IMyTerminalBlock block) {
             MyLogger.Log($"TPGate: Load: Called. Attempting to load with StorageGuid: {StorageGuid}");
-            if (block == null)
-            {
+            if (block == null) {
                 MyLogger.Log($"TPGate: Load: Block is null.");
                 return new TeleportGatewaySettings();
             }
-            if (block.Storage == null)
-            {
+            if (block.Storage == null) {
                 MyLogger.Log($"TPGate: Load: Block Storage is null. Creating new Storage.");
                 block.Storage = new MyModStorageComponent();
             }
             MyLogger.Log($"TPGate: Load: Block and Storage not null.");
             string data;
-            if (block.Storage.TryGetValue(StorageGuid, out data))
-            {
+            if (block.Storage.TryGetValue(StorageGuid, out data)) {
                 MyLogger.Log($"TPGate: Load: blockid:{block.EntityId} Storage had data: {data}");
-                try
-                {
+                try {
                     var settings = MyAPIGateway.Utilities.SerializeFromXML<TeleportGatewaySettings>(data);
-                    if (settings != null)
-                    {
+                    if (settings != null) {
                         settings.Changed = false;
                         settings.LastSaved = MyAPIGateway.Session.ElapsedPlayTime;
                         MyLogger.Log($"TPGate: Load: Successfully loaded settings.");
                         return settings;
                     }
-                    else
-                    {
+                    else {
                         MyLogger.Log($"TPGate: Load: Deserialized settings were null.");
                     }
                 }
-                catch (Exception ex)
-                {
+                catch (Exception ex) {
                     MyLogger.Log($"TPGate: Load - Exception loading settings: {ex}");
                 }
             }
-            else
-            {
+            else {
                 MyLogger.Log($"TPGate: Load: No data found for StorageGuid.");
             }
             MyLogger.Log($"TPGate: Load: Creating and returning new TeleportGatewaySettings.");
@@ -247,12 +261,10 @@ namespace TeleportMechanisms
             return newSettings;
         }
 
-        public override void Close()
-        {
+        public override void Close() {
             Save();
 
-            lock (TeleportCore._lock)
-            {
+            lock (TeleportCore._lock) {
                 TeleportCore._instances.Remove(Block.EntityId);
                 MyLogger.Log($"TPGate: Close: Removed instance for EntityId {Entity.EntityId}. Remaining instances: {TeleportCore._instances.Count}");
             }
@@ -262,14 +274,12 @@ namespace TeleportMechanisms
             base.Close();
         }
 
-        public override bool IsSerialized()
-        {
+        public override bool IsSerialized() {
             Save();
             return base.IsSerialized();
         }
 
-        private static void CreateControls()
-        {
+        private static void CreateControls() {
             if (_controlsCreated) return;
 
             MyLogger.Log("TPGate: CreateControl: Creating custom controls and actions");
@@ -292,18 +302,14 @@ namespace TeleportMechanisms
                CreateShowSphereOffAction()
             };
 
-            MyAPIGateway.TerminalControls.CustomControlGetter += (block, blockControls) =>
-            {
-                if (block is IMyTerminalBlock && (block.BlockDefinition.SubtypeName == "LargeTeleportGateway" || block.BlockDefinition.SubtypeName == "SmallTeleportGateway"))
-                {
+            MyAPIGateway.TerminalControls.CustomControlGetter += (block, blockControls) => {
+                if (block is IMyTerminalBlock && (block.BlockDefinition.SubtypeName == "LargeTeleportGateway" || block.BlockDefinition.SubtypeName == "SmallTeleportGateway")) {
                     blockControls.AddRange(controls);
                 }
             };
 
-            MyAPIGateway.TerminalControls.CustomActionGetter += (block, blockActions) =>
-            {
-                if (block is IMyTerminalBlock && (block.BlockDefinition.SubtypeName == "LargeTeleportGateway" || block.BlockDefinition.SubtypeName == "SmallTeleportGateway"))
-                {
+            MyAPIGateway.TerminalControls.CustomActionGetter += (block, blockActions) => {
+                if (block is IMyTerminalBlock && (block.BlockDefinition.SubtypeName == "LargeTeleportGateway" || block.BlockDefinition.SubtypeName == "SmallTeleportGateway")) {
                     blockActions.AddRange(actions);
                 }
             };
@@ -312,20 +318,16 @@ namespace TeleportMechanisms
             MyLogger.Log("TPGate: CreateControl: Custom controls and actions created");
         }
 
-        private static IMyTerminalControl CreateGatewayNameControl()
-        {
+        private static IMyTerminalControl CreateGatewayNameControl() {
             var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlTextbox, IMyTerminalBlock>("GatewayName");
             control.Title = MyStringId.GetOrCompute("Gateway Name");
-            control.Getter = (block) =>
-            {
+            control.Getter = (block) => {
                 var gateway = block.GameLogic.GetAs<TeleportGateway>();
                 return gateway != null ? new StringBuilder(gateway.Settings.GatewayName) : new StringBuilder();
             };
-            control.Setter = (block, value) =>
-            {
+            control.Setter = (block, value) => {
                 var gateway = block.GameLogic.GetAs<TeleportGateway>();
-                if (gateway != null)
-                {
+                if (gateway != null) {
                     gateway.Settings.GatewayName = value.ToString();
                     gateway.Settings.Changed = true;
                     gateway.TrySave();
@@ -335,20 +337,16 @@ namespace TeleportMechanisms
             return control;
         }
 
-        private static IMyTerminalControl CreateAllowPlayersCheckbox()
-        {
+        private static IMyTerminalControl CreateAllowPlayersCheckbox() {
             var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyTerminalBlock>("AllowPlayers");
             control.Title = MyStringId.GetOrCompute("Allow Players");
-            control.Getter = (block) =>
-            {
+            control.Getter = (block) => {
                 var gateway = block.GameLogic.GetAs<TeleportGateway>();
                 return gateway != null ? gateway.Settings.AllowPlayers : false;
             };
-            control.Setter = (block, value) =>
-            {
+            control.Setter = (block, value) => {
                 var gateway = block.GameLogic.GetAs<TeleportGateway>();
-                if (gateway != null)
-                {
+                if (gateway != null) {
                     gateway.Settings.AllowPlayers = value;
                     gateway.Settings.Changed = true;
                     gateway.TrySave();
@@ -359,20 +357,16 @@ namespace TeleportMechanisms
             return control;
         }
 
-        private static IMyTerminalControl CreateAllowShipsCheckbox()
-        {
+        private static IMyTerminalControl CreateAllowShipsCheckbox() {
             var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyTerminalBlock>("AllowShips");
             control.Title = MyStringId.GetOrCompute("Allow Ships");
-            control.Getter = (block) =>
-            {
+            control.Getter = (block) => {
                 var gateway = block.GameLogic.GetAs<TeleportGateway>();
                 return gateway != null ? gateway.Settings.AllowShips : false;
             };
-            control.Setter = (block, value) =>
-            {
+            control.Setter = (block, value) => {
                 var gateway = block.GameLogic.GetAs<TeleportGateway>();
-                if (gateway != null)
-                {
+                if (gateway != null) {
                     gateway.Settings.AllowShips = value;
                     gateway.Settings.Changed = true;
                     gateway.TrySave();
@@ -383,26 +377,22 @@ namespace TeleportMechanisms
             return control;
         }
 
-        private static IMyTerminalControl CreateJumpButton()
-        {
+        private static IMyTerminalControl CreateJumpButton() {
             var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlButton, IMyTerminalBlock>("JumpButton");
             control.Title = MyStringId.GetOrCompute("Jump");
             control.Visible = (block) => true;
-            control.Action = (block) =>
-            {
+            control.Action = (block) => {
                 var gateway = block.GameLogic.GetAs<TeleportGateway>();
                 if (gateway != null) gateway.JumpAction(block);
             };
             return control;
         }
 
-        private static IMyTerminalAction CreateJumpAction()
-        {
+        private static IMyTerminalAction CreateJumpAction() {
             var action = MyAPIGateway.TerminalControls.CreateAction<IMyTerminalBlock>("Jump");
             action.Name = new StringBuilder("Jump");
             action.Icon = @"Textures\GUI\Icons\Actions\Jump.dds";
-            action.Action = (block) =>
-            {
+            action.Action = (block) => {
                 var gateway = block.GameLogic.GetAs<TeleportGateway>();
                 if (gateway != null) gateway.JumpAction(block);
             };
@@ -410,20 +400,16 @@ namespace TeleportMechanisms
             return action;
         }
 
-        private static IMyTerminalControl CreateShowSphereCheckbox()
-        {
+        private static IMyTerminalControl CreateShowSphereCheckbox() {
             var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyTerminalBlock>("ShowSphere");
             control.Title = MyStringId.GetOrCompute("Show Sphere");
-            control.Getter = (block) =>
-            {
+            control.Getter = (block) => {
                 var gateway = block.GameLogic.GetAs<TeleportGateway>();
                 return gateway != null ? gateway.Settings.ShowSphere : false;
             };
-            control.Setter = (block, value) =>
-            {
+            control.Setter = (block, value) => {
                 var gateway = block.GameLogic.GetAs<TeleportGateway>();
-                if (gateway != null)
-                {
+                if (gateway != null) {
                     gateway.Settings.ShowSphere = value;
                     gateway.Settings.Changed = true;
                     gateway.TrySave();
@@ -434,31 +420,25 @@ namespace TeleportMechanisms
             return control;
         }
 
-        private static IMyTerminalControl CreateSphereDiameterSlider()
-        {
+        private static IMyTerminalControl CreateSphereDiameterSlider() {
             var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyTerminalBlock>("SphereDiameter");
             control.Title = MyStringId.GetOrCompute("Sphere Diameter");
             control.SetLimits(1, 300); // Set the range from 1 to 300
-            control.Getter = (block) =>
-            {
+            control.Getter = (block) => {
                 var gateway = block.GameLogic.GetAs<TeleportGateway>();
                 return gateway != null ? gateway.Settings.SphereDiameter : 50.0f;
             };
-            control.Setter = (block, value) =>
-            {
+            control.Setter = (block, value) => {
                 var gateway = block.GameLogic.GetAs<TeleportGateway>();
-                if (gateway != null)
-                {
+                if (gateway != null) {
                     gateway.Settings.SphereDiameter = value;
                     gateway.Settings.Changed = true;
                     gateway.TrySave();
                 }
             };
-            control.Writer = (block, sb) =>
-            {
+            control.Writer = (block, sb) => {
                 var gateway = block.GameLogic.GetAs<TeleportGateway>();
-                if (gateway != null)
-                {
+                if (gateway != null) {
                     sb.Append($"{gateway.Settings.SphereDiameter} meters");
                 }
             };
@@ -466,16 +446,13 @@ namespace TeleportMechanisms
             return control;
         }
 
-        private static IMyTerminalAction CreateToggleShowSphereAction()
-        {
+        private static IMyTerminalAction CreateToggleShowSphereAction() {
             var action = MyAPIGateway.TerminalControls.CreateAction<IMyTerminalBlock>("ToggleShowSphere");
             action.Name = new StringBuilder("Toggle Show Sphere");
             action.Icon = @"Textures\GUI\Icons\Actions\SwitchOn.dds"; // You may want to use a different icon
-            action.Action = (block) =>
-            {
+            action.Action = (block) => {
                 var gateway = block.GameLogic.GetAs<TeleportGateway>();
-                if (gateway != null)
-                {
+                if (gateway != null) {
                     gateway.Settings.ShowSphere = !gateway.Settings.ShowSphere;
                     gateway.Settings.Changed = true;
                     gateway.TrySave();
@@ -486,16 +463,13 @@ namespace TeleportMechanisms
             return action;
         }
 
-        private static IMyTerminalAction CreateShowSphereOnAction()
-        {
+        private static IMyTerminalAction CreateShowSphereOnAction() {
             var action = MyAPIGateway.TerminalControls.CreateAction<IMyTerminalBlock>("ShowSphereOn");
             action.Name = new StringBuilder("Show Sphere On");
             action.Icon = @"Textures\GUI\Icons\Actions\SwitchOn.dds"; // You may want to use a different icon
-            action.Action = (block) =>
-            {
+            action.Action = (block) => {
                 var gateway = block.GameLogic.GetAs<TeleportGateway>();
-                if (gateway != null)
-                {
+                if (gateway != null) {
                     gateway.Settings.ShowSphere = true;
                     gateway.Settings.Changed = true;
                     gateway.TrySave();
@@ -506,16 +480,13 @@ namespace TeleportMechanisms
             return action;
         }
 
-        private static IMyTerminalAction CreateShowSphereOffAction()
-        {
+        private static IMyTerminalAction CreateShowSphereOffAction() {
             var action = MyAPIGateway.TerminalControls.CreateAction<IMyTerminalBlock>("ShowSphereOff");
             action.Name = new StringBuilder("Show Sphere Off");
             action.Icon = @"Textures\GUI\Icons\Actions\SwitchOff.dds"; // You may want to use a different icon
-            action.Action = (block) =>
-            {
+            action.Action = (block) => {
                 var gateway = block.GameLogic.GetAs<TeleportGateway>();
-                if (gateway != null)
-                {
+                if (gateway != null) {
                     gateway.Settings.ShowSphere = false;
                     gateway.Settings.Changed = true;
                     gateway.TrySave();
@@ -526,39 +497,42 @@ namespace TeleportMechanisms
             return action;
         }
 
-        private void JumpAction(IMyTerminalBlock block)
-        {
+        private void JumpAction(IMyTerminalBlock block) {
+            if (!block.IsFunctional) {
+                MyLogger.Log($"TPGate: JumpAction: Gateway {block.EntityId} is not functional. Jump aborted.");
+                return;
+            }
+
             MyLogger.Log($"TPGate: JumpAction: Jump action triggered for EntityId: {block.EntityId}");
 
             var link = Settings.GatewayName;
             if (string.IsNullOrEmpty(link)) return;
 
             // Instead of performing the teleport logic here, send a request to the server
-            if (!MyAPIGateway.Multiplayer.IsServer)
-            {
+            if (!MyAPIGateway.Multiplayer.IsServer) {
                 MyLogger.Log($"TPGate: JumpAction: Sending jump request to server");
-                var message = new JumpRequestMessage
-                {
+                var message = new JumpRequestMessage {
                     GatewayId = block.EntityId,
                     Link = link
                 };
                 MyAPIGateway.Multiplayer.SendMessageToServer(NetworkHandler.JumpRequestId, MyAPIGateway.Utilities.SerializeToBinary(message));
             }
-            else
-            {
+            else {
                 // If we are the server, process the jump directly
                 ProcessJumpRequest(block.EntityId, link);
             }
         }
 
         // New method to process jump requests on the server
-        public static void ProcessJumpRequest(long gatewayId, string link)
-        {
+        public static void ProcessJumpRequest(long gatewayId, string link) {
             MyLogger.Log($"TPGate: ProcessJumpRequest: Processing jump request for gateway {gatewayId}, link {link}");
 
             var block = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyTerminalBlock;
-            if (block == null) return;
-
+            if (block == null || !block.IsFunctional) // Add functional check here
+            {
+                MyLogger.Log($"TPCore: ProcessJumpRequest: Gateway {gatewayId} is null or not functional");
+                return;
+            }
             // Update teleport links
             TeleportCore.UpdateTeleportLinks();
 
@@ -569,19 +543,16 @@ namespace TeleportMechanisms
             int playersToTeleport = 0;
             int shipsToTeleport = 0;
 
-            foreach (var player in playerList)
-            {
+            foreach (var player in playerList) {
                 float sphereRadius = block.GameLogic.GetAs<TeleportGateway>()?.Settings.SphereDiameter / 2.0f ?? 25.0f;
                 var distance = Vector3D.Distance(player.GetPosition(), block.GetPosition() + block.WorldMatrix.Forward * sphereRadius);
 
-                if (distance <= sphereRadius)
-                {
+                if (distance <= sphereRadius) {
                     TeleportCore.RequestTeleport(player.IdentityId, block.EntityId, link);
                     teleportAttempted = true;
                     playersToTeleport++;
 
-                    if (player.Controller.ControlledEntity is IMyShipController)
-                    {
+                    if (player.Controller.ControlledEntity is IMyShipController) {
                         shipsToTeleport++;
                     }
                 }
@@ -589,18 +560,15 @@ namespace TeleportMechanisms
 
             var destGatewayId = TeleportCore.GetDestinationGatewayId(link, block.EntityId);
             var destGateway = MyAPIGateway.Entities.GetEntityById(destGatewayId) as IMyTerminalBlock;
-            if (destGateway != null)
-            {
+            if (destGateway != null) {
                 var unpilotedShipsCount = TeleportCore.TeleportNearbyShips(block, destGateway);
                 shipsToTeleport += unpilotedShipsCount;
-                if (unpilotedShipsCount > 0)
-                {
+                if (unpilotedShipsCount > 0) {
                     teleportAttempted = true;
                 }
             }
 
-            if (teleportAttempted)
-            {
+            if (teleportAttempted) {
                 MyLogger.Log($"TPGate: ProcessJumpRequest: Teleport attempted");
                 MyAPIGateway.Utilities.ShowNotification($"TPGate: Teleporting {playersToTeleport} player(s) and {shipsToTeleport} ship(s)", 5000, "White");
             }
