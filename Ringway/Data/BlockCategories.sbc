@@ -10,7 +10,7 @@
       <Name>TeleportBlocks</Name>
       <ItemIds>
         <string>TerminalBlock/RingwayCore</string>
-        <string>TerminalBlock/SmallTeleportGateway</string>
+        <string>TerminalBlock/SmallRingwayCore</string>
       </ItemIds>
     </Category>
   </CategoryClasses>

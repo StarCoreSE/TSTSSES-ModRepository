@@ -89,7 +89,7 @@
       <Description>Teleport Gateway blocks for large and small grids</Description>
       <Blocks>
         <Block Type="MyObjectBuilder_TerminalBlock" Subtype="RingwayCore"/>
-        <Block Type="MyObjectBuilder_TerminalBlock" Subtype="SmallTeleportGateway"/>
+        <Block Type="MyObjectBuilder_TerminalBlock" Subtype="SmallRingwayCore"/>
       </Blocks>
     </BlockVariantGroup>
   </BlockVariantGroups>
