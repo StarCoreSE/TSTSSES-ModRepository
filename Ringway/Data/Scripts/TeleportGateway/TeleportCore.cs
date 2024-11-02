@@ -32,7 +32,7 @@ namespace TeleportMechanisms {
                 var gateways = new HashSet<IMyBatteryBlock>();
                 foreach (var instance in _instances.Values) {
                     if (instance.RingwayBlock != null &&
-                        instance.RingwayBlock.IsFunctional &&
+                        instance.RingwayBlock.IsWorking &&
                         (instance.RingwayBlock.BlockDefinition.SubtypeName == "RingwayCore" ||
                          instance.RingwayBlock.BlockDefinition.SubtypeName == "SmallRingwayCore")) {
                         MyLogger.Log($"TPCore: UpdateTeleportLinks: Found instance gateway: {instance.RingwayBlock.CustomName}, EntityId: {instance.RingwayBlock.EntityId}, IsWorking: {instance.RingwayBlock.IsWorking}");
@@ -353,7 +353,7 @@ namespace TeleportMechanisms {
         }
 
         public static int TeleportNearbyShips(IMyBatteryBlock sourceGateway, IMyBatteryBlock destGateway) {
-            if (!sourceGateway.IsFunctional || !destGateway.IsFunctional) {
+            if (!sourceGateway.IsWorking || !destGateway.IsWorking) {
                 MyLogger.Log($"TPCore: TeleportNearbyShips: Source or destination gateway not functional");
                 return 0;
             }

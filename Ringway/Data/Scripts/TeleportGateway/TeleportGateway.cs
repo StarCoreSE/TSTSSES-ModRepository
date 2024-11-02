@@ -126,7 +126,7 @@ namespace TeleportMechanisms {
             try {
                 var battery = block as IMyBatteryBlock;
 
-                if (!block.IsFunctional) {
+                if (!block.IsWorking) {
                     sb.Append("--- Gateway Offline ---\n");
                     sb.Append("The gateway is not functional. Check power and block integrity.\n");
                     return;
@@ -271,7 +271,7 @@ namespace TeleportMechanisms {
         }
 
         public override void UpdateAfterSimulation100() {
-            if (!RingwayBlock.IsFunctional) return;
+            if (!RingwayBlock.IsWorking) return;
 
             try {
 
@@ -646,7 +646,7 @@ namespace TeleportMechanisms {
             MyLogger.Log($"TPGate: ProcessJumpRequest: Processing jump request for gateway {gatewayId}, link {link}");
 
             var block = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyBatteryBlock;
-            if (block == null || !block.IsFunctional) // Add functional check here
+            if (block == null || !block.IsWorking) // Add functional check here
             {
                 MyLogger.Log($"TPCore: ProcessJumpRequest: Gateway {gatewayId} is null or not functional");
                 return;
