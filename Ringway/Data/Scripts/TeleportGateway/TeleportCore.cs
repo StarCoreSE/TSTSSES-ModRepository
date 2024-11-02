@@ -47,6 +47,10 @@ namespace TeleportMechanisms
                     }
                 }
 
+                foreach (var link in _TeleportLinks.Keys.ToList()) {
+                    WarnMultipleGateways(link);
+                }
+
                 MyLogger.Log($"TPCore: UpdateTeleportLinks: Total gateways found: {gateways.Count}");
 
                 foreach (var gateway in gateways)
@@ -360,35 +364,62 @@ namespace TeleportMechanisms
             }
         }
 
-        public static long GetDestinationGatewayId(string link, long sourceGatewayId)
-        {
+        public static long GetDestinationGatewayId(string link, long sourceGatewayId) {
             List<long> linkedGateways;
-            lock (_lock)
-            {
-                if (!_TeleportLinks.TryGetValue(link, out linkedGateways))
-                {
-                    MyLogger.Log($"TPCore: GetDestinationGatewayId: No linked gateways found for link {link}");
+            lock (_lock) {
+                if (!_TeleportLinks.TryGetValue(link, out linkedGateways) || linkedGateways.Count < 2) {
+                    MyLogger.Log($"TPCore: GetDestinationGatewayId: No valid linked gateways found for link {link}");
                     return 0;
                 }
             }
 
-            MyLogger.Log($"TPCore: GetDestinationGatewayId: Found {linkedGateways.Count} linked gateways for link {link}");
-
-            if (linkedGateways.Count < 2)
-            {
-                MyLogger.Log("TPCore: GetDestinationGatewayId: At least two linked gateways are required for teleportation. Aborting.");
+            var sourceGateway = MyAPIGateway.Entities.GetEntityById(sourceGatewayId) as IMyTerminalBlock;
+            if (sourceGateway == null) {
+                MyLogger.Log($"TPCore: GetDestinationGatewayId: Source gateway {sourceGatewayId} not found");
                 return 0;
             }
 
-            var sourceIndex = linkedGateways.IndexOf(sourceGatewayId);
-            if (sourceIndex == -1)
-            {
-                MyLogger.Log($"TPCore: GetDestinationGatewayId: Source gateway {sourceGatewayId} not found in linked gateways");
-                return 0;
+            var sourcePosition = sourceGateway.GetPosition();
+
+            long nearestGatewayId = 0;
+            double nearestDistance = double.MaxValue;
+
+            foreach (var gatewayId in linkedGateways) {
+                if (gatewayId == sourceGatewayId) continue;
+
+                var destinationGateway = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyTerminalBlock;
+                if (destinationGateway == null) continue;
+
+                var distance = Vector3D.Distance(sourcePosition, destinationGateway.GetPosition());
+                if (distance < nearestDistance) {
+                    nearestDistance = distance;
+                    nearestGatewayId = gatewayId;
+                }
             }
 
-            var destIndex = (sourceIndex + 1) % linkedGateways.Count;
-            return linkedGateways[destIndex];
+            if (nearestGatewayId == 0) {
+                MyLogger.Log($"TPCore: GetDestinationGatewayId: No valid destination gateway found for link {link}");
+            }
+
+            return nearestGatewayId;
+        }
+
+        private static void WarnMultipleGateways(string link) {
+            var linkedGateways = _TeleportLinks[link];
+            if (linkedGateways.Count > 2) {
+                foreach (var gatewayId in linkedGateways) {
+                    var gateway = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyTerminalBlock;
+                    if (gateway != null) {
+                        // Show a warning notification to all players
+                        string message = $"Warning: More than two gateways detected on channel '{link}'. " +
+                                         "Only the nearest gateway will be used for teleportation.";
+                        MyAPIGateway.Utilities.ShowNotification(message, 10000, "Red");
+
+                        // Log the warning
+                        MyLogger.Log($"TPCore: Multiple gateways warning - Gateway: {gateway.CustomName}, Channel: {link}");
+                    }
+                }
+            }
         }
 
         public static int TeleportNearbyShips(IMyTerminalBlock sourceGateway, IMyTerminalBlock destGateway)

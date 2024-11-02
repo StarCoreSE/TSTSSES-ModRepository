@@ -28,6 +28,9 @@ namespace TeleportMechanisms
         private const int SAVE_INTERVAL_FRAMES = 100;
         private int _frameCounter = 0;
 
+        private int _linkUpdateCounter = 0;
+        private const int LINK_UPDATE_INTERVAL = 1;
+
         static TeleportGateway()
         {
             CreateControls();
@@ -64,9 +67,8 @@ namespace TeleportMechanisms
         private void AppendingCustomInfo(IMyTerminalBlock block, StringBuilder sb) {
             try {
                 sb.Append("--- Teleport Gateway Status ---\n");
-
-                // Gateway Name and Link Status
                 sb.Append($"Gateway Name: {Settings.GatewayName}\n");
+
                 var linkedGateways = TeleportCore._TeleportLinks.ContainsKey(Settings.GatewayName)
                     ? TeleportCore._TeleportLinks[Settings.GatewayName]
                     : new List<long>();
@@ -76,10 +78,18 @@ namespace TeleportMechanisms
 
                 if (linkedCount > 0) {
                     sb.Append("Linked To:\n");
+                    var sourcePosition = Block.GetPosition();
+
                     foreach (var gatewayId in linkedGateways) {
                         if (gatewayId != Block.EntityId) {
                             var linkedGateway = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyTerminalBlock;
-                            sb.Append($"  - {linkedGateway?.CustomName ?? "Unknown"}\n");
+                            if (linkedGateway != null) {
+                                var distance = Vector3D.Distance(sourcePosition, linkedGateway.GetPosition());
+                                sb.Append($"  - {linkedGateway.CustomName}: {distance / 1000:F1} km\n");
+                            }
+                            else {
+                                sb.Append($"  - Unknown (ID: {gatewayId})\n");
+                            }
                         }
                     }
                 }
@@ -115,6 +125,27 @@ namespace TeleportMechanisms
             if (!MyAPIGateway.Utilities.IsDedicated && MyAPIGateway.Session != null) {
                 TeleportBubbleManager.CreateOrUpdateBubble(Block);
                 TeleportBubbleManager.DrawBubble(Block);
+            }
+        }
+
+        public override void UpdateAfterSimulation100() {
+            try {
+
+                // New link update logic
+                if (++_linkUpdateCounter >= LINK_UPDATE_INTERVAL) {
+                    _linkUpdateCounter = 0;
+                    TeleportCore.UpdateTeleportLinks();
+                    MyLogger.Log("TPGate: UpdateAfterSimulation100: Updated teleport links");
+                }
+
+                // Refresh custom info only when the terminal is open
+                if (MyAPIGateway.Gui.GetCurrentScreen == MyTerminalPageEnum.ControlPanel) {
+                    Block.RefreshCustomInfo();
+                    Block.SetDetailedInfoDirty();
+                }
+            }
+            catch (Exception e) {
+                MyLogger.Log($"TPGate: UpdateAfterSimulation100: Exception - {e}");
             }
         }
 
