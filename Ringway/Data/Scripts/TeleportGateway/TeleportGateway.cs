@@ -835,11 +835,10 @@ namespace TeleportMechanisms {
             int playersToTeleport = 0;
             int shipsToTeleport = 0;
 
-            // Get destination gateway position
+            // Get destination gateway
             var destGatewayId = TeleportCore.GetDestinationGatewayId(link, block.EntityId);
             var destGateway = MyAPIGateway.Entities.GetEntityById(destGatewayId) as IMyCollector;
             if (destGateway == null) return;
-            Vector3D destinationPosition = destGateway.GetPosition();
 
             // Define the teleport sphere for range-based operations
             float sphereRadius = block.GameLogic.GetAs<TeleportGateway>()?.Settings.SphereDiameter / 2.0f ?? 25.0f;
@@ -860,9 +859,12 @@ namespace TeleportMechanisms {
                     teleportAttempted = true;
                     playersToTeleport++;
 
-                    // Play "leave" particle and sound effect at the destination position
-                    MyVisualScriptLogicProvider.CreateParticleEffectAtPosition("InvalidCustomBlinkParticleLeave", destinationPosition);
-                    MyVisualScriptLogicProvider.PlaySingleSoundAtPosition("ShipPrototechJumpDriveJumpOut", destinationPosition);
+                    // Get player's new position after teleport
+                    Vector3D newPlayerPosition = player.GetPosition();
+
+                    // Play "leave" particle and sound effect at the new position
+                    MyVisualScriptLogicProvider.CreateParticleEffectAtPosition("InvalidCustomBlinkParticleLeave", newPlayerPosition);
+                    MyVisualScriptLogicProvider.PlaySingleSoundAtPosition("ShipPrototechJumpDriveJumpOut", newPlayerPosition);
 
                     if (player.Controller.ControlledEntity is IMyShipController) {
                         shipsToTeleport++;
@@ -883,9 +885,12 @@ namespace TeleportMechanisms {
                     TeleportCore.TeleportEntity(grid, block, destGateway);
                     shipsToTeleport++;
 
-                    // Play "leave" particle and sound effect at the destination position of the grid
-                    MyVisualScriptLogicProvider.CreateParticleEffectAtPosition("InvalidCustomBlinkParticleLeave", destinationPosition);
-                    MyVisualScriptLogicProvider.PlaySingleSoundAtPosition("ShipPrototechJumpDriveJumpOut", destinationPosition);
+                    // Get grid's new position after teleport
+                    Vector3D newGridPosition = grid.GetPosition();
+
+                    // Play "leave" particle and sound effect at the new position
+                    MyVisualScriptLogicProvider.CreateParticleEffectAtPosition("InvalidCustomBlinkParticleLeave", newGridPosition);
+                    MyVisualScriptLogicProvider.PlaySingleSoundAtPosition("ShipPrototechJumpDriveJumpOut", newGridPosition);
                 }
             }
 
