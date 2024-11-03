@@ -495,8 +495,10 @@ namespace TeleportMechanisms {
             if (nearestGateway != null) {
                 Vector3D destinationPosition = nearestGateway.GetPosition();
                 Vector4 green = Color.Green;
-                MySimpleObjectDraw.DrawLine(sourcePosition, destinationPosition, MyStringId.GetOrCompute("Square"),
-                    ref green, 0.1f);
+                if (!MyAPIGateway.Utilities.IsDedicated) {
+                    MySimpleObjectDraw.DrawLine(sourcePosition, destinationPosition, MyStringId.GetOrCompute("Square"),
+                          ref green, 0.1f);
+                }
             }
         }
 
