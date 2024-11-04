@@ -153,7 +153,20 @@ namespace WarpDriveMod
         public override void UpdateBeforeSimulation()
         {
             if (WarpDriveSession.Instance == null)
+            {
+                MyLog.Default.WriteLineAndConsole($"[WarpDriveMod] WarpDriveSession.Instance is null");
                 return;
+            }
+
+            if (System == null)
+            {
+                System = WarpDriveSession.Instance.GetWarpSystem(this);
+                if (System == null)
+                {
+                    MyLog.Default.WriteLineAndConsole($"[WarpDriveMod] Failed to get WarpSystem");
+                    return;
+                }
+            }
 
             if (!started)
             {
