@@ -78,8 +78,23 @@ namespace WarpDriveMod {
         public const float EARTH_GRAVITY = 9.806652f;
 
         public WarpSystem(WarpDrive block, WarpSystem oldSystem) {
-            if (block == null || block.Block == null || block.Block.CubeGrid == null)
+            if (block == null)
+            {
+                MyLog.Default.WriteLineAndConsole($"[WarpDriveMod] WarpSystem constructor called with null block");
                 return;
+            }
+
+            if (block.Block == null)
+            {
+                MyLog.Default.WriteLineAndConsole($"[WarpDriveMod] WarpSystem constructor called with null block.Block");
+                return;
+            }
+
+            if (block.Block.CubeGrid == null)
+            {
+                MyLog.Default.WriteLineAndConsole($"[WarpDriveMod] WarpSystem constructor called with null block.Block.CubeGrid");
+                return;
+            }
 
             Id = WarpDriveSession.Instance.Rand.Next(int.MinValue, int.MaxValue);
 
@@ -132,6 +147,7 @@ namespace WarpDriveMod {
         }
 
         public void UpdateBeforeSimulation() {
+            
             if (Instance == null)
                 Instance = this;
 

@@ -397,6 +397,12 @@ namespace WarpDriveMod
 
         public WarpSystem GetWarpSystem(WarpDrive drive)
         {
+            if (drive == null)
+            {
+                MyLog.Default.WriteLineAndConsole($"[WarpDriveMod] GetWarpSystem called with null drive");
+                return null;
+            }
+
             if (HasValidSystem(drive))
                 return drive.System; // Why are you here?!?!
 
@@ -419,9 +425,11 @@ namespace WarpDriveMod
             }
 
             WarpSystem newSystem = new WarpSystem(drive, drive.System);
-
             if (newSystem == null)
+            {
+                MyLog.Default.WriteLineAndConsole($"[WarpDriveMod] Failed to create new WarpSystem");
                 return null;
+            }
 
             if (!newSystems.Contains(newSystem))
                 newSystems.Add(newSystem);
