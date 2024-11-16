@@ -6,8 +6,8 @@
             <TypeId>GuiBlockCategoryDefinition</TypeId>
             <SubtypeId/>
          </Id>
-         <DisplayName>DisplayName_Category_ShipTools</DisplayName>
-         <Name>ShipTools</Name>
+         <DisplayName>DisplayName_Category_Tools</DisplayName>
+         <Name>Section1_Position3_ShipTools</Name>
          <ItemIds>
             <string>ShipWelder/SELtdLargeNanobotBuildAndRepairSystem</string>
             <string>ShipWelder/SELtdSmallNanobotBuildAndRepairSystem</string>
