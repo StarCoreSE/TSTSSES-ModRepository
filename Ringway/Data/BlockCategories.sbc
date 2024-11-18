@@ -4,13 +4,13 @@
     <Category xsi:type="MyObjectBuilder_GuiBlockCategoryDefinition">
       <Id>
         <TypeId>GuiBlockCategoryDefinition</TypeId>
-        <SubtypeId>TeleportBlocks</SubtypeId>
+        <SubtypeId>RingwayBlocks</SubtypeId>
       </Id>
       <DisplayName>Teleport Gateway Blocks</DisplayName>
-      <Name>TeleportBlocks</Name>
+      <Name>Ringway</Name>
       <ItemIds>
-        <string>TerminalBlock/LargeTeleportGateway</string>
-        <string>TerminalBlock/SmallTeleportGateway</string>
+        <string>Collector/RingwayCore</string>
+        <string>Collector/SmallRingwayCore</string>
       </ItemIds>
     </Category>
   </CategoryClasses>

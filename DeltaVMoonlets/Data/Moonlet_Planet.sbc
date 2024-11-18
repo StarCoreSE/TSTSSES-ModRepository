@@ -78,6 +78,103 @@
     </DistortionTable>
 
     <OreMappings>
+      <!-- Tier 1 ! INSERT ONLY IN BLUE CHANNEL ! -->
+      <!-- EASY START-->
+      <Ore Value="200" Type="Iron_02" Start="3" Depth="7" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="220" Type="Nickel_01" Start="3" Depth="7" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="240" Type="Silicon_01" Start="3" Depth="7" TargetColor="#FFFFFF" ColorInfluence="15"/>
+
+      <!-- Fe 1-->
+      <Ore Value="1" Type="Iron_02" Start="10" Depth="3" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="4" Type="Iron_02" Start="12" Depth="3" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="8" Type="Iron_02" Start="14" Depth="4" TargetColor="#FFFFFF" ColorInfluence="15"/>
+
+      <!-- Fe 2-->
+      <Ore Value="12" Type="Iron_02" Start="25" Depth="5" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="16" Type="Iron_02" Start="28" Depth="5" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="20" Type="Iron_02" Start="31" Depth="8" TargetColor="#FFFFFF" ColorInfluence="15"/>
+
+      <!-- Ni 1-->
+      <Ore Value="24" Type="Nickel_01" Start="10" Depth="4" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="28" Type="Nickel_01" Start="11" Depth="4" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="32" Type="Nickel_01" Start="11" Depth="6" TargetColor="#FFFFFF" ColorInfluence="15"/>
+
+      <!-- Ni 2-->
+      <Ore Value="36" Type="Nickel_01" Start="24" Depth="5" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="40" Type="Nickel_01" Start="27" Depth="5" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="44" Type="Nickel_01" Start="30" Depth="8" TargetColor="#FFFFFF" ColorInfluence="15"/>
+
+      <!-- Si 1-->
+      <Ore Value="48" Type="Silicon_01" Start="9" Depth="4" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="52" Type="Silicon_01" Start="13" Depth="4" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="56" Type="Silicon_01" Start="10" Depth="6" TargetColor="#FFFFFF" ColorInfluence="15"/>
+
+      <!-- Si 2-->
+      <Ore Value="60" Type="Silicon_01" Start="22" Depth="6" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="64" Type="Silicon_01" Start="25" Depth="7" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="68" Type="Silicon_01" Start="27" Depth="9" TargetColor="#FFFFFF" ColorInfluence="15"/>
+
+      <!-- ORE Tier 2 -->
+      <!-- Co 1-->
+      <Ore Value="72" Type="Cobalt_01" Start="20" Depth="3" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="76" Type="Cobalt_01" Start="22" Depth="4" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="80" Type="Cobalt_01" Start="26" Depth="6" TargetColor="#FFFFFF" ColorInfluence="15"/>
+
+      <!-- Co 2-->
+      <Ore Value="84" Type="Cobalt_01" Start="52" Depth="5" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="88" Type="Cobalt_01" Start="55" Depth="6" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="92" Type="Cobalt_01" Start="62" Depth="9" TargetColor="#FFFFFF" ColorInfluence="15"/>
+
+      <!-- Ag 1-->
+      <Ore Value="96" Type="Silver_01" Start="21" Depth="3" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="100" Type="Silver_01" Start="25" Depth="3" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="104" Type="Silver_01" Start="31" Depth="5" TargetColor="#FFFFFF" ColorInfluence="15"/>
+
+      <!-- Ag 2-->
+      <Ore Value="108" Type="Silver_01" Start="55" Depth="8" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="112" Type="Silver_01" Start="58" Depth="9" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="116" Type="Silver_01" Start="63" Depth="11" TargetColor="#FFFFFF" ColorInfluence="15"/>
+
+      <!-- Mg 1-->
+      <Ore Value="120" Type="Magnesium_01" Start="23" Depth="4" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="124" Type="Magnesium_01" Start="26" Depth="4" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="128" Type="Magnesium_01" Start="29" Depth="5" TargetColor="#FFFFFF" ColorInfluence="15"/>
+
+      <!-- Mg 2-->
+      <Ore Value="132" Type="Magnesium_01" Start="53" Depth="7" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="136" Type="Magnesium_01" Start="55" Depth="8" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="140" Type="Magnesium_01" Start="59" Depth="10" TargetColor="#FFFFFF" ColorInfluence="15"/>
+
+      <!-- ORE Tier 3 -->
+      <!-- U 1-->
+      <Ore Value="144" Type="Ice_01" Start="32" Depth="2" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="148" Type="Ice_01" Start="35" Depth="3" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="152" Type="Ice_01" Start="38" Depth="5" TargetColor="#FFFFFF" ColorInfluence="15"/>
+
+      <!-- U 2-->
+      <Ore Value="156" Type="Ice_01" Start="80" Depth="8" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="160" Type="Ice_01" Start="89" Depth="9" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="164" Type="Ice_01" Start="96" Depth="11" TargetColor="#FFFFFF" ColorInfluence="15"/>
+
+      <!-- Au 1-->
+      <Ore Value="168" Type="Gold_01" Start="40" Depth="1" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="172" Type="Gold_01" Start="42" Depth="2" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="176" Type="Gold_01" Start="45" Depth="3" TargetColor="#FFFFFF" ColorInfluence="15"/>
+
+      <!-- Au 2-->
+      <Ore Value="180" Type="Gold_01" Start="100" Depth="4" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="184" Type="Gold_01" Start="107" Depth="5" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="188" Type="Gold_01" Start="112" Depth="8" TargetColor="#FFFFFF" ColorInfluence="15"/>
+
+      <!-- Pt 1-->
+      <Ore Value="192" Type="Platinum_01" Start="50" Depth="1" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="196" Type="Platinum_01" Start="51" Depth="2" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="208" Type="Platinum_01" Start="53" Depth="4" TargetColor="#FFFFFF" ColorInfluence="15"/>
+
+      <!-- Pt 1-->
+      <Ore Value="212" Type="Platinum_01" Start="110" Depth="5" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="217" Type="Platinum_01" Start="114" Depth="6" TargetColor="#FFFFFF" ColorInfluence="15"/>
+      <Ore Value="222" Type="Platinum_01" Start="119" Depth="8" TargetColor="#FFFFFF" ColorInfluence="15"/>
     </OreMappings>
 
     <ComplexMaterials>
@@ -225,7 +322,7 @@
 
 
     <MaximumOxygen>0</MaximumOxygen>
-    <SurfaceGravity>0.3</SurfaceGravity>
+    <SurfaceGravity>0.1</SurfaceGravity>
     <MaterialsMaxDepth Min="4000" Max="4000"/>
     <MaterialsMinDepth Min="20" Max="20"/>
 

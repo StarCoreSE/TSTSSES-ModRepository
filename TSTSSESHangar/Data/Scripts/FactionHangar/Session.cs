@@ -2350,16 +2350,17 @@ namespace CustomHangar
                     }
                 }
 
+                // Add this unhook
+                if (!isDedicated) {
+                    MyVisualScriptLogicProvider.ToolEquipped -= ToolEquipped;
+                }
+
                 if (MyAPIGateway.Utilities != null) {
                     MyAPIGateway.Utilities.MessageEntered -= ChatHandler;
                 }
 
                 if (MyAPIGateway.Multiplayer != null) {
                     MyAPIGateway.Multiplayer.UnregisterMessageHandler(NetworkHandle, Comms.MessageHandler);
-                }
-
-                if (!isDedicated) {
-                    Sandbox.ModAPI.MyAPIGateway.Utilities.ShowMessage("FactionHangar", "Mod Unloaded");
                 }
 
                 Instance = null;

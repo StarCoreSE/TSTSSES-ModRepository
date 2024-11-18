@@ -19,8 +19,8 @@ namespace WarpDriveMod
 {
     public static class WarpConstants
     {
-        public static MySoundPair EmergencyDropSound = new MySoundPair("SlipspaceGravity", true);
-        public static MySoundPair chargingSound = new MySoundPair("quantum_charging", true);
+        public static MySoundPair EmergencyDropSound = new MySoundPair("SuperCruiseGravity", true);
+        public static MySoundPair chargingSound = new MySoundPair("ShipPrototechJumpDriveCharging", true);
         public static MySoundPair jumpInSound = new MySoundPair("quantum_jumpin", true);
         public static MySoundPair jumpOutSound = new MySoundPair("quantum_jumpout", true);
 
@@ -397,6 +397,12 @@ namespace WarpDriveMod
 
         public WarpSystem GetWarpSystem(WarpDrive drive)
         {
+            if (drive == null)
+            {
+                MyLog.Default.WriteLineAndConsole($"[WarpDriveMod] GetWarpSystem called with null drive");
+                return null;
+            }
+
             if (HasValidSystem(drive))
                 return drive.System; // Why are you here?!?!
 
@@ -419,9 +425,11 @@ namespace WarpDriveMod
             }
 
             WarpSystem newSystem = new WarpSystem(drive, drive.System);
-
             if (newSystem == null)
+            {
+                MyLog.Default.WriteLineAndConsole($"[WarpDriveMod] Failed to create new WarpSystem");
                 return null;
+            }
 
             if (!newSystems.Contains(newSystem))
                 newSystems.Add(newSystem);
@@ -488,8 +496,7 @@ namespace WarpDriveMod
                 if (Instance == null)
                     return;
 
-                if (WarpDrive.Instance != null)
-                    MyVisualScriptLogicProvider.PlayerLeftCockpit -= WarpDrive.Instance.PlayerLeftCockpit;
+                MyVisualScriptLogicProvider.PlayerLeftCockpit -= WarpDrive.Instance.PlayerLeftCockpit;
 
                 MyAPIGateway.Multiplayer.UnregisterSecureMessageHandler(toggleWarpPacketId, ReceiveToggleWarp);
                 MyAPIGateway.Multiplayer.UnregisterSecureMessageHandler(toggleWarpPacketIdSpeed, ReceiveWarpSpeed);
