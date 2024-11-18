@@ -19,7 +19,7 @@ namespace Scripts.ModularAssemblies.Communication
         /// <summary>
         ///     The expected API version. Don't touch this unless you're developing for the Modular Assemblies Framework.
         /// </summary>
-        public const int ApiVersion = 1;
+        public const int ApiVersion = 2;
 
         /// <summary>
         ///     Triggered whenever the API is ready - added to by the constructor or manually.
@@ -27,9 +27,23 @@ namespace Scripts.ModularAssemblies.Communication
         public Action OnReady;
 
         /// <summary>
-        ///     Call this to initialize the Modular API.<br/>
+        ///     The currently loaded Modular Assemblies Framework version.
         ///     <remarks>
-        ///         API methods will be unusable until the endpoints are populated. Check <see cref="IsReady"/> or utilize <see cref="OnReady"/> for safety.
+        ///         Not the API version; see <see cref="ApiVersion" />
+        ///     </remarks>
+        /// </summary>
+        public int FrameworkVersion { get; private set; } = -1;
+
+        /// <summary>
+        ///     Displays whether endpoints are loaded and the API is ready for use.
+        /// </summary>
+        public bool IsReady { get; private set; }
+
+        /// <summary>
+        ///     Call this to initialize the Modular API.<br />
+        ///     <remarks>
+        ///         API methods will be unusable until the endpoints are populated. Check <see cref="IsReady" /> or utilize
+        ///         <see cref="OnReady" /> for safety.
         ///     </remarks>
         /// </summary>
         /// <param name="modContext"></param>
@@ -48,19 +62,6 @@ namespace Scripts.ModularAssemblies.Communication
             MyLog.Default.WriteLineAndConsole(
                 $"{_modContext.ModName}: ModularDefinitionsAPI listening for API methods...");
         }
-
-        /// <summary>
-        ///     The currently loaded Modular Assemblies Framework version.
-        ///     <remarks>
-        ///         Not the API version; see <see cref="ApiVersion"/>
-        ///     </remarks>
-        /// </summary>
-        public int FrameworkVersion { get; private set; } = -1;
-
-        /// <summary>
-        ///     Displays whether endpoints are loaded and the API is ready for use.
-        /// </summary>
-        public bool IsReady { get; private set; }
 
         /// <summary>
         ///     Call this to unload the Modular API; i.e. in case of instantiating a new API or for freeing up resources.
@@ -105,6 +106,24 @@ namespace Scripts.ModularAssemblies.Communication
         public int[] GetAllAssemblies()
         {
             return _getAllAssemblies?.Invoke();
+        }
+
+        /// <summary>
+        ///     Gets all PhysicalAssembly ids on a specific grid. Returns an empty list on fail.
+        ///     <para>
+        ///         Arg1 is assembly id
+        ///     </para>
+        /// </summary>
+        public int[] GetGridAssemblies(IMyCubeGrid grid)
+        {
+            var allAssemblies = GetAllAssemblies();
+            var validAssemblies = new List<int>();
+
+            foreach (var assemblyId in allAssemblies)
+                if (GetAssemblyGrid(assemblyId) == grid)
+                    validAssemblies.Add(assemblyId);
+
+            return validAssemblies.ToArray();
         }
 
         #endregion
@@ -165,6 +184,48 @@ namespace Scripts.ModularAssemblies.Communication
         public void RecreateAssembly(int assemblyId)
         {
             _recreateAssembly?.Invoke(assemblyId);
+        }
+
+        /// <summary>
+        ///     Returns a given property of an assembly, or the default value of T if it could not be found.
+        /// </summary>
+        /// <param name="assemblyId"></param>
+        /// <param name="propertyName"></param>
+        /// <returns></returns>
+        public T GetAssemblyProperty<T>(int assemblyId, string propertyName)
+        {
+            object value = _getAssemblyProperty(assemblyId, propertyName);
+
+            return value == null ? default(T) : (T)value;
+        }
+
+        /// <summary>
+        ///     Sets a global property of an assembly. Properties are saved to the assembly, and are accessible by all mods.<br />
+        ///     <remarks>
+        ///         Properties can be removed by setting them to null. value must be a byte array, string, bool, or number.
+        ///     </remarks>
+        /// </summary>
+        /// <param name="assemblyId"></param>
+        /// <param name="propertyName"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public void SetAssemblyProperty<T>(int assemblyId, string propertyName, T value)
+        {
+            if (!(value is byte[] || value is string || value is bool ||
+                  value is int || value is short || value is float || value is double || value is long))
+                return;
+
+            _setAssemblyProperty?.Invoke(assemblyId, propertyName, value);
+        }
+
+        /// <summary>
+        ///     Lists all set properties of an assembly.
+        /// </summary>
+        /// <param name="assemblyId"></param>
+        /// <returns></returns>
+        public string[] ListAssemblyProperties(int assemblyId)
+        {
+            return _listAssemblyProperties?.Invoke(assemblyId);
         }
 
         #endregion
@@ -382,6 +443,9 @@ namespace Scripts.ModularAssemblies.Communication
         private Action<Action<int>> _addOnAssemblyClose;
         private Action<Action<int>> _removeOnAssemblyClose;
         private Action<int> _recreateAssembly;
+        private Func<int, string, object> _getAssemblyProperty;
+        private Action<int, string, object> _setAssemblyProperty;
+        private Func<int, string[]> _listAssemblyProperties;
 
         // Per-part methods
         private Func<IMyCubeBlock, string, bool, IMyCubeBlock[]> _getConnectedBlocks;
@@ -437,6 +501,9 @@ namespace Scripts.ModularAssemblies.Communication
             SetApiMethod("AddOnAssemblyClose", ref _addOnAssemblyClose);
             SetApiMethod("RemoveOnAssemblyClose", ref _removeOnAssemblyClose);
             SetApiMethod("RecreateAssembly", ref _recreateAssembly);
+            SetApiMethod("GetAssemblyProperty", ref _getAssemblyProperty);
+            SetApiMethod("SetAssemblyProperty", ref _setAssemblyProperty);
+            SetApiMethod("ListAssemblyProperties", ref _listAssemblyProperties);
 
             // Per-part methods
             SetApiMethod("GetConnectedBlocks", ref _getConnectedBlocks);
@@ -546,7 +613,7 @@ namespace Scripts.ModularAssemblies.Communication
     public class DefinitionDefs
     {
         /// <summary>
-        /// Stores and serialized an array of definitions.
+        ///     Stores and serialized an array of definitions.
         /// </summary>
         [ProtoContract]
         public class ModularDefinitionContainer
@@ -555,7 +622,7 @@ namespace Scripts.ModularAssemblies.Communication
         }
 
         /// <summary>
-        /// Class representing a Modular Assemblies definition.
+        ///     Class representing a Modular Assemblies definition.
         /// </summary>
         [ProtoContract]
         public class ModularPhysicalDefinition
