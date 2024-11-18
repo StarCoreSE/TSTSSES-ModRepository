@@ -12,6 +12,7 @@
       <BlockTopology>TriangleMesh</BlockTopology>
       <Size x="3" y="3" z="3" />
       <ModelOffset x="0" y="0" z="0" />
+      <!--this is off center but is done to make placement a bit easier, which is why the modular assemblies definition for the corner is too-->
       <Center x="2" y="1" z="2" />
       <Model>Models\ShipyardCorner_Large.mwm</Model>
       <UseModelIntersection>false</UseModelIntersection>
