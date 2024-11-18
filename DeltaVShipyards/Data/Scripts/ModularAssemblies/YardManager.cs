@@ -1,9 +1,9 @@
-﻿using Sandbox.ModAPI;
+﻿using System.Collections.Generic;
 using VRage.Game.Components;
 using VRage.Game.ModAPI;
-using System.Collections.Generic;
-using System.Linq;
 using VRageMath;
+using Sandbox.ModAPI;
+using System.Linq;
 using Scripts.ModularAssemblies.Communication;
 
 namespace Scripts.ModularAssemblies
@@ -53,7 +53,7 @@ namespace Scripts.ModularAssemblies
 
         public void Update()
         {
-            foreach (var yard in _yards.Values.ToList())
+            foreach (var yard in _yards.Values)
             {
                 yard.Update();
             }
@@ -92,7 +92,10 @@ namespace Scripts.ModularAssemblies
         private readonly ModularDefinitionApi _api;
         private readonly int _assemblyId;
         private List<IMyCubeBlock> _corners = new List<IMyCubeBlock>();
+        private List<IMyCubeBlock> _conveyors = new List<IMyCubeBlock>();
         private bool _isValid;
+        private int _notificationTicks;
+        private const int NOTIFICATION_INTERVAL = 300; // 5 seconds at 60 ticks per second
 
         public YardStructure(ModularDefinitionApi api, int assemblyId)
         {
@@ -103,36 +106,96 @@ namespace Scripts.ModularAssemblies
         public void AddBlock(IMyCubeBlock block)
         {
             if (block.BlockDefinition.SubtypeName == "ShipyardCorner_Large")
-            {
                 _corners.Add(block);
-            }
+            else
+                _conveyors.Add(block);
+
             ValidateStructure();
         }
 
         public void RemoveBlock(IMyCubeBlock block)
         {
             if (block.BlockDefinition.SubtypeName == "ShipyardCorner_Large")
-            {
                 _corners.Remove(block);
-            }
+            else
+                _conveyors.Remove(block);
+
             ValidateStructure();
         }
 
         public void Update()
         {
-            // Periodic validation or other updates if needed
+            _notificationTicks++;
+            if (_notificationTicks >= NOTIFICATION_INTERVAL)
+            {
+                if (_isValid)
+                {
+                    MyAPIGateway.Utilities.ShowMessage("Shipyard Status", $"Assembly {_assemblyId} is valid and operational.");
+                }
+                else if (_corners.Count > 0) // Only show invalid message if we have some corners
+                {
+                    string reason = GetInvalidReason();
+                    MyAPIGateway.Utilities.ShowMessage("Shipyard Status",
+                        $"Assembly {_assemblyId} is not valid. {reason}");
+                }
+                _notificationTicks = 0;
+            }
+        }
+
+        private string GetInvalidReason()
+        {
+            if (_corners.Count < 8)
+                return $"Need 8 corners, currently has {_corners.Count}.";
+
+            var connectionMap = BuildConnectionMap();
+
+            // Check corner connections
+            var invalidCorners = _corners.Count(corner =>
+                !connectionMap.ContainsKey(corner) || connectionMap[corner].Count < 3);
+            if (invalidCorners > 0)
+                return $"{invalidCorners} corners have insufficient connections (need 3 each).";
+
+            // Check conveyor connections
+            var invalidConveyors = _conveyors.Count(conveyor =>
+                !connectionMap.ContainsKey(conveyor) || connectionMap[conveyor].Count < 2);
+            if (invalidConveyors > 0)
+                return $"{invalidConveyors} conveyors have insufficient connections (need 2 each).";
+
+            // Check if all corners are connected
+            var allConnected = new HashSet<IMyCubeBlock>();
+            var toCheck = new Queue<IMyCubeBlock>();
+            if (_corners.Count > 0)
+            {
+                toCheck.Enqueue(_corners[0]);
+                allConnected.Add(_corners[0]);
+
+                while (toCheck.Count > 0)
+                {
+                    var current = toCheck.Dequeue();
+                    foreach (var connected in connectionMap[current])
+                    {
+                        if (allConnected.Add(connected) && connected is IMyCubeBlock)
+                            toCheck.Enqueue(connected);
+                    }
+                }
+
+                var disconnectedCorners = _corners.Count(c => !allConnected.Contains(c));
+                if (disconnectedCorners > 0)
+                    return $"{disconnectedCorners} corners are not connected to the main structure.";
+            }
+
+            return "Unknown issue.";
         }
 
         private void ValidateStructure()
         {
-            if (_corners.Count < 8)
-            {
-                SetValidState(false);
-                return;
-            }
+            bool isValid = false;
 
-            var connectionMap = BuildConnectionMap();
-            bool isValid = ValidateConnections(connectionMap);
+            if (_corners.Count == 8)
+            {
+                var connectionMap = BuildConnectionMap();
+                isValid = ValidateConnections(connectionMap);
+            }
 
             SetValidState(isValid);
         }
@@ -144,9 +207,13 @@ namespace Scripts.ModularAssemblies
             foreach (var corner in _corners)
             {
                 var connectedBlocks = _api.GetConnectedBlocks(corner, "YardDefinition");
-                connectionMap[corner] = connectedBlocks
-                    .Where(b => b.BlockDefinition.SubtypeName == "ShipyardCorner_Large" && b != corner)
-                    .ToList();
+                connectionMap[corner] = connectedBlocks.ToList();
+            }
+
+            foreach (var conveyor in _conveyors)
+            {
+                var connectedBlocks = _api.GetConnectedBlocks(conveyor, "YardDefinition");
+                connectionMap[conveyor] = connectedBlocks.ToList();
             }
 
             return connectionMap;
@@ -154,17 +221,38 @@ namespace Scripts.ModularAssemblies
 
         private bool ValidateConnections(Dictionary<IMyCubeBlock, List<IMyCubeBlock>> connectionMap)
         {
-            // Check if each corner has at least 7 connections
-            foreach (var connections in connectionMap.Values)
+            // Check if each corner has at least 3 connections
+            foreach (var corner in _corners)
             {
-                if (connections.Count < 7)
-                {
+                if (!connectionMap.ContainsKey(corner) || connectionMap[corner].Count < 3)
                     return false;
+            }
+
+            // Check if each conveyor has at least 2 connections
+            foreach (var conveyor in _conveyors)
+            {
+                if (!connectionMap.ContainsKey(conveyor) || connectionMap[conveyor].Count < 2)
+                    return false;
+            }
+
+            // Check if all corners are connected in a single structure
+            var allConnected = new HashSet<IMyCubeBlock>();
+            var toCheck = new Queue<IMyCubeBlock>();
+
+            toCheck.Enqueue(_corners[0]);
+            allConnected.Add(_corners[0]);
+
+            while (toCheck.Count > 0)
+            {
+                var current = toCheck.Dequeue();
+                foreach (var connected in connectionMap[current])
+                {
+                    if (allConnected.Add(connected))
+                        toCheck.Enqueue(connected);
                 }
             }
 
-            // Additional geometric validation could be added here
-            return true;
+            return _corners.All(c => allConnected.Contains(c));
         }
 
         private void SetValidState(bool isValid)
@@ -172,6 +260,7 @@ namespace Scripts.ModularAssemblies
             if (_isValid != isValid)
             {
                 _isValid = isValid;
+                _api.SetAssemblyProperty(_assemblyId, "IsValidYard", _isValid);
                 OnValidStateChanged();
             }
         }
@@ -180,17 +269,14 @@ namespace Scripts.ModularAssemblies
         {
             if (_isValid)
             {
-                MyAPIGateway.Utilities.ShowNotification($"Shipyard Assembly {_assemblyId} is now valid!", 2000);
-                // Additional actions for valid state
+                MyAPIGateway.Utilities.ShowMessage("Shipyard Status",
+                    $"Assembly {_assemblyId} is now valid and operational!");
             }
             else
             {
-                MyAPIGateway.Utilities.ShowNotification($"Shipyard Assembly {_assemblyId} is no longer valid.", 2000);
-                // Additional actions for invalid state
+                MyAPIGateway.Utilities.ShowMessage("Shipyard Status",
+                    $"Assembly {_assemblyId} is no longer valid. {GetInvalidReason()}");
             }
-
-            // You could also set an assembly property here
-            _api.SetAssemblyProperty(_assemblyId, "IsValidYard", _isValid);
         }
     }
 }
