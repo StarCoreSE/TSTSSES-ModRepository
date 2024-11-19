@@ -96,12 +96,14 @@ namespace Scripts.ModularAssemblies
         private bool _isValid;
         private int _notificationTicks;
         private const int NOTIFICATION_INTERVAL = 300; // 5 seconds at 60 ticks per second
+        private static YardDrawing _drawSystem;
 
         public YardStructure(ModularDefinitionApi api, int assemblyId)
         {
             _api = api;
             _assemblyId = assemblyId;
         }
+
 
         public void AddBlock(IMyCubeBlock block)
         {
@@ -196,6 +198,9 @@ namespace Scripts.ModularAssemblies
                 var connectionMap = BuildConnectionMap();
                 isValid = ValidateConnections(connectionMap);
             }
+
+            // Update the visual representation
+            YardDrawing.Instance?.UpdateYardBox(_assemblyId, _corners);
 
             SetValidState(isValid);
         }
