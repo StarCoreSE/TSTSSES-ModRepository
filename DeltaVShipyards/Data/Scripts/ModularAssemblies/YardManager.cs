@@ -5,6 +5,12 @@ using VRageMath;
 using Sandbox.ModAPI;
 using System.Linq;
 using Scripts.ModularAssemblies.Communication;
+using VRage.Game.Entity;
+using VRage.Game;
+using VRage.Utils;
+using VRageRender;
+using static VRageRender.MyBillboard;
+using System;
 
 namespace Scripts.ModularAssemblies
 {
@@ -13,6 +19,9 @@ namespace Scripts.ModularAssemblies
     {
         private YardManager _yardManager;
         private bool _isInitialized;
+        private ModularDefinitionApi _api;
+        private Dictionary<int, YardStructure> _yards = new Dictionary<int, YardStructure>();
+
 
         public override void LoadData()
         {
@@ -111,14 +120,22 @@ namespace Scripts.ModularAssemblies
         private int _notificationTicks;
         private const int NOTIFICATION_INTERVAL = 300; // 5 seconds at 60 ticks per second
 
+        private BoundingBoxD _yardSpace;
+        private List<IMyCubeGrid> _containedGrids = new List<IMyCubeGrid>();
+        private Vector3D _minCorner, _maxCorner;
+
+        private int _validationDelay = 0;
+        private const int VALIDATION_DELAY_TICKS = 10;
+
+        private const int DEBUG_DRAW_TICKS = 60; // Draw every 60 ticks (1 second at 60 FPS)
+        private int _debugDrawCounter = 0;
+        private MyEntity _referenceEntity;
+
         public YardStructure(ModularDefinitionApi api, int assemblyId)
         {
             _api = api;
             _assemblyId = assemblyId;
         }
-
-        private int _validationDelay = 0;
-        private const int VALIDATION_DELAY_TICKS = 10;
 
         public void AddBlock(IMyCubeBlock block)
         {
@@ -140,6 +157,8 @@ namespace Scripts.ModularAssemblies
             ValidateStructure();
         }
 
+        private bool IsClient => MyAPIGateway.Multiplayer?.IsServer == false && MyAPIGateway.Utilities.IsDedicated == false;
+
         public void Update()
         {
             if (_validationDelay > 0)
@@ -156,15 +175,31 @@ namespace Scripts.ModularAssemblies
             {
                 if (_isValid)
                 {
-                    MyAPIGateway.Utilities.ShowMessage("Shipyard Status", $"Assembly {_assemblyId} is valid and operational.");
+                    UpdateContainedGrids();
+                    if (IsClient) // Only show messages on client
+                    {
+                        MyAPIGateway.Utilities.ShowMessage("Shipyard Status",
+                            $"Assembly {_assemblyId} is valid and operational.\n" +
+                            $"Contains {_containedGrids.Count} grids\n" +
+                            $"Volume: {_yardSpace.Volume:N0} m³");
+                    }
                 }
-                else if (_corners.Count > 0) // Only show invalid message if we have some corners
+                else if (_corners.Count > 0)
                 {
                     string reason = GetInvalidReason();
-                    MyAPIGateway.Utilities.ShowMessage("Shipyard Status",
-                        $"Assembly {_assemblyId} is not valid. {reason}");
+                    if (IsClient) // Only show messages on client
+                    {
+                        MyAPIGateway.Utilities.ShowMessage("Shipyard Status",
+                            $"Assembly {_assemblyId} is no longer valid. {reason}");
+                    }
                 }
                 _notificationTicks = 0;
+            }
+
+            // Only draw debug visuals on client
+            if (IsClient && _isValid)
+            {
+                DrawDebugBox();
             }
         }
 
@@ -228,10 +263,21 @@ namespace Scripts.ModularAssemblies
                 }
 
                 isValid = ValidateConnections(connectionMap);
+
+                if (isValid)
+                {
+                    CalculateYardSpace();
+                    UpdateContainedGrids();
+                }
             }
 
             _api.Log($"Validation result: {isValid} (Corners: {_corners.Count})");
             SetValidState(isValid);
+        }
+
+        public IReadOnlyList<IMyCubeGrid> GetContainedGrids()
+        {
+            return _containedGrids.AsReadOnly();
         }
 
         private Dictionary<IMyCubeBlock, List<IMyCubeBlock>> BuildConnectionMap()
@@ -310,6 +356,149 @@ namespace Scripts.ModularAssemblies
             {
                 MyAPIGateway.Utilities.ShowMessage("Shipyard Status",
                     $"Assembly {_assemblyId} is no longer valid. {GetInvalidReason()}");
+            }
+        }
+
+        private void CalculateYardSpace()
+        {
+            if (_corners.Count != 8 || !_isValid) return;
+
+            var positions = _corners.Select(c => c.WorldMatrix.Translation).ToList();
+
+            if (positions.All(p => p == Vector3D.Zero))
+            {
+                MyAPIGateway.Utilities.ShowMessage("Yard Error", "All corner positions are at 0,0,0. Something is wrong with block positions.");
+                return;
+            }
+
+            _minCorner = new Vector3D(
+                positions.Min(p => p.X),
+                positions.Min(p => p.Y),
+                positions.Min(p => p.Z)
+            );
+
+            _maxCorner = new Vector3D(
+                positions.Max(p => p.X),
+                positions.Max(p => p.Y),
+                positions.Max(p => p.Z)
+            );
+
+            _yardSpace = new BoundingBoxD(_minCorner, _maxCorner);
+            Vector3D center = (_minCorner + _maxCorner) * 0.5;
+
+            MyAPIGateway.Utilities.ShowMessage("Yard Coordinates",
+                $"Min: {_minCorner.ToString("F2")}\n" +
+                $"Max: {_maxCorner.ToString("F2")}\n" +
+                $"Center: {center.ToString("F2")}\n" +
+                $"Size: {_yardSpace.Size.ToString("F2")}");
+
+            // Debug each corner position
+            for (int i = 0; i < _corners.Count; i++)
+            {
+                var pos = _corners[i].WorldMatrix.Translation;
+                MyAPIGateway.Utilities.ShowMessage($"Corner {i}",
+                    $"Position: {pos.ToString("F2")}");
+            }
+        }
+
+        private void UpdateContainedGrids()
+        {
+            if (!_isValid) return;
+
+            _containedGrids.Clear();
+
+            // Get the grid that the yard is built on
+            var yardGrid = _corners[0].CubeGrid;
+
+            // Get all grids connected to the yard grid
+            var gridGroup = new List<IMyCubeGrid>();
+            MyAPIGateway.GridGroups.GetGroup(yardGrid, GridLinkTypeEnum.Mechanical, gridGroup);
+
+            foreach (var grid in gridGroup)
+            {
+                if (grid == yardGrid) // Skip the yard grid itself
+                    continue;
+
+                Vector3D gridCenter = grid.WorldVolume.Center;
+                bool isInBox = _yardSpace.Contains(gridCenter) != ContainmentType.Disjoint;
+
+                MyAPIGateway.Utilities.ShowMessage($"Grid Check: {grid.DisplayName}",
+                    $"Grid Center: {gridCenter.ToString("F2")}\n" +
+                    $"Is in box: {isInBox}\n" +
+                    $"Yard Center: {_yardSpace.Center.ToString("F2")}");
+
+                if (isInBox)
+                {
+                    _containedGrids.Add(grid);
+                }
+            }
+
+            MyAPIGateway.Utilities.ShowMessage("Shipyard Contents",
+                $"Found {_containedGrids.Count} grids inside yard\n" +
+                $"Total grids checked: {gridGroup.Count}\n" +
+                $"Yard Center: {_yardSpace.Center.ToString("F2")}");
+        }
+
+        private void DrawDebugBox()
+        {
+            if (_yardSpace.Size == Vector3D.Zero || !IsClient)
+                return;
+
+            try
+            {
+                Vector3D center = _yardSpace.Center;
+                Vector3D size = _yardSpace.Size;
+                Vector4 color = new Vector4(0, 1, 0, 1); // Green
+
+                // Draw all 12 edges of the box
+                Vector3D[] corners = new Vector3D[8];
+                _yardSpace.GetCorners(corners);
+
+                // Bottom square
+                for (int i = 0; i < 4; i++)
+                {
+                    MySimpleObjectDraw.DrawLine(
+                        corners[i],
+                        corners[(i + 1) % 4],
+                        MyStringId.GetOrCompute("Square"),
+                        ref color,
+                        0.2f);
+                }
+
+                // Top square
+                for (int i = 0; i < 4; i++)
+                {
+                    MySimpleObjectDraw.DrawLine(
+                        corners[i + 4],
+                        corners[((i + 1) % 4) + 4],
+                        MyStringId.GetOrCompute("Square"),
+                        ref color,
+                        0.2f);
+                }
+
+                // Vertical lines
+                for (int i = 0; i < 4; i++)
+                {
+                    MySimpleObjectDraw.DrawLine(
+                        corners[i],
+                        corners[i + 4],
+                        MyStringId.GetOrCompute("Square"),
+                        ref color,
+                        0.2f);
+                }
+
+                // Draw center point
+                Vector4 centerColor = new Vector4(1, 1, 0, 1); // Yellow
+                MySimpleObjectDraw.DrawLine(
+                    center - Vector3D.Up * 2,
+                    center + Vector3D.Up * 2,
+                    MyStringId.GetOrCompute("Square"),
+                    ref centerColor,
+                    0.3f);
+            }
+            catch (Exception e)
+            {
+                MyAPIGateway.Utilities.ShowMessage("Debug Draw Error", e.Message);
             }
         }
     }
