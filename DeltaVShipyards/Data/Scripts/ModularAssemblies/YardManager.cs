@@ -49,6 +49,20 @@ namespace Scripts.ModularAssemblies
             _api = api;
             _api.RegisterOnPartAdd("YardDefinition", OnPartAdd);
             _api.RegisterOnPartRemove("YardDefinition", OnPartRemove);
+
+            var existingAssemblies = _api.GetAllAssemblies();
+            foreach (var assemblyId in existingAssemblies)
+            {
+                var parts = _api.GetMemberParts(assemblyId);
+                if (parts != null && parts.Length > 0)
+                {
+                    _yards[assemblyId] = new YardStructure(_api, assemblyId);
+                    foreach (var block in parts)
+                    {
+                        _yards[assemblyId].AddBlock(block);
+                    }
+                }
+            }
         }
 
         public void Update()
@@ -103,6 +117,9 @@ namespace Scripts.ModularAssemblies
             _assemblyId = assemblyId;
         }
 
+        private int _validationDelay = 0;
+        private const int VALIDATION_DELAY_TICKS = 10;
+
         public void AddBlock(IMyCubeBlock block)
         {
             if (block.BlockDefinition.SubtypeName == "ShipyardCorner_Large")
@@ -110,7 +127,7 @@ namespace Scripts.ModularAssemblies
             else
                 _conveyors.Add(block);
 
-            ValidateStructure();
+            _validationDelay = VALIDATION_DELAY_TICKS; // Set delay instead of immediate validation
         }
 
         public void RemoveBlock(IMyCubeBlock block)
@@ -125,6 +142,15 @@ namespace Scripts.ModularAssemblies
 
         public void Update()
         {
+            if (_validationDelay > 0)
+            {
+                _validationDelay--;
+                if (_validationDelay == 0)
+                {
+                    ValidateStructure();
+                }
+            }
+
             _notificationTicks++;
             if (_notificationTicks >= NOTIFICATION_INTERVAL)
             {
@@ -190,13 +216,21 @@ namespace Scripts.ModularAssemblies
         private void ValidateStructure()
         {
             bool isValid = false;
-
             if (_corners.Count == 8)
             {
                 var connectionMap = BuildConnectionMap();
+                _api.Log($"Connection map built with {connectionMap.Count} entries");
+
+                foreach (var corner in _corners)
+                {
+                    var connections = connectionMap.ContainsKey(corner) ? connectionMap[corner].Count : 0;
+                    _api.Log($"Corner {corner.EntityId} has {connections} connections");
+                }
+
                 isValid = ValidateConnections(connectionMap);
             }
 
+            _api.Log($"Validation result: {isValid} (Corners: {_corners.Count})");
             SetValidState(isValid);
         }
 
