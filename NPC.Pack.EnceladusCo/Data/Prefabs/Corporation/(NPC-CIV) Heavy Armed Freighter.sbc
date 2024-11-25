@@ -909,7 +909,7 @@
                               shipSize:Medium
                               rarity:Uncommon
                               targetEngageDistance:350
-averageProjectileSpeed:500</Value>
+                            </Value>
                           </item>
                         </dictionary>
                       </Storage>

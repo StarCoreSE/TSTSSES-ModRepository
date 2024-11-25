@@ -29,6 +29,8 @@ namespace FactionsStruct
                 "(NPC-CIV) Mining Vessel",
                 "(NPC-CIV) Hostile Takeover",
                 "(NPC-CIV) Armed B-980",
+                "(NPC-CIV) Mercenary Corvette",
+                "(NPC-CIV) Mercenary Ship",
                 "(NPC-CIV) Armed Freighter",
                 "(NPC-CIV) Burstfire Fighter",
                 "(NPC-CIV) Streamfire Fighter",
@@ -46,6 +48,12 @@ namespace FactionsStruct
                 "(NPC-CIV) Lunar Habitat",
                 "(NPC-CIV) Housing Unit 3",
                 "(NPC-CIV) Housing Unit 2",
+                "(NPC-CIV) Manufacturing Facility",
+                "(NPC-CIV) Ore Processing Facility",
+                "(NPC-CIV) Regional Headquarters",
+                "(NPC-CIV) Shipping Platform",
+                "(NPC-CIV) Storage Depot",
+                "(NPC-CIV) Processing Plant",
             },
             MilitaryBuildings = new List<string> // prefab names of military structures used by this faction, these are used in mission spawns
             {
@@ -60,6 +68,8 @@ namespace FactionsStruct
                 "(NPC-CIV) Signal Defense Tower",
                 "(NPC-CIV) Simple Tower",
                 "(NPC-CIV) Watchtower",
+                "(NPC-CIV) Storage Depot",
+                "(NPC-CIV) Regional Headquarters",
             },
             TradeShips = new List<string> // prefab names of trade ships used by this faction, these are used for random spawns and mission spawns
             {
@@ -89,18 +99,23 @@ namespace FactionsStruct
                 "ECO Fighter",
                 "ECO Frigate",
                 "ECO Miner",
+                "ECO Ringway Node",
+
             },
             SellGridsPlanets = new List<string> // prefab subtypes that will be sold on planetary economy stations when held by this faction (on top of the default ones)
             {
                 "ECO Fighter",
                 "ECO Frigate",
                 "ECO Miner",
+                "ECO Ringway Node",
+
             },
             SellGridsSpace = new List<string> // prefab subtypes that will be sold on space economy stations when held by this faction (on top of the default ones)
             {
                 "ECO Fighter",
                 "ECO Frigate",
                 "ECO Miner",
+                "ECO Ringway Node",
             },
 
             // politics and relations

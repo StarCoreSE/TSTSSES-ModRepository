@@ -237,6 +237,7 @@
                             <Value>
                               encounterType:Replenish
                               verticalOffset:-2.5
+                              initTradeWith:SuppliesSell
                             </Value>
                           </item>
                         </dictionary>
