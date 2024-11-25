@@ -8,7 +8,7 @@
       </Id>
       <DisplayName>Organic Inductor</DisplayName>
       <Icon>Icons\MiniAntenna.png</Icon>
-      <Description>When powered on, charges your suit's energy reserves.</Description>
+      <Description>Charges suit energy reserves when in range. Do not use to boil water.</Description>
       <CubeSize>Large</CubeSize>
       <BlockTopology>TriangleMesh</BlockTopology>
       <Size x="1" y="1" z="2"/>
@@ -33,8 +33,8 @@
       <BlockPairName>SuitOrganicInductor</BlockPairName>
       <EdgeType>Light</EdgeType>
       <BuildTimeSeconds>20</BuildTimeSeconds>
-      <MaxBroadcastRadius>200</MaxBroadcastRadius>
-      <MaxBroadcastPowerDrainkW>20</MaxBroadcastPowerDrainkW>
+      <MaxBroadcastRadius>1000</MaxBroadcastRadius>
+      <MaxBroadcastPowerDrainkW>100000</MaxBroadcastPowerDrainkW>
       <Flare>BeaconLarge</Flare>
       <ResourceSinkGroup>Utility</ResourceSinkGroup>
       <Public>true</Public>
