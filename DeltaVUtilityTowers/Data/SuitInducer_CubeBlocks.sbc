@@ -6,7 +6,7 @@
         <TypeId>Beacon</TypeId>
         <SubtypeId>SuitOrganicInducer</SubtypeId>
       </Id>
-      <DisplayName>Organic Inducer</DisplayName>
+      <DisplayName>Tower: Organic Inducer</DisplayName>
       <Icon>Textures\GUI\Icons\MiniAntenna.png</Icon>
       <Description>Charges suit energy reserves when in range. Do not use to boil water.</Description>
       <CubeSize>Large</CubeSize>

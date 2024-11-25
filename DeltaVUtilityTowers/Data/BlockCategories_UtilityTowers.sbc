@@ -5,10 +5,10 @@
     <Category xsi:type="MyObjectBuilder_GuiBlockCategoryDefinition">
       <Id>
         <TypeId>GuiBlockCategoryDefinition</TypeId>
-        <SubtypeId/>
+        <SubtypeId>Utility</SubtypeId>
       </Id>
-      <DisplayName>huh</DisplayName>
-      <Name>huh</Name>
+      <DisplayName>DisplayName_Category_Utility</DisplayName>
+      <Name>Section1_Position3_Utility</Name>
       <StrictSearch>false</StrictSearch>
       <ItemIds>			
         <string>Beacon/SuitOrganicInducer</string>	

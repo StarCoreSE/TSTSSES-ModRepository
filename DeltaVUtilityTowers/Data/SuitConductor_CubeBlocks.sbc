@@ -6,7 +6,7 @@
         <TypeId>Beacon</TypeId>
         <SubtypeId>SuitOrganicConductor</SubtypeId>
       </Id>
-      <DisplayName>Organic Conductor</DisplayName>
+      <DisplayName>Tower: Organic Conductor</DisplayName>
       <Icon>Textures\GUI\Icons\LongboiArray.dds</Icon>
       <Description>Targets hostile suits within range and repulses them with a static charge after a short delay.</Description>
       <CubeSize>Large</CubeSize>
