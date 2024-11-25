@@ -105,24 +105,22 @@ namespace SuitOrganicConductor
 
         private IMyCharacter FindNearestTarget()
         {
-            float maxRange = _conductorBlock.Radius;
-            var targetEntities = new List<MyEntity>();
-            BoundingSphereD boundingSphereD = new BoundingSphereD(_conductorBlock.GetPosition(), maxRange);
-            MyGamePruningStructure.GetAllTopMostEntitiesInSphere(ref boundingSphereD, targetEntities);
+            var sphere = new BoundingSphereD(_conductorBlock.GetPosition(), _conductorBlock.Radius);
+            var targetEntities = MyAPIGateway.Entities.GetEntitiesInSphere(ref sphere);
 
             IMyCharacter nearestTarget = null;
-            double nearestDistance = double.MaxValue;
+            double nearestDistanceSquared = double.MaxValue;
 
             foreach (IMyEntity entity in targetEntities)
             {
                 var character = entity as IMyCharacter;
                 if (IsValidTarget(character))
                 {
-                    double distance = Vector3D.DistanceSquared(character.GetPosition(), _conductorBlock.GetPosition());
-                    if (distance < nearestDistance && distance <= maxRange * maxRange)
+                    double distanceSquared = Vector3D.DistanceSquared(character.GetPosition(), _conductorBlock.GetPosition());
+                    if (distanceSquared < nearestDistanceSquared && distanceSquared <= _conductorBlock.Radius * _conductorBlock.Radius)
                     {
                         nearestTarget = character;
-                        nearestDistance = distance;
+                        nearestDistanceSquared = distanceSquared;
                     }
                 }
             }
@@ -139,9 +137,11 @@ namespace SuitOrganicConductor
             if (!controllingPlayer.HasValue || !IsEnemy(controllingPlayer.Value))
                 return false;
 
-            return Vector3D.DistanceSquared(character.GetPosition(), _conductorBlock.GetPosition()) <= _conductorBlock.Radius * _conductorBlock.Radius;
+            // Check if the character is within range
+            double distanceSquared = Vector3D.DistanceSquared(character.GetPosition(), _conductorBlock.GetPosition());
+            return distanceSquared <= _conductorBlock.Radius * _conductorBlock.Radius;
         }
-
+              
         private void ApplyDamageAndEffects(IMyCharacter character)
         {
             var controllingPlayer = character.ControllerInfo?.ControllingIdentityId;
@@ -162,6 +162,11 @@ namespace SuitOrganicConductor
 
                 Vector3D impulseDirection = Vector3D.Normalize(character.GetPosition() - _conductorBlock.GetPosition());
                 character.Physics.AddForce(MyPhysicsForceType.APPLY_WORLD_IMPULSE_AND_WORLD_ANGULAR_IMPULSE, impulseDirection * ImpulseStrength, null, null);
+
+                Vector3D hitPosition = character.GetPosition();
+                MyVisualScriptLogicProvider.CreateParticleEffectAtPosition("Explosion_Firework_Blue", hitPosition);
+                MyVisualScriptLogicProvider.PlaySingleSoundAtPosition("getzappedidiot", hitPosition);
+
 
                 controllingPlayer = character.ControllerInfo?.ControllingIdentityId;
                 if (controllingPlayer.HasValue)

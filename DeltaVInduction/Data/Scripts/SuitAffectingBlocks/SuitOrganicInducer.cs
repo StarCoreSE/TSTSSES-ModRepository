@@ -92,17 +92,15 @@ namespace SuitOrganicInducer
 
         private IMyCharacter FindNewTarget()
         {
-            float maxRange = _inducerBlock.Radius;
-            var targetEntities = new List<MyEntity>();
-            BoundingSphereD boundingSphereD = new BoundingSphereD(_inducerBlock.GetPosition(), maxRange);
-            MyGamePruningStructure.GetAllTopMostEntitiesInSphere(ref boundingSphereD, targetEntities);
+            var sphere = new BoundingSphereD(_inducerBlock.GetPosition(), _inducerBlock.Radius);
+            var targetEntities = MyAPIGateway.Entities.GetEntitiesInSphere(ref sphere);
 
             var validTargets = new List<KeyValuePair<IMyCharacter, float>>();
 
             foreach (IMyEntity entity in targetEntities)
             {
                 var character = entity as IMyCharacter;
-                if (IsValidTarget(character) && Vector3D.DistanceSquared(character.GetPosition(), _inducerBlock.GetPosition()) <= maxRange * maxRange)
+                if (IsValidTarget(character))
                 {
                     var controllingPlayer = character.ControllerInfo?.ControllingIdentityId;
                     if (controllingPlayer.HasValue)
@@ -131,7 +129,9 @@ namespace SuitOrganicInducer
             if (!controllingPlayer.HasValue || !IsFriendly(controllingPlayer.Value))
                 return false;
 
-            return Vector3D.DistanceSquared(character.GetPosition(), _inducerBlock.GetPosition()) <= _inducerBlock.Radius * _inducerBlock.Radius;
+            // Check if the character is within range
+            double distanceSquared = Vector3D.DistanceSquared(character.GetPosition(), _inducerBlock.GetPosition());
+            return distanceSquared <= _inducerBlock.Radius * _inducerBlock.Radius;
         }
 
         private void ChargeTarget(IMyCharacter character)
