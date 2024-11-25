@@ -6,10 +6,10 @@ using Sandbox.Game;
 using VRage.Game.Components;
 using Sandbox.Common.ObjectBuilders;
 
-namespace TeslaWirelessPower
+namespace SuitOrganicInductor
 {
-    [MyEntityComponentDescriptor(typeof(MyObjectBuilder_Beacon), true, new string[] { "TeslaWirelessPower", "SmallTeslaWirelessPower" })]
-    public class TeslaWirelessPower : MyGameLogicComponent
+    [MyEntityComponentDescriptor(typeof(MyObjectBuilder_Beacon), true, new string[] { "SuitOrganicInductor", "SmallSuitOrganicInductor" })]
+    public class SuitOrganicInductor : MyGameLogicComponent
     {
 
         private VRage.ObjectBuilders.MyObjectBuilder_EntityBase _objectBuilder;
@@ -19,9 +19,9 @@ namespace TeslaWirelessPower
 
             _objectBuilder = objectBuilder;
 
-            var TeslaWirelessPower = (Entity as IMyBeacon);
+            var SuitOrganicInductor = (Entity as IMyBeacon);
 
-            if (TeslaWirelessPower != null && (TeslaWirelessPower.BlockDefinition.SubtypeId.Equals("TeslaWirelessPower") || TeslaWirelessPower.BlockDefinition.SubtypeId.Equals("SmallTeslaWirelessPower")))
+            if (SuitOrganicInductor != null && (SuitOrganicInductor.BlockDefinition.SubtypeId.Equals("SuitOrganicInductor") || SuitOrganicInductor.BlockDefinition.SubtypeId.Equals("SmallSuitOrganicInductor")))
             {
                 Entity.NeedsUpdate |= MyEntityUpdateEnum.EACH_100TH_FRAME;
             }
@@ -35,10 +35,10 @@ namespace TeslaWirelessPower
         {
             try
             {
-                if ((Entity as IMyBeacon).IsWorking)
+                if (((IMyBeacon)Entity).IsWorking)
                 {
-                    BoundingSphereD sphere = new BoundingSphereD((Entity as IMyBeacon).GetPosition(), (Entity as IMyBeacon).Radius);
-                    (Entity as IMyBeacon).HudText = "Tesla Wireless Power";
+                    BoundingSphereD sphere = new BoundingSphereD(((IMyBeacon)Entity).GetPosition(), ((IMyBeacon)Entity).Radius);
+                    if (Entity != null) ((IMyBeacon)Entity).HudText = "Tesla Wireless Power";
                     var targetentities = MyAPIGateway.Entities.GetEntitiesInSphere(ref sphere);
                     foreach (VRage.ModAPI.IMyEntity entity in targetentities)
                     {
