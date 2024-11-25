@@ -6,10 +6,10 @@ using Sandbox.Game;
 using VRage.Game.Components;
 using Sandbox.Common.ObjectBuilders;
 
-namespace SuitOrganicInductor
+namespace SuitOrganicInducer
 {
-    [MyEntityComponentDescriptor(typeof(MyObjectBuilder_Beacon), true, new string[] { "SuitOrganicInductor", "SmallSuitOrganicInductor" })]
-    public class SuitOrganicInductor : MyGameLogicComponent
+    [MyEntityComponentDescriptor(typeof(MyObjectBuilder_Beacon), true, new string[] { "SuitOrganicInducer", "SmallSuitOrganicInducer" })]
+    public class SuitOrganicInducer : MyGameLogicComponent
     {
 
         private VRage.ObjectBuilders.MyObjectBuilder_EntityBase _objectBuilder;
@@ -19,9 +19,9 @@ namespace SuitOrganicInductor
 
             _objectBuilder = objectBuilder;
 
-            var SuitOrganicInductor = (Entity as IMyBeacon);
+            var SuitOrganicInducer = (Entity as IMyBeacon);
 
-            if (SuitOrganicInductor != null && (SuitOrganicInductor.BlockDefinition.SubtypeId.Equals("SuitOrganicInductor") || SuitOrganicInductor.BlockDefinition.SubtypeId.Equals("SmallSuitOrganicInductor")))
+            if (SuitOrganicInducer != null && (SuitOrganicInducer.BlockDefinition.SubtypeId.Equals("SuitOrganicInducer") || SuitOrganicInducer.BlockDefinition.SubtypeId.Equals("SmallSuitOrganicInducer")))
             {
                 Entity.NeedsUpdate |= MyEntityUpdateEnum.EACH_100TH_FRAME;
             }

@@ -11,7 +11,8 @@
       <Name>huh</Name>
       <StrictSearch>false</StrictSearch>
       <ItemIds>			
-        <string>RadioAntenna/LongboiArrayLG</string>	
+        <string>RadioAntenna/SuitOrganicInducer</string>	
+        <string>RadioAntenna/SuitOrganicConductor</string>	
       </ItemIds>
     </Category>
 
