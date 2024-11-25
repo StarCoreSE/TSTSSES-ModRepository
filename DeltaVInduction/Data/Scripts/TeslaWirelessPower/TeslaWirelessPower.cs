@@ -38,7 +38,7 @@ namespace SuitOrganicInductor
                 if (((IMyBeacon)Entity).IsWorking)
                 {
                     BoundingSphereD sphere = new BoundingSphereD(((IMyBeacon)Entity).GetPosition(), ((IMyBeacon)Entity).Radius);
-                    if (Entity != null) ((IMyBeacon)Entity).HudText = "Tesla Wireless Power";
+                    if (Entity != null) ((IMyBeacon)Entity).HudText = "Charging Suit Energy...";
                     var targetentities = MyAPIGateway.Entities.GetEntitiesInSphere(ref sphere);
                     foreach (VRage.ModAPI.IMyEntity entity in targetentities)
                     {

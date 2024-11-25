@@ -6,7 +6,7 @@
         <TypeId>Beacon</TypeId>
         <SubtypeId>SuitOrganicInductor</SubtypeId>
       </Id>
-      <DisplayName>Tesla Wireless Power</DisplayName>
+      <DisplayName>Organic Inductor</DisplayName>
       <Icon>Icons\MiniAntenna.png</Icon>
       <Description>When powered on, charges your suit's energy reserves.</Description>
       <CubeSize>Large</CubeSize>
