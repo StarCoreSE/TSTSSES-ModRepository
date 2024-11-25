@@ -5,6 +5,9 @@ using Sandbox.ModAPI;
 using Sandbox.Game;
 using VRage.Game.Components;
 using Sandbox.Common.ObjectBuilders;
+using VRageRender;
+using VRage.Game;
+using VRage.Utils;
 
 namespace SuitOrganicConductor
 {
@@ -13,15 +16,17 @@ namespace SuitOrganicConductor
     {
         private VRage.ObjectBuilders.MyObjectBuilder_EntityBase _objectBuilder;
         private const float DamageAmount = 1f;
+        private IMyBeacon _conductorBlock;
 
         public override void Init(VRage.ObjectBuilders.MyObjectBuilder_EntityBase objectBuilder)
         {
             _objectBuilder = objectBuilder;
 
-            var suitOrganicConductor = (Entity as IMyBeacon);
+            _conductorBlock = Entity as IMyBeacon;
 
-            if (suitOrganicConductor != null && (suitOrganicConductor.BlockDefinition.SubtypeId.Equals("SuitOrganicConductor") || suitOrganicConductor.BlockDefinition.SubtypeId.Equals("SmallSuitOrganicConductor")))
+            if (_conductorBlock != null && (_conductorBlock.BlockDefinition.SubtypeId.Equals("SuitOrganicConductor") || _conductorBlock.BlockDefinition.SubtypeId.Equals("SmallSuitOrganicConductor")))
             {
+                Entity.NeedsUpdate |= MyEntityUpdateEnum.EACH_FRAME;
                 Entity.NeedsUpdate |= MyEntityUpdateEnum.EACH_100TH_FRAME;
             }
         }
@@ -35,10 +40,10 @@ namespace SuitOrganicConductor
         {
             try
             {
-                if (((IMyBeacon)Entity).IsWorking)
+                if (_conductorBlock.IsWorking)
                 {
-                    BoundingSphereD sphere = new BoundingSphereD(((IMyBeacon)Entity).GetPosition(), ((IMyBeacon)Entity).Radius);
-                    if (Entity != null) ((IMyBeacon)Entity).HudText = "Dealing damage to suits...";
+                    BoundingSphereD sphere = new BoundingSphereD(_conductorBlock.GetPosition(), _conductorBlock.Radius);
+                    if (Entity != null) _conductorBlock.HudText = "Dealing damage to suits...";
                     var targetentities = MyAPIGateway.Entities.GetEntitiesInSphere(ref sphere);
                     foreach (VRage.ModAPI.IMyEntity entity in targetentities)
                     {
@@ -65,6 +70,39 @@ namespace SuitOrganicConductor
                 }
             }
             catch { }
+        }
+
+        public override void UpdateAfterSimulation()
+        {
+            base.UpdateAfterSimulation();
+
+            if (_conductorBlock == null) return;
+
+            DrawDebugLinesToCharactersInRange();
+        }
+
+        private void DrawDebugLinesToCharactersInRange()
+        {
+            // Only draw in a client session
+            if (!MyAPIGateway.Utilities.IsDedicated && MyAPIGateway.Session != null)
+            {
+                if (_conductorBlock == null || !_conductorBlock.IsWorking) return;
+
+                Vector3D sourcePosition = _conductorBlock.GetPosition();
+                BoundingSphereD sphere = new BoundingSphereD(sourcePosition, _conductorBlock.Radius);
+                var targetEntities = MyAPIGateway.Entities.GetEntitiesInSphere(ref sphere);
+
+                foreach (VRage.ModAPI.IMyEntity entity in targetEntities)
+                {
+                    var character = entity as IMyCharacter;
+                    if (character != null && !character.IsDead)
+                    {
+                        Vector3D characterPosition = character.GetPosition();
+                        Vector4 red = Color.Red.ToVector4();
+                        MySimpleObjectDraw.DrawLine(sourcePosition, characterPosition, MyStringId.GetOrCompute("Square"), ref red, 0.1f);
+                    }
+                }
+            }
         }
     }
 }
