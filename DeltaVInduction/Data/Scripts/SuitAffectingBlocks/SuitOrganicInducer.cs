@@ -10,6 +10,9 @@ using System.Collections.Generic;
 using System.Linq;
 using VRage.ObjectBuilders;
 using VRage.Utils;
+using Sandbox.Game.Entities;
+using System;
+using VRage.Game.Entity;
 
 namespace SuitOrganicInducer
 {
@@ -18,15 +21,15 @@ namespace SuitOrganicInducer
     {
         private const float ChargeAmount = 0.01f;
         private IMyBeacon _inducerBlock;
-        private Dictionary<long, int> _characterDrawFrames = new Dictionary<long, int>();
-        private const int DrawFramesDuration = 30; // Draw for half a second (30 frames)
+        private IMyCharacter _currentTarget;
+        private int _noTargetCounter = 0;
         private static readonly MyStringId MaterialSquare = MyStringId.GetOrCompute("Square");
+        private static Random _random = new Random();
 
         public override void Init(MyObjectBuilder_EntityBase objectBuilder)
         {
             base.Init(objectBuilder);
             _inducerBlock = Entity as IMyBeacon;
-
             if (_inducerBlock != null)
             {
                 NeedsUpdate |= MyEntityUpdateEnum.BEFORE_NEXT_FRAME;
@@ -36,10 +39,8 @@ namespace SuitOrganicInducer
         public override void UpdateOnceBeforeFrame()
         {
             base.UpdateOnceBeforeFrame();
-
             if (_inducerBlock?.CubeGrid?.Physics == null)
                 return;
-
             NeedsUpdate |= MyEntityUpdateEnum.EACH_FRAME;
             NeedsUpdate |= MyEntityUpdateEnum.EACH_100TH_FRAME;
         }
@@ -50,36 +51,26 @@ namespace SuitOrganicInducer
             {
                 if (_inducerBlock.IsWorking)
                 {
-                    _inducerBlock.HudText = "Charging Suit Energy...";
-                    BoundingSphereD sphere = new BoundingSphereD(_inducerBlock.GetPosition(), _inducerBlock.Radius);
-                    var targetentities = MyAPIGateway.Entities.GetEntitiesInSphere(ref sphere);
-
-                    foreach (IMyEntity entity in targetentities)
+                    if (_currentTarget == null || _noTargetCounter >= 30 || !IsValidTarget(_currentTarget))
                     {
-                        var character = entity as IMyCharacter;
-                        if (character != null && !character.IsDead)
-                        {
-                            var controllingPlayer = character.ControllerInfo?.ControllingIdentityId;
-                            if (controllingPlayer.HasValue)
-                            {
-                                var playerid = controllingPlayer.Value;
-                                var elevel = MyVisualScriptLogicProvider.GetPlayersEnergyLevel(playerid);
-                                elevel += ChargeAmount;
-
-                                // Set draw frames for this character when charged
-                                _characterDrawFrames[character.EntityId] = DrawFramesDuration;
-
-                                if (elevel >= 1)
-                                {
-                                    MyVisualScriptLogicProvider.SetPlayersEnergyLevel(playerid, 1);
-                                }
-                                else
-                                {
-                                    MyVisualScriptLogicProvider.SetPlayersEnergyLevel(playerid, elevel);
-                                }
-                            }
-                        }
+                        _currentTarget = FindNewTarget();
+                        _noTargetCounter = 0;
                     }
+
+                    if (_currentTarget != null)
+                    {
+                        ChargeTarget(_currentTarget);
+                        UpdateHudText(_currentTarget);
+                    }
+                    else
+                    {
+                        _noTargetCounter++;
+                        _inducerBlock.HudText = "Searching for target...";
+                    }
+                }
+                else
+                {
+                    _inducerBlock.HudText = "Organic Inducer Offline";
                 }
             }
             catch (System.Exception e)
@@ -88,27 +79,95 @@ namespace SuitOrganicInducer
             }
         }
 
+        private void UpdateHudText(IMyCharacter target)
+        {
+            var controllingPlayer = target.ControllerInfo?.ControllingIdentityId;
+            if (controllingPlayer.HasValue)
+            {
+                var playerName = MyVisualScriptLogicProvider.GetPlayersName(controllingPlayer.Value);
+                var energyLevel = MyVisualScriptLogicProvider.GetPlayersEnergyLevel(controllingPlayer.Value);
+                _inducerBlock.HudText = $"Charging {playerName} ({energyLevel:P0})";
+            }
+        }
+
+        private IMyCharacter FindNewTarget()
+        {
+            float maxRange = _inducerBlock.Radius;
+            var targetEntities = new List<MyEntity>();
+            BoundingSphereD boundingSphereD = new BoundingSphereD(_inducerBlock.GetPosition(), maxRange);
+            MyGamePruningStructure.GetAllTopMostEntitiesInSphere(ref boundingSphereD, targetEntities);
+
+            var validTargets = new List<KeyValuePair<IMyCharacter, float>>();
+
+            foreach (IMyEntity entity in targetEntities)
+            {
+                var character = entity as IMyCharacter;
+                if (IsValidTarget(character) && Vector3D.DistanceSquared(character.GetPosition(), _inducerBlock.GetPosition()) <= maxRange * maxRange)
+                {
+                    var controllingPlayer = character.ControllerInfo?.ControllingIdentityId;
+                    if (controllingPlayer.HasValue)
+                    {
+                        float energyLevel = MyVisualScriptLogicProvider.GetPlayersEnergyLevel(controllingPlayer.Value);
+                        validTargets.Add(new KeyValuePair<IMyCharacter, float>(character, energyLevel));
+                    }
+                }
+            }
+
+            if (validTargets.Count == 0)
+                return null;
+
+            // Sort by energy level and add some randomness
+            return validTargets
+                .OrderBy(kvp => kvp.Value + (float)_random.NextDouble() * 0.1f)
+                .First().Key;
+        }
+
+        private bool IsValidTarget(IMyCharacter character)
+        {
+            if (character == null || character.IsDead)
+                return false;
+
+            var controllingPlayer = character.ControllerInfo?.ControllingIdentityId;
+            if (!controllingPlayer.HasValue || !IsFriendly(controllingPlayer.Value))
+                return false;
+
+            return Vector3D.DistanceSquared(character.GetPosition(), _inducerBlock.GetPosition()) <= _inducerBlock.Radius * _inducerBlock.Radius;
+        }
+
+        private void ChargeTarget(IMyCharacter character)
+        {
+            var controllingPlayer = character.ControllerInfo?.ControllingIdentityId;
+            if (controllingPlayer.HasValue)
+            {
+                var playerid = controllingPlayer.Value;
+                var elevel = MyVisualScriptLogicProvider.GetPlayersEnergyLevel(playerid);
+                elevel += ChargeAmount;
+
+                if (elevel >= 1)
+                {
+                    MyVisualScriptLogicProvider.SetPlayersEnergyLevel(playerid, 1);
+                    _currentTarget = null; // Target is fully charged, find a new target next update
+                }
+                else
+                {
+                    MyVisualScriptLogicProvider.SetPlayersEnergyLevel(playerid, elevel);
+                }
+            }
+        }
+
+        private bool IsFriendly(long playerId)
+        {
+            var relation = MyIDModule.GetRelationPlayerBlock(_inducerBlock.OwnerId, playerId);
+            return relation == MyRelationsBetweenPlayerAndBlock.FactionShare || relation == MyRelationsBetweenPlayerAndBlock.Friends || relation == MyRelationsBetweenPlayerAndBlock.Owner;
+        }
+
         public override void UpdateAfterSimulation()
         {
             try
             {
                 if (!MyAPIGateway.Utilities.IsDedicated && MyAPIGateway.Session?.Player != null)
                 {
-                    DrawDebugLinesToCharactersInRange();
-
-                    var expiredEntries = new List<long>();
-                    foreach (var kvp in _characterDrawFrames.ToList())
-                    {
-                        _characterDrawFrames[kvp.Key] = kvp.Value - 1;
-                        if (_characterDrawFrames[kvp.Key] <= 0)
-                        {
-                            expiredEntries.Add(kvp.Key);
-                        }
-                    }
-                    foreach (var expiredEntry in expiredEntries)
-                    {
-                        _characterDrawFrames.Remove(expiredEntry);
-                    }
+                    DrawDebugLineToTarget();
                 }
             }
             catch (System.Exception e)
@@ -117,22 +176,14 @@ namespace SuitOrganicInducer
             }
         }
 
-        private void DrawDebugLinesToCharactersInRange()
+        private void DrawDebugLineToTarget()
         {
-            if (_inducerBlock != null && _inducerBlock.IsWorking)
+            if (_inducerBlock != null && _inducerBlock.IsWorking && _currentTarget != null)
             {
                 Vector3D sourcePosition = _inducerBlock.GetPosition();
+                Vector3D targetPosition = _currentTarget.GetPosition();
                 Vector4 blue = Color.Blue.ToVector4();
-
-                foreach (var characterId in _characterDrawFrames.Keys)
-                {
-                    var character = MyAPIGateway.Entities.GetEntityById(characterId) as IMyCharacter;
-                    if (character != null && !character.IsDead)
-                    {
-                        Vector3D characterPosition = character.GetPosition();
-                        MySimpleObjectDraw.DrawLine(sourcePosition, characterPosition, MaterialSquare, ref blue, 0.1f);
-                    }
-                }
+                MySimpleObjectDraw.DrawLine(sourcePosition, targetPosition, MaterialSquare, ref blue, 0.1f);
             }
         }
     }
