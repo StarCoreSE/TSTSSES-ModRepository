@@ -7,20 +7,11 @@
         <TypeId>GuiBlockCategoryDefinition</TypeId>
         <SubtypeId/>
       </Id>
-      <DisplayName>Zardos Mods</DisplayName>
-      <Name>Zardos Mods</Name>
+      <DisplayName>huh</DisplayName>
+      <Name>huh</Name>
       <StrictSearch>false</StrictSearch>
-      <ItemIds>
-	    <string>RadioAntenna/AntennaCube</string>	
-        <string>RadioAntenna/Antenna45Corner</string>	
-        <string>RadioAntenna/AntennaSlope</string>	
-        <string>RadioAntenna/AntennaCorner</string>		
-	    <string>RadioAntenna/AntennaCubeSG</string>	
-        <string>RadioAntenna/Antenna45CornerSG</string>	
-        <string>RadioAntenna/AntennaSlopeSG</string>	
-        <string>RadioAntenna/AntennaCornerSG</string>				
+      <ItemIds>			
         <string>RadioAntenna/LongboiArrayLG</string>	
-        <string>RadioAntenna/LongboiArraySG</string>				
       </ItemIds>
     </Category>
 
