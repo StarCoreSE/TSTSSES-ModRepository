@@ -9,34 +9,39 @@ using VRage.Game;
 using VRage.Utils;
 using System.Collections.Generic;
 using System.Linq;
+using VRage.ObjectBuilders;
 
 namespace SuitOrganicConductor
 {
-    [MyEntityComponentDescriptor(typeof(MyObjectBuilder_Beacon), true, new string[] { "SuitOrganicConductor", "SmallSuitOrganicConductor" })]
+    [MyEntityComponentDescriptor(typeof(MyObjectBuilder_Beacon), false, "SuitOrganicConductor", "SmallSuitOrganicConductor")]
     public class SuitOrganicConductor : MyGameLogicComponent
     {
-        private VRage.ObjectBuilders.MyObjectBuilder_EntityBase _objectBuilder;
         private const float DamageAmount = 1f;
         private IMyBeacon _conductorBlock;
         private Dictionary<long, int> _characterDrawFrames = new Dictionary<long, int>();
         private const int DrawFramesDuration = 30; // Draw for half a second (30 frames)
         private static readonly MyStringId MaterialSquare = MyStringId.GetOrCompute("Square");
 
-        public override void Init(VRage.ObjectBuilders.MyObjectBuilder_EntityBase objectBuilder)
+        public override void Init(MyObjectBuilder_EntityBase objectBuilder)
         {
-            _objectBuilder = objectBuilder;
+            base.Init(objectBuilder);
             _conductorBlock = Entity as IMyBeacon;
 
-            if (_conductorBlock != null && (_conductorBlock.BlockDefinition.SubtypeId.Equals("SuitOrganicConductor") || _conductorBlock.BlockDefinition.SubtypeId.Equals("SmallSuitOrganicConductor")))
+            if (_conductorBlock != null)
             {
-                Entity.NeedsUpdate |= MyEntityUpdateEnum.EACH_FRAME;
-                Entity.NeedsUpdate |= MyEntityUpdateEnum.EACH_100TH_FRAME;
+                NeedsUpdate |= MyEntityUpdateEnum.BEFORE_NEXT_FRAME;
             }
         }
 
-        public override VRage.ObjectBuilders.MyObjectBuilder_EntityBase GetObjectBuilder(bool copy = false)
+        public override void UpdateOnceBeforeFrame()
         {
-            return _objectBuilder;
+            base.UpdateOnceBeforeFrame();
+
+            if (_conductorBlock?.CubeGrid?.Physics == null)
+                return;
+
+            NeedsUpdate |= MyEntityUpdateEnum.EACH_FRAME;
+            NeedsUpdate |= MyEntityUpdateEnum.EACH_100TH_FRAME;
         }
 
         public override void UpdateAfterSimulation100()
@@ -48,7 +53,7 @@ namespace SuitOrganicConductor
                     BoundingSphereD sphere = new BoundingSphereD(_conductorBlock.GetPosition(), _conductorBlock.Radius);
                     var targetentities = MyAPIGateway.Entities.GetEntitiesInSphere(ref sphere);
 
-                    foreach (VRage.ModAPI.IMyEntity entity in targetentities)
+                    foreach (IMyEntity entity in targetentities)
                     {
                         var character = entity as IMyCharacter;
                         if (character != null && !character.IsDead)
@@ -60,7 +65,6 @@ namespace SuitOrganicConductor
                                 var health = MyVisualScriptLogicProvider.GetPlayersHealth(playerid);
                                 health -= DamageAmount;
 
-                                // Set draw frames for this character when damage is dealt
                                 _characterDrawFrames[character.EntityId] = DrawFramesDuration;
 
                                 if (health <= 0)
@@ -76,31 +80,38 @@ namespace SuitOrganicConductor
                     }
                 }
             }
-            catch { }
+            catch (System.Exception e)
+            {
+                MyLog.Default.WriteLineAndConsole($"SuitOrganicConductor: Error in UpdateAfterSimulation100: {e}");
+            }
         }
 
         public override void UpdateAfterSimulation()
         {
-            base.UpdateAfterSimulation();
-
-            if (!MyAPIGateway.Utilities.IsDedicated && MyAPIGateway.Session?.Player != null)
+            try
             {
-                DrawDebugLinesToCharactersInRange();
-
-                // Decrement draw frames and remove expired entries
-                var expiredEntries = new List<long>();
-                foreach (var kvp in _characterDrawFrames.ToList())
+                if (!MyAPIGateway.Utilities.IsDedicated && MyAPIGateway.Session?.Player != null)
                 {
-                    _characterDrawFrames[kvp.Key] = kvp.Value - 1;
-                    if (_characterDrawFrames[kvp.Key] <= 0)
+                    DrawDebugLinesToCharactersInRange();
+
+                    var expiredEntries = new List<long>();
+                    foreach (var kvp in _characterDrawFrames.ToList())
                     {
-                        expiredEntries.Add(kvp.Key);
+                        _characterDrawFrames[kvp.Key] = kvp.Value - 1;
+                        if (_characterDrawFrames[kvp.Key] <= 0)
+                        {
+                            expiredEntries.Add(kvp.Key);
+                        }
+                    }
+                    foreach (var expiredEntry in expiredEntries)
+                    {
+                        _characterDrawFrames.Remove(expiredEntry);
                     }
                 }
-                foreach (var expiredEntry in expiredEntries)
-                {
-                    _characterDrawFrames.Remove(expiredEntry);
-                }
+            }
+            catch (System.Exception e)
+            {
+                MyLog.Default.WriteLineAndConsole($"SuitOrganicConductor: Error in UpdateAfterSimulation: {e}");
             }
         }
 
@@ -117,8 +128,7 @@ namespace SuitOrganicConductor
                     if (character != null && !character.IsDead)
                     {
                         Vector3D characterPosition = character.GetPosition();
-                        Vector3D lineEndPoint = characterPosition + (Vector3D.Normalize(Vector3D.Zero - characterPosition) * 2); // Point the line towards 0,0,0
-                        MySimpleObjectDraw.DrawLine(characterPosition, lineEndPoint, MaterialSquare, ref red, 0.1f);
+                        MySimpleObjectDraw.DrawLine(sourcePosition, characterPosition, MaterialSquare, ref red, 0.1f);
                     }
                 }
             }
