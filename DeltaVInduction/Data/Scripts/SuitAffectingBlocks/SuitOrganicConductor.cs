@@ -93,7 +93,6 @@ namespace SuitOrganicConductor
                                     if (health <= 0)
                                     {
                                         MyVisualScriptLogicProvider.SetPlayersHealth(playerid, 0);
-                                        MyVisualScriptLogicProvider.CreateLightning();
                                     }
                                     else
                                     {
