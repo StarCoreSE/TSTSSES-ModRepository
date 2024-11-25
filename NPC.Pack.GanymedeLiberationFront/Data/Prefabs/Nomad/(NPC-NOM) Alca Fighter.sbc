@@ -6020,7 +6020,7 @@
                               encounterType:Space
                               shipSize:Small
                               rarity:Common
-                              averageProjectileSpeed:200</Value>
+                            </Value>
                           </item>
                         </dictionary>
                       </Storage>

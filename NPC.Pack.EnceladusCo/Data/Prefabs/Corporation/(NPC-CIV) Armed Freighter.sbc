@@ -909,7 +909,6 @@
                               shipSize:Medium
                               rarity:Common
                               targetEngageDistance:350
-averageProjectileSpeed:200
                             </Value>
                           </item>
                         </dictionary>

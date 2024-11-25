@@ -1752,7 +1752,7 @@
                               encounterType:Space
                               shipSize:Small
                               rarity:Common
-                              averageProjectileSpeed:400</Value>
+                            </Value>
                           </item>
                         </dictionary>
                       </Storage>

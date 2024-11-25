@@ -162,6 +162,13 @@
                         <SubtypeId>ZoneChip</SubtypeId>
                     </Id>
                 </Item>
+              <Item AmountMin="1" AmountMax="3">
+                <Frequency>1.0</Frequency>
+                <Id>
+                  <TypeId>Component</TypeId>
+                  <SubtypeId>RedactedComponent</SubtypeId>
+                </Id>
+              </Item>
             </Items>
         </ContainerType>
 

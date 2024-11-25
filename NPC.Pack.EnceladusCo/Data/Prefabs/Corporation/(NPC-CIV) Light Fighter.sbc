@@ -2172,7 +2172,7 @@
                               rarity:Common
                               minDistanceFromSurface:100
                               movementDetection:500
-                            averageProjectileSpeed:400</Value>
+                            </Value>
                           </item>
                         </dictionary>
                       </Storage>

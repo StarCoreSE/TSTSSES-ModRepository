@@ -12983,6 +12983,7 @@ A</PublicDescription>
                             <Value>
                               encounterType:Replenish
                               verticalOffset:0
+                              initTradeWith:ItemsSell
                             </Value>
                           </item>
                         </dictionary>

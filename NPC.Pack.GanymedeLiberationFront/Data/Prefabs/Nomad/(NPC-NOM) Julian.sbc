@@ -5593,7 +5593,7 @@ Datapad/Datapad=0</Value>
                               shipSize:Medium
                               rarity:Common
                               targetEngageDistance:300
-                              averageProjectileSpeed:200</Value>
+                            </Value>
                           </item>
                         </dictionary>
                       </Storage>

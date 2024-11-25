@@ -4738,7 +4738,6 @@
                               encounterType:Space
                               shipSize:Small
                               rarity:Uncommon
-averageProjectileSpeed:400
                             </Value>
                           </item>
                         </dictionary>

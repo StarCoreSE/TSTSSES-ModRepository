@@ -93,7 +93,7 @@
                               shipSize:Medium
                               rarity:Rare
                               targetEngageDistance:350
-                            averageProjectileSpeed:2000</Value>
+                            </Value>
                           </item>
                         </dictionary>
                       </Storage>
