@@ -2,14 +2,14 @@ using VRage.ModAPI;
 using VRageMath;
 using VRage.Game.ModAPI;
 using Sandbox.ModAPI;
-using Sandbox.Game;
 using VRage.Game.Components;
 using Sandbox.Common.ObjectBuilders;
 using VRage.Game;
-using VRage.Utils;
 using System.Collections.Generic;
 using System.Linq;
+using Sandbox.Game;
 using VRage.ObjectBuilders;
+using VRage.Utils;
 
 namespace SuitOrganicConductor
 {
@@ -50,6 +50,9 @@ namespace SuitOrganicConductor
             {
                 if (_conductorBlock.IsWorking)
                 {
+                    // Update HUD text
+                    _conductorBlock.HudText = "Dealing damage to suits...";
+
                     BoundingSphereD sphere = new BoundingSphereD(_conductorBlock.GetPosition(), _conductorBlock.Radius);
                     var targetentities = MyAPIGateway.Entities.GetEntitiesInSphere(ref sphere);
 
