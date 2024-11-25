@@ -5,42 +5,56 @@ using Sandbox.ModAPI;
 using Sandbox.Game;
 using VRage.Game.Components;
 using Sandbox.Common.ObjectBuilders;
+using VRage.Game;
+using System.Collections.Generic;
+using System.Linq;
+using VRage.ObjectBuilders;
+using VRage.Utils;
 
 namespace SuitOrganicInducer
 {
-    [MyEntityComponentDescriptor(typeof(MyObjectBuilder_Beacon), true, new string[] { "SuitOrganicInducer", "SmallSuitOrganicInducer" })]
+    [MyEntityComponentDescriptor(typeof(MyObjectBuilder_Beacon), false, "SuitOrganicInducer", "SmallSuitOrganicInducer")]
     public class SuitOrganicInducer : MyGameLogicComponent
     {
-        private VRage.ObjectBuilders.MyObjectBuilder_EntityBase _objectBuilder;
         private const float ChargeAmount = 0.01f;
+        private IMyBeacon _inducerBlock;
+        private Dictionary<long, int> _characterDrawFrames = new Dictionary<long, int>();
+        private const int DrawFramesDuration = 30; // Draw for half a second (30 frames)
+        private static readonly MyStringId MaterialSquare = MyStringId.GetOrCompute("Square");
 
-        public override void Init(VRage.ObjectBuilders.MyObjectBuilder_EntityBase objectBuilder)
+        public override void Init(MyObjectBuilder_EntityBase objectBuilder)
         {
-            _objectBuilder = objectBuilder;
+            base.Init(objectBuilder);
+            _inducerBlock = Entity as IMyBeacon;
 
-            var SuitOrganicInducer = (Entity as IMyBeacon);
-
-            if (SuitOrganicInducer != null && (SuitOrganicInducer.BlockDefinition.SubtypeId.Equals("SuitOrganicInducer") || SuitOrganicInducer.BlockDefinition.SubtypeId.Equals("SmallSuitOrganicInducer")))
+            if (_inducerBlock != null)
             {
-                Entity.NeedsUpdate |= MyEntityUpdateEnum.EACH_100TH_FRAME;
+                NeedsUpdate |= MyEntityUpdateEnum.BEFORE_NEXT_FRAME;
             }
         }
 
-        public override VRage.ObjectBuilders.MyObjectBuilder_EntityBase GetObjectBuilder(bool copy = false)
+        public override void UpdateOnceBeforeFrame()
         {
-            return _objectBuilder;
+            base.UpdateOnceBeforeFrame();
+
+            if (_inducerBlock?.CubeGrid?.Physics == null)
+                return;
+
+            NeedsUpdate |= MyEntityUpdateEnum.EACH_FRAME;
+            NeedsUpdate |= MyEntityUpdateEnum.EACH_100TH_FRAME;
         }
 
         public override void UpdateAfterSimulation100()
         {
             try
             {
-                if (((IMyBeacon)Entity).IsWorking)
+                if (_inducerBlock.IsWorking)
                 {
-                    BoundingSphereD sphere = new BoundingSphereD(((IMyBeacon)Entity).GetPosition(), ((IMyBeacon)Entity).Radius);
-                    if (Entity != null) ((IMyBeacon)Entity).HudText = "Charging Suit Energy...";
+                    _inducerBlock.HudText = "Charging Suit Energy...";
+                    BoundingSphereD sphere = new BoundingSphereD(_inducerBlock.GetPosition(), _inducerBlock.Radius);
                     var targetentities = MyAPIGateway.Entities.GetEntitiesInSphere(ref sphere);
-                    foreach (VRage.ModAPI.IMyEntity entity in targetentities)
+
+                    foreach (IMyEntity entity in targetentities)
                     {
                         var character = entity as IMyCharacter;
                         if (character != null && !character.IsDead)
@@ -51,6 +65,10 @@ namespace SuitOrganicInducer
                                 var playerid = controllingPlayer.Value;
                                 var elevel = MyVisualScriptLogicProvider.GetPlayersEnergyLevel(playerid);
                                 elevel += ChargeAmount;
+
+                                // Set draw frames for this character when charged
+                                _characterDrawFrames[character.EntityId] = DrawFramesDuration;
+
                                 if (elevel >= 1)
                                 {
                                     MyVisualScriptLogicProvider.SetPlayersEnergyLevel(playerid, 1);
@@ -64,7 +82,58 @@ namespace SuitOrganicInducer
                     }
                 }
             }
-            catch { }
+            catch (System.Exception e)
+            {
+                MyLog.Default.WriteLineAndConsole($"SuitOrganicInducer: Error in UpdateAfterSimulation100: {e}");
+            }
+        }
+
+        public override void UpdateAfterSimulation()
+        {
+            try
+            {
+                if (!MyAPIGateway.Utilities.IsDedicated && MyAPIGateway.Session?.Player != null)
+                {
+                    DrawDebugLinesToCharactersInRange();
+
+                    var expiredEntries = new List<long>();
+                    foreach (var kvp in _characterDrawFrames.ToList())
+                    {
+                        _characterDrawFrames[kvp.Key] = kvp.Value - 1;
+                        if (_characterDrawFrames[kvp.Key] <= 0)
+                        {
+                            expiredEntries.Add(kvp.Key);
+                        }
+                    }
+                    foreach (var expiredEntry in expiredEntries)
+                    {
+                        _characterDrawFrames.Remove(expiredEntry);
+                    }
+                }
+            }
+            catch (System.Exception e)
+            {
+                MyLog.Default.WriteLineAndConsole($"SuitOrganicInducer: Error in UpdateAfterSimulation: {e}");
+            }
+        }
+
+        private void DrawDebugLinesToCharactersInRange()
+        {
+            if (_inducerBlock != null && _inducerBlock.IsWorking)
+            {
+                Vector3D sourcePosition = _inducerBlock.GetPosition();
+                Vector4 blue = Color.Blue.ToVector4();
+
+                foreach (var characterId in _characterDrawFrames.Keys)
+                {
+                    var character = MyAPIGateway.Entities.GetEntityById(characterId) as IMyCharacter;
+                    if (character != null && !character.IsDead)
+                    {
+                        Vector3D characterPosition = character.GetPosition();
+                        MySimpleObjectDraw.DrawLine(sourcePosition, characterPosition, MaterialSquare, ref blue, 0.1f);
+                    }
+                }
+            }
         }
     }
 }
