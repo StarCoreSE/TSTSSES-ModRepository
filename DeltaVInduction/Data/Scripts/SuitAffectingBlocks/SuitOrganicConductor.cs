@@ -12,6 +12,7 @@ namespace SuitOrganicConductor
     public class SuitOrganicConductor : MyGameLogicComponent
     {
         private VRage.ObjectBuilders.MyObjectBuilder_EntityBase _objectBuilder;
+        private const float DamageAmount = 1f;
 
         public override void Init(VRage.ObjectBuilders.MyObjectBuilder_EntityBase objectBuilder)
         {
@@ -41,20 +42,23 @@ namespace SuitOrganicConductor
                     var targetentities = MyAPIGateway.Entities.GetEntitiesInSphere(ref sphere);
                     foreach (VRage.ModAPI.IMyEntity entity in targetentities)
                     {
-                        var player = entity as IMyCharacter;
-                        if (player != null)
+                        var character = entity as IMyCharacter;
+                        if (character != null && !character.IsDead)
                         {
-                            var playerid = player.ControllerInfo.ControllingIdentityId;
-                            var health = MyVisualScriptLogicProvider.GetPlayersHealth(playerid);
-                            health -= 5f; // Decrease health by 1 point
-                            if (health <= 0)
+                            var controllingPlayer = character.ControllerInfo?.ControllingIdentityId;
+                            if (controllingPlayer.HasValue)
                             {
-                                MyVisualScriptLogicProvider.SetPlayersHealth(playerid, 0);
-                                // You might want to add logic here to handle player death
-                            }
-                            else
-                            {
-                                MyVisualScriptLogicProvider.SetPlayersHealth(playerid, health);
+                                var playerid = controllingPlayer.Value;
+                                var health = MyVisualScriptLogicProvider.GetPlayersHealth(playerid);
+                                health -= DamageAmount;
+                                if (health <= 0)
+                                {
+                                    MyVisualScriptLogicProvider.SetPlayersHealth(playerid, 0);
+                                }
+                                else
+                                {
+                                    MyVisualScriptLogicProvider.SetPlayersHealth(playerid, health);
+                                }
                             }
                         }
                     }
