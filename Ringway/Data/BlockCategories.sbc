@@ -6,7 +6,7 @@
         <TypeId>GuiBlockCategoryDefinition</TypeId>
         <SubtypeId>RingwayBlocks</SubtypeId>
       </Id>
-      <DisplayName>Teleport Gateway Blocks</DisplayName>
+      <DisplayName>Ringway Blocks</DisplayName>
       <Name>Ringway</Name>
       <ItemIds>
         <string>Collector/RingwayCore</string>

@@ -23,6 +23,15 @@
             <MaxIntegrity>999999999</MaxIntegrity>
             <DropProbability>0</DropProbability>
             <Health>1</Health>
+            <MinimalPricePerUnit>1000000</MinimalPricePerUnit>
+            <MinimumOfferAmount>1</MinimumOfferAmount>
+            <MaximumOfferAmount>1</MaximumOfferAmount>
+            <MinimumOrderAmount>0</MinimumOrderAmount>
+            <MaximumOrderAmount>0</MaximumOrderAmount>
+            <CanPlayerOrder>true</CanPlayerOrder>
+
+            <MinimumAcquisitionAmount>1</MinimumAcquisitionAmount>
+            <MaximumAcquisitionAmount>1</MaximumAcquisitionAmount>			
         </Component>
  
     </Components>

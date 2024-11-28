@@ -83,10 +83,10 @@ namespace WarpDriveMod
                 maxHeat = 180f, // Shutdown when this amount of heat has been reached. this is in seconds if heatGain = 1 / 60f so it's 3 minutes;
                 heatGain = 0 / 60f, // Amount of heat gained per tick = 1% per second if set 1, max possible 10
                 heatDissipationDrive = 2 / 60f, // Amount of heat dissipated by warp drives every tick
-                baseRequiredPower = 126f, //MW
+                baseRequiredPower = 5f, //MW
                 baseRequiredPowerSmall = 5f, // MW
                 powerRequirementMultiplier = 2, // each speed step will take baseRequiredPower/Small and * powerRequirementMultiplier
-                powerRequirementBySpeedDeviderLarge = 6f, // Now power requirement is based on mass + speed!, to lower power requirement set this to higher number.
+                powerRequirementBySpeedDeviderLarge = 24f, // Now power requirement is based on mass + speed!, to lower power requirement set this to higher number.
                 powerRequirementBySpeedDeviderSmall = 6f, // Now power requirement is based on mass + speed!, to lower power requirement set this to higher number.
                 AllowInGravity = false, // allow to activate warp in gravity, ship will drop to 1km/s when in gravity and stop id altitude is below 300m
                 AllowUnlimittedSpeed = false, // if set to true, will allow setting max speed to any number, if false them max is 100km/s = 100000.

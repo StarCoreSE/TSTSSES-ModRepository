@@ -2589,6 +2589,7 @@ Working room</Text>
                             <Value>
                               encounterType:Replenish
                               verticalOffset:0
+                              initTradeWith:SuppliesSell
                             </Value>
                           </item>
                         </dictionary>

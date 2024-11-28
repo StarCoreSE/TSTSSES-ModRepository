@@ -558,6 +558,7 @@
                             <Value>
                               encounterType:Replenish
                               verticalOffset:2
+                              initTradeWith:ItemsSell
                             </Value>
                           </item>
                         </dictionary>

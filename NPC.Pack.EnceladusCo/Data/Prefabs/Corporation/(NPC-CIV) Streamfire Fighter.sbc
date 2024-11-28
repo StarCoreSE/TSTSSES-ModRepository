@@ -4724,8 +4724,8 @@
                             <Value>
                               encounterType:Space
                               shipSize:Small
-                              rarity:Rare
-                            averageProjectileSpeed:400</Value>
+                              rarity:Uncommon
+                            </Value>
                           </item>
                         </dictionary>
                       </Storage>

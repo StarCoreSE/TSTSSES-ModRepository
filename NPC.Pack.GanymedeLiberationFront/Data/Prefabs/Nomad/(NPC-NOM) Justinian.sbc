@@ -5141,7 +5141,6 @@ Items=false
                               shipSize:Medium
                               rarity:Uncommon
                               targetEngageDistance:350
-                              averageProjectileSpeed:500
                             </Value>
                           </item>
                         </dictionary>
