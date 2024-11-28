@@ -210,6 +210,12 @@ namespace NaniteConstructionSystem.Entities.Targets
                     if (!m_targetBlocks.ContainsKey(target))
                         m_targetBlocks.Add(target, 0);
 
+                    if (!IsInRange(target, m_maxDistance))
+                    {
+                        AddToIgnoreList(target);
+                        CancelTarget(target);
+                    }
+
                     NaniteWelder welder = (NaniteWelder)m_constructionBlock.ToolManager.Tools.FirstOrDefault(x => x.TargetBlock == target && x is NaniteWelder);
                     if (welder == null)
                     {
@@ -308,7 +314,8 @@ namespace NaniteConstructionSystem.Entities.Targets
                     }
                 }
                 
-                CreateConstructionParticle(target);
+                if (IsInRange(target, m_maxDistance))
+                    CreateConstructionParticle(target);
             }
             catch (Exception e)
             {

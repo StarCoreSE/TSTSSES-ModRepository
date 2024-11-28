@@ -294,7 +294,8 @@ namespace NaniteConstructionSystem.Entities.Targets
                 }
             }
 
-            CreateLifeSupportParticles(player);
+            if (IsInRange(player.GetPosition(), m_maxDistance))
+                CreateLifeSupportParticles(player);
         }
 
         private bool DoesTargetNeedLifeSupport(IMyPlayer player)

@@ -293,6 +293,13 @@ namespace NaniteConstructionSystem.Entities.Targets
                 if (!((m_constructionBlock.FactoryState == NaniteConstructionBlock.FactoryStates.Active || m_constructionBlock.FactoryState == NaniteConstructionBlock.FactoryStates.MissingParts) && (TargetList.Count > 0 || PotentialTargetList.Count > 0)))
                     return;
 
+                if (!IsInRange(target, m_maxDistance))
+                {
+                    Logging.Instance.WriteLine("[Deconstruction] Cancelling Deconstruction Target due to being out of range", 1);
+                    CancelTarget(target);
+                    return;
+                }
+
                 NaniteGrinder grinder = (NaniteGrinder)m_constructionBlock.ToolManager.Tools.FirstOrDefault(x => x.TargetBlock == target && x is NaniteGrinder);
 
                 if (grinder == null)
@@ -316,16 +323,10 @@ namespace NaniteConstructionSystem.Entities.Targets
                     CancelTarget(target);
                     return;
                 }
-
-                if (!IsInRange(target, m_maxDistance))
-                {
-                    Logging.Instance.WriteLine("[Deconstruction] Cancelling Deconstruction Target due to being out of range", 1);
-                    CancelTarget(target);
-                    return;
-                }
             }
 
-            CreateDeconstructionParticle(target);
+            if (IsInRange(target, m_maxDistance))
+                CreateDeconstructionParticle(target);
         }
 
         private void RemoveGridTarget(IMyCubeGrid grid)

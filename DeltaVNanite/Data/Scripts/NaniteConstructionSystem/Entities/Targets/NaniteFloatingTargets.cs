@@ -193,7 +193,8 @@ namespace NaniteConstructionSystem.Entities.Targets
                 }
             }
             
-            CreateFloatingParticle(floating);
+            if (IsInRange(floating.GetPosition(), m_maxDistance))
+                CreateFloatingParticle(floating);
         }
 
         private void OpenBag(IMyEntity bagEntity)

@@ -400,7 +400,8 @@ namespace NaniteConstructionSystem.Entities.Targets
                     }
                 }
 
-                CreateProjectionParticle(target);
+                if (IsInRange(target, m_maxDistance))
+                    CreateProjectionParticle(target);
             }
             catch (Exception e)
             {

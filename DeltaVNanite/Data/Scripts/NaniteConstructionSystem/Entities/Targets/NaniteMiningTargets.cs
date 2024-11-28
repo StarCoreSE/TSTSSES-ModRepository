@@ -784,6 +784,13 @@ namespace NaniteConstructionSystem.Entities.Targets
                 if (!m_targetTracker.ContainsKey(target))
                     m_constructionBlock.SendAddTarget(target);
 
+                if (!IsInRange(target.Position, m_maxDistance))
+                {
+                    AddToIgnoreList(target);
+                    CancelTarget(target);
+                    return;
+                }
+                
                 if (m_targetTracker.ContainsKey(target))
                 {
                     var trackedItem = m_targetTracker[target];
@@ -809,7 +816,11 @@ namespace NaniteConstructionSystem.Entities.Targets
                 }
             }
 
-            MyAPIGateway.Utilities.InvokeOnGameThread(() => { CreateMiningParticles(target); });
+            MyAPIGateway.Utilities.InvokeOnGameThread(() =>
+            {
+                if (IsInRange(target.Position, m_maxDistance))
+                    CreateMiningParticles(target);
+            });
         }
 
         private void CreateMiningParticles(NaniteMiningItem target)
