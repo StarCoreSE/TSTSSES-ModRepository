@@ -64,20 +64,10 @@ public class PersistentFactionObjectives : MySessionComponentBase
 
         foreach (var entry in questLogHideTimes)
         {
-            long playerId = entry.Key;
-            DateTime hideTime = entry.Value;
-
-            if (hideTime <= now)
+            if (entry.Value <= now)
             {
-                MyVisualScriptLogicProvider.SetQuestlog(false, "", playerId);
-                playersToRemove.Add(playerId);
-                questLogCountdowns.Remove(playerId); // Stop the countdown
-            }
-            else
-            {
-                int remainingSeconds = (int)(hideTime - now).TotalSeconds;
-                string title = $"Faction Objectives (Hiding in {remainingSeconds}s)";
-                MyVisualScriptLogicProvider.SetQuestlog(true, title, playerId); // Update the quest log title
+                MyVisualScriptLogicProvider.SetQuestlog(false, "", entry.Key);
+                playersToRemove.Add(entry.Key);
             }
         }
 
@@ -89,18 +79,14 @@ public class PersistentFactionObjectives : MySessionComponentBase
 
     private void OnPlayerConnected(long playerId)
     {
-        if (!isServer) return; // Only the server handles player connection events
+        if (!isServer) return;
 
         var playerFaction = MyAPIGateway.Session.Factions.TryGetPlayerFaction(playerId);
         if (playerFaction == null) return;
 
         var factionId = playerFaction.FactionId;
-
-        // Show the quest log to the connected player
-        ShowQuestLogForPlayer(factionId, playerId, 30); // Show for 30 seconds
+        ShowQuestLogForPlayer(factionId, playerId, 30);
     }
-
-
 
     private void OnMessageEntered(string messageText, ref bool sendToOthers)
     {
@@ -118,7 +104,7 @@ public class PersistentFactionObjectives : MySessionComponentBase
         var playerId = MyAPIGateway.Session.Player.IdentityId;
         var playerFaction = MyAPIGateway.Session.Factions.TryGetPlayerFaction(playerId);
 
-        if (args[1].ToLower() == "help" || args[1].ToLower() == "motd")
+        if (args[1].ToLower() == "help")
         {
             ShowHelp();
             return;
@@ -156,7 +142,6 @@ public class PersistentFactionObjectives : MySessionComponentBase
                 HandleNotifications(args, playerId);
                 break;
             default:
-                // Show a warning for invalid commands
                 MyAPIGateway.Utilities.ShowMessage("Objectives", $"Invalid command '{args[1]}'. Use '/obj help' for a list of valid commands.");
                 break;
         }
@@ -183,11 +168,14 @@ public class PersistentFactionObjectives : MySessionComponentBase
             factionObjectives[factionId] = new List<string>();
         }
 
-        if (!factionObjectives[factionId].Contains(objectiveText)) // Avoid duplicate additions
+        if (!factionObjectives[factionId].Contains(objectiveText)) // Avoid duplicates
         {
             factionObjectives[factionId].Add(objectiveText);
-            SaveObjectives(); // Save changes to the file
-            ShowQuestLogToFaction(factionId, 10); // Show log for 10 seconds
+            SaveObjectives();
+
+            // Show the updated quest log to all faction members
+            ShowQuestLogToFaction(factionId, 10); // Show for 10 seconds
+
             MyAPIGateway.Utilities.ShowMessage("Objectives", $"Objective added: {objectiveText}");
         }
         else
@@ -259,9 +247,11 @@ public class PersistentFactionObjectives : MySessionComponentBase
 
         var removedObjective = factionObjectives[factionId][index - 1];
         factionObjectives[factionId].RemoveAt(index - 1);
+        SaveObjectives();
 
-        SaveObjectives(); // Save changes to the file
-        ShowQuestLogToFaction(factionId, 10); // Show log for 10 seconds
+        // Show the updated quest log to all faction members
+        ShowQuestLogToFaction(factionId, 10); // Show for 10 seconds
+
         MyAPIGateway.Utilities.ShowMessage("Objectives", $"Removed objective: {removedObjective}");
     }
 
@@ -274,18 +264,7 @@ public class PersistentFactionObjectives : MySessionComponentBase
             return;
         }
 
-        // Ensure the faction has objectives
-        if (!factionObjectives.ContainsKey(factionId) || factionObjectives[factionId].Count == 0)
-        {
-            MyAPIGateway.Utilities.ShowMessage("Objectives", "No objectives to broadcast.");
-            return;
-        }
-
-        // Show the quest log to all members of the faction
         ShowQuestLogToFaction(factionId, duration);
-
-        // Provide feedback to the command issuer
-        MyAPIGateway.Utilities.ShowMessage("Objectives", $"Broadcasting objectives to faction members for {duration} seconds.");
     }
 
     private void HandleHideQuestLog(long playerId)
@@ -327,48 +306,28 @@ public class PersistentFactionObjectives : MySessionComponentBase
         MyAPIGateway.Utilities.ShowMissionScreen(title, currentobjprefix, currentobj, body);
     }
 
-    private void ShowQuestLogForPlayer(long factionId, long playerId, int duration = 10)
+    private void ShowQuestLogForPlayer(long factionId, long playerId, int duration)
     {
         if (!factionObjectives.ContainsKey(factionId)) return;
 
-        // Get objectives for the faction
         var objectives = factionObjectives[factionId];
-
-        // Update the quest log title
-        string title = $"Faction Objectives (Hiding in {duration}s)";
-        MyVisualScriptLogicProvider.SetQuestlog(true, title, playerId);
-
-        // Clear the existing details
+        MyVisualScriptLogicProvider.SetQuestlog(true, "Faction Objectives", playerId);
         MyVisualScriptLogicProvider.RemoveQuestlogDetails(playerId);
 
-        // Add each objective to the quest log
         foreach (var objective in objectives)
         {
             MyVisualScriptLogicProvider.AddQuestlogObjective(objective, false, true, playerId);
         }
 
-        // Set a timer to hide the quest log
-        if (isServer)
-        {
-            questLogHideTimes[playerId] = DateTime.UtcNow.AddSeconds(duration);
-            questLogCountdowns[playerId] = duration;
-        }
+        // Set a timer to hide the quest log after the duration
+        questLogHideTimes[playerId] = DateTime.UtcNow.AddSeconds(duration);
     }
 
     private void ShowQuestLogToFaction(long factionId, int duration = 10)
     {
-        // Retrieve the faction by ID
         var faction = MyAPIGateway.Session.Factions.TryGetFactionById(factionId);
         if (faction == null) return;
 
-        // Check if the faction has objectives
-        if (!factionObjectives.ContainsKey(factionId) || factionObjectives[factionId].Count == 0)
-        {
-            MyAPIGateway.Utilities.ShowMessage("Objectives", "No objectives found to broadcast.");
-            return;
-        }
-
-        // Broadcast the quest log to all faction members
         foreach (var memberId in faction.Members.Keys)
         {
             if (notificationsDisabled.Contains(memberId)) continue;
@@ -380,30 +339,36 @@ public class PersistentFactionObjectives : MySessionComponentBase
     private bool IsFactionLeaderOrFounder(long factionId, long playerId)
     {
         var faction = MyAPIGateway.Session.Factions.TryGetFactionById(factionId);
+        if (faction == null)
+        {
+            MyLog.Default.WriteLineAndConsole($"Faction not found for ID {factionId}");
+            return false;
+        }
+
         MyFactionMember member;
-        if (faction != null && faction.Members.TryGetValue(playerId, out member))
+        if (faction.Members.TryGetValue(playerId, out member))
         {
             return member.IsLeader || member.IsFounder;
         }
 
+        MyLog.Default.WriteLineAndConsole($"Player {playerId} is not a member of faction {factionId}");
         return false;
     }
-
+         
     private void SaveObjectives()
     {
         try
         {
-            var writer = MyAPIGateway.Utilities.WriteFileInWorldStorage(FileName, typeof(PersistentFactionObjectives));
-
-            foreach (var kvp in factionObjectives)
+            using (var writer = MyAPIGateway.Utilities.WriteFileInWorldStorage(FileName, typeof(PersistentFactionObjectives)))
             {
-                foreach (var obj in kvp.Value)
+                foreach (var kvp in factionObjectives)
                 {
-                    writer.WriteLine($"{kvp.Key}:{obj}");
+                    foreach (var obj in kvp.Value)
+                    {
+                        writer.WriteLine($"{kvp.Key}:{obj}");
+                    }
                 }
             }
-
-            writer.Close();
         }
         catch (Exception ex)
         {
@@ -418,23 +383,23 @@ public class PersistentFactionObjectives : MySessionComponentBase
             if (!MyAPIGateway.Utilities.FileExistsInWorldStorage(FileName, typeof(PersistentFactionObjectives)))
                 return;
 
-            var reader = MyAPIGateway.Utilities.ReadFileInWorldStorage(FileName, typeof(PersistentFactionObjectives));
-            string line;
-
-            while ((line = reader.ReadLine()) != null)
+            using (var reader = MyAPIGateway.Utilities.ReadFileInWorldStorage(FileName, typeof(PersistentFactionObjectives)))
             {
-                var parts = line.Split(new[] { ':' }, 2); // Ensure splitting into only two parts
+                string line;
                 long factionId;
-                if (parts.Length == 2 && long.TryParse(parts[0], out factionId))
+                while ((line = reader.ReadLine()) != null)
                 {
-                    if (!factionObjectives.ContainsKey(factionId))
-                        factionObjectives[factionId] = new List<string>();
+                    var parts = line.Split(new[] { ':' }, 2);
+                    if (parts.Length == 2 && long.TryParse(parts[0], out factionId))
+                    {
+                        if (!factionObjectives.ContainsKey(factionId))
+                            factionObjectives[factionId] = new List<string>();
 
-                    if (!factionObjectives[factionId].Contains(parts[1])) // Avoid duplicates
-                        factionObjectives[factionId].Add(parts[1]);
+                        if (!factionObjectives[factionId].Contains(parts[1]))
+                            factionObjectives[factionId].Add(parts[1]);
+                    }
                 }
             }
-            reader.Close();
         }
         catch (Exception ex)
         {
