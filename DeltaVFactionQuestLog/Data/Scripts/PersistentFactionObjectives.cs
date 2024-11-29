@@ -141,6 +141,9 @@ public class PersistentFactionObjectives : MySessionComponentBase
             case "notifications":
                 HandleNotifications(args, playerId);
                 break;
+            case "clear":
+                HandleClearObjectives(factionId, playerId);
+                break;
             default:
                 MyAPIGateway.Utilities.ShowMessage("Objectives", $"Invalid command '{args[1]}'. Use '/obj help' for a list of valid commands.");
                 break;
@@ -173,8 +176,8 @@ public class PersistentFactionObjectives : MySessionComponentBase
             factionObjectives[factionId].Add(objectiveText);
             SaveObjectives();
 
-            // Show the updated quest log to all faction members
-            ShowQuestLogToFaction(factionId, 10); // Show for 10 seconds
+            // Show updated quest log to all faction members
+            ShowQuestLogToFaction(factionId, 10, $"[Added: {objectiveText}]");
 
             MyAPIGateway.Utilities.ShowMessage("Objectives", $"Objective added: {objectiveText}");
         }
@@ -249,8 +252,8 @@ public class PersistentFactionObjectives : MySessionComponentBase
         factionObjectives[factionId].RemoveAt(index - 1);
         SaveObjectives();
 
-        // Show the updated quest log to all faction members
-        ShowQuestLogToFaction(factionId, 10); // Show for 10 seconds
+        // Show updated quest log to all faction members
+        ShowQuestLogToFaction(factionId, 10, $"[Removed: {removedObjective}]");
 
         MyAPIGateway.Utilities.ShowMessage("Objectives", $"Removed objective: {removedObjective}");
     }
@@ -264,7 +267,19 @@ public class PersistentFactionObjectives : MySessionComponentBase
             return;
         }
 
-        ShowQuestLogToFaction(factionId, duration);
+        if (!factionObjectives.ContainsKey(factionId) || factionObjectives[factionId].Count == 0)
+        {
+            MyAPIGateway.Utilities.ShowMessage("Objectives", "No objectives to broadcast.");
+            return;
+        }
+
+        var playerName = MyAPIGateway.Session.Player?.DisplayName ?? "Unknown";
+        string customTitle = $"Faction Objectives [Broadcasted by {playerName}, {duration}s]";
+
+        // Broadcast to faction members
+        ShowQuestLogToFaction(factionId, duration, customTitle);
+
+        MyAPIGateway.Utilities.ShowMessage("Objectives", $"Broadcasting objectives for {duration} seconds by {playerName}.");
     }
 
     private void HandleHideQuestLog(long playerId)
@@ -285,9 +300,33 @@ public class PersistentFactionObjectives : MySessionComponentBase
         MyAPIGateway.Utilities.ShowMessage("Objectives", "Notifications turned off.");
     }
 
+    private void HandleClearObjectives(long factionId, long playerId)
+    {
+        if (!IsFactionLeaderOrFounder(factionId, playerId))
+        {
+            MyAPIGateway.Utilities.ShowMessage("Objectives", "Only faction leaders or founders can clear all objectives.");
+            return;
+        }
+
+        if (!factionObjectives.ContainsKey(factionId) || factionObjectives[factionId].Count == 0)
+        {
+            MyAPIGateway.Utilities.ShowMessage("Objectives", "No objectives to clear.");
+            return;
+        }
+
+        // Clear all objectives for the faction
+        factionObjectives[factionId].Clear();
+        SaveObjectives();
+
+        // Notify all faction members about the cleared objectives
+        ShowQuestLogToFaction(factionId, 10, "[Cleared]");
+
+        MyAPIGateway.Utilities.ShowMessage("Objectives", "All objectives have been cleared.");
+    }
+
+
     private void ShowHelp()
     {
-        // Define the mission screen content
         string title = "PersistentFactionObjectives";
         string currentobjprefix = "Available Commands";
         string body = @"
@@ -298,32 +337,36 @@ public class PersistentFactionObjectives : MySessionComponentBase
 /obj broadcast <time> - Show the quest log to all members for <time> seconds
 /obj hide - Manually hide the quest log
 /obj notifications off - Disable automatic notifications
+/obj clear - Clear all objectives (leaders only)
 /obj help - Show this help message
 ";
         string currentobj = "";
 
-        // Show the mission screen
         MyAPIGateway.Utilities.ShowMissionScreen(title, currentobjprefix, currentobj, body);
     }
 
-    private void ShowQuestLogForPlayer(long factionId, long playerId, int duration)
+    private void ShowQuestLogForPlayer(long factionId, long playerId, int duration, string customTitle = "Faction Objectives")
     {
         if (!factionObjectives.ContainsKey(factionId)) return;
 
         var objectives = factionObjectives[factionId];
-        MyVisualScriptLogicProvider.SetQuestlog(true, "Faction Objectives", playerId);
+
+        // Show the quest log with the custom title
+        MyVisualScriptLogicProvider.SetQuestlog(true, customTitle, playerId);
         MyVisualScriptLogicProvider.RemoveQuestlogDetails(playerId);
 
+        // Add each objective
         foreach (var objective in objectives)
         {
             MyVisualScriptLogicProvider.AddQuestlogObjective(objective, false, true, playerId);
         }
 
-        // Set a timer to hide the quest log after the duration
+        // Set a timer to hide the quest log
         questLogHideTimes[playerId] = DateTime.UtcNow.AddSeconds(duration);
     }
 
-    private void ShowQuestLogToFaction(long factionId, int duration = 10)
+
+    private void ShowQuestLogToFaction(long factionId, int duration, string customTitle = "Faction Objectives")
     {
         var faction = MyAPIGateway.Session.Factions.TryGetFactionById(factionId);
         if (faction == null) return;
@@ -332,7 +375,7 @@ public class PersistentFactionObjectives : MySessionComponentBase
         {
             if (notificationsDisabled.Contains(memberId)) continue;
 
-            ShowQuestLogForPlayer(factionId, memberId, duration);
+            ShowQuestLogForPlayer(factionId, memberId, duration, customTitle);
         }
     }
 
