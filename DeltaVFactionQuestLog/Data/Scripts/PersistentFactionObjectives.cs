@@ -176,10 +176,13 @@ public class PersistentFactionObjectives : MySessionComponentBase
             factionObjectives[factionId].Add(objectiveText);
             SaveObjectives();
 
-            // Show updated quest log to all faction members
-            ShowQuestLogToFaction(factionId, 10, $"[Added: {objectiveText}]");
+            // Get the player's name
+            string playerName = MyAPIGateway.Session.Player?.DisplayName ?? "Unknown";
 
-            MyAPIGateway.Utilities.ShowMessage("Objectives", $"Objective added: {objectiveText}");
+            // Show updated quest log to all faction members
+            ShowQuestLogToFaction(factionId, 10, $"Faction Objectives [Added by {playerName}: {objectiveText}]");
+
+            MyAPIGateway.Utilities.ShowMessage("Objectives", $"{playerName} added objective: {objectiveText}");
         }
         else
         {
@@ -252,10 +255,13 @@ public class PersistentFactionObjectives : MySessionComponentBase
         factionObjectives[factionId].RemoveAt(index - 1);
         SaveObjectives();
 
-        // Show updated quest log to all faction members
-        ShowQuestLogToFaction(factionId, 10, $"[Removed: {removedObjective}]");
+        // Get the player's name
+        string playerName = MyAPIGateway.Session.Player?.DisplayName ?? "Unknown";
 
-        MyAPIGateway.Utilities.ShowMessage("Objectives", $"Removed objective: {removedObjective}");
+        // Show updated quest log to all faction members
+        ShowQuestLogToFaction(factionId, 10, $"Faction Objectives [Removed by {playerName}: {removedObjective}]");
+
+        MyAPIGateway.Utilities.ShowMessage("Objectives", $"{playerName} removed objective: {removedObjective}");
     }
 
     private void HandleBroadcast(string[] args, long factionId)
@@ -290,14 +296,41 @@ public class PersistentFactionObjectives : MySessionComponentBase
 
     private void HandleNotifications(string[] args, long playerId)
     {
-        if (args.Length < 3 || args[2].ToLower() != "off")
+        if (args.Length < 3)
         {
-            MyAPIGateway.Utilities.ShowMessage("Objectives", "Usage: /obj notifications off");
+            MyAPIGateway.Utilities.ShowMessage("Objectives", "Usage: /obj notifications <on/off>");
             return;
         }
 
-        notificationsDisabled.Add(playerId);
-        MyAPIGateway.Utilities.ShowMessage("Objectives", "Notifications turned off.");
+        string option = args[2].ToLower();
+        if (option == "off")
+        {
+            if (notificationsDisabled.Contains(playerId))
+            {
+                MyAPIGateway.Utilities.ShowMessage("Objectives", "Notifications are already turned off.");
+            }
+            else
+            {
+                notificationsDisabled.Add(playerId);
+                MyAPIGateway.Utilities.ShowMessage("Objectives", "Notifications turned off.");
+            }
+        }
+        else if (option == "on")
+        {
+            if (!notificationsDisabled.Contains(playerId))
+            {
+                MyAPIGateway.Utilities.ShowMessage("Objectives", "Notifications are already turned on.");
+            }
+            else
+            {
+                notificationsDisabled.Remove(playerId);
+                MyAPIGateway.Utilities.ShowMessage("Objectives", "Notifications turned on.");
+            }
+        }
+        else
+        {
+            MyAPIGateway.Utilities.ShowMessage("Objectives", "Invalid option. Usage: /obj notifications <on/off>");
+        }
     }
 
     private void HandleClearObjectives(long factionId, long playerId)
@@ -318,12 +351,14 @@ public class PersistentFactionObjectives : MySessionComponentBase
         factionObjectives[factionId].Clear();
         SaveObjectives();
 
+        // Get the player's name
+        string playerName = MyAPIGateway.Session.Player?.DisplayName ?? "Unknown";
+
         // Notify all faction members about the cleared objectives
-        ShowQuestLogToFaction(factionId, 10, "[Cleared]");
+        ShowQuestLogToFaction(factionId, 10, $"[Cleared by {playerName}]");
 
-        MyAPIGateway.Utilities.ShowMessage("Objectives", "All objectives have been cleared.");
+        MyAPIGateway.Utilities.ShowMessage("Objectives", $"{playerName} cleared all objectives.");
     }
-
 
     private void ShowHelp()
     {
@@ -336,7 +371,8 @@ public class PersistentFactionObjectives : MySessionComponentBase
 /obj remove <index> - Remove an objective (leaders only)
 /obj broadcast <time> - Show the quest log to all members for <time> seconds
 /obj hide - Manually hide the quest log
-/obj notifications off - Disable automatic notifications
+/obj notifications on - Enable notifications
+/obj notifications off - Disable notifications
 /obj clear - Clear all objectives (leaders only)
 /obj help - Show this help message
 ";
