@@ -274,8 +274,18 @@ public class PersistentFactionObjectives : MySessionComponentBase
             return;
         }
 
+        // Ensure the faction has objectives
+        if (!factionObjectives.ContainsKey(factionId) || factionObjectives[factionId].Count == 0)
+        {
+            MyAPIGateway.Utilities.ShowMessage("Objectives", "No objectives to broadcast.");
+            return;
+        }
+
+        // Show the quest log to all members of the faction
         ShowQuestLogToFaction(factionId, duration);
-        MyAPIGateway.Utilities.ShowMessage("Objectives", $"Broadcasting quest log to faction for {duration} seconds.");
+
+        // Provide feedback to the command issuer
+        MyAPIGateway.Utilities.ShowMessage("Objectives", $"Broadcasting objectives to faction members for {duration} seconds.");
     }
 
     private void HandleHideQuestLog(long playerId)
@@ -321,19 +331,25 @@ public class PersistentFactionObjectives : MySessionComponentBase
     {
         if (!factionObjectives.ContainsKey(factionId)) return;
 
+        // Get objectives for the faction
         var objectives = factionObjectives[factionId];
+
+        // Update the quest log title
         string title = $"Faction Objectives (Hiding in {duration}s)";
         MyVisualScriptLogicProvider.SetQuestlog(true, title, playerId);
+
+        // Clear the existing details
         MyVisualScriptLogicProvider.RemoveQuestlogDetails(playerId);
 
+        // Add each objective to the quest log
         foreach (var objective in objectives)
         {
             MyVisualScriptLogicProvider.AddQuestlogObjective(objective, false, true, playerId);
         }
 
+        // Set a timer to hide the quest log
         if (isServer)
         {
-            // Only the server sets the hide timer
             questLogHideTimes[playerId] = DateTime.UtcNow.AddSeconds(duration);
             questLogCountdowns[playerId] = duration;
         }
@@ -341,14 +357,23 @@ public class PersistentFactionObjectives : MySessionComponentBase
 
     private void ShowQuestLogToFaction(long factionId, int duration = 10)
     {
+        // Retrieve the faction by ID
         var faction = MyAPIGateway.Session.Factions.TryGetFactionById(factionId);
         if (faction == null) return;
 
-        foreach (var member in faction.Members.Keys)
+        // Check if the faction has objectives
+        if (!factionObjectives.ContainsKey(factionId) || factionObjectives[factionId].Count == 0)
         {
-            if (notificationsDisabled.Contains(member)) continue;
+            MyAPIGateway.Utilities.ShowMessage("Objectives", "No objectives found to broadcast.");
+            return;
+        }
 
-            ShowQuestLogForPlayer(factionId, member, duration);
+        // Broadcast the quest log to all faction members
+        foreach (var memberId in faction.Members.Keys)
+        {
+            if (notificationsDisabled.Contains(memberId)) continue;
+
+            ShowQuestLogForPlayer(factionId, memberId, duration);
         }
     }
 
