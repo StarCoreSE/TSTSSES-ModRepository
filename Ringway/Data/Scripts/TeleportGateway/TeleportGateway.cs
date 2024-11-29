@@ -46,7 +46,7 @@ namespace TeleportMechanisms {
 
         private const float POWER_THRESHOLD = 0.1f; // 10% power threshold for failure
         private const float BASE_COUNTDOWN_SECONDS = 5; // Minimum countdown time
-        private const float SECONDS_PER_100KM = 0.01f; // Additional second per 100km
+        private const float SECONDS_PER_100KM = 0.1f; // Additional second per 100km
         private const float POWER_PER_100KM = 1.0f; // 1 MWh per 100km
         private const float MIN_TELEPORT_CHARGE_PERCENTAGE = 0.1f; // 10% charge threshold
 
