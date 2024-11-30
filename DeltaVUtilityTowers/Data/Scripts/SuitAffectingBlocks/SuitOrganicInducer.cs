@@ -59,8 +59,21 @@ namespace SuitOrganicInducer
 
                     if (_currentTarget != null)
                     {
-                        ChargeTarget(_currentTarget);
-                        UpdateHudText(_currentTarget);
+                        var controllingPlayer = _currentTarget.ControllerInfo?.ControllingIdentityId;
+                        if (controllingPlayer.HasValue)
+                        {
+                            float energyLevel = MyVisualScriptLogicProvider.GetPlayersEnergyLevel(controllingPlayer.Value);
+                            if (energyLevel < 1.0f)
+                            {
+                                ChargeTarget(_currentTarget);
+                                UpdateHudText(_currentTarget);
+                            }
+                            else
+                            {
+                                _currentTarget = null;
+                                _inducerBlock.HudText = "Target fully charged. Searching for new target...";
+                            }
+                        }
                     }
                     else
                     {
