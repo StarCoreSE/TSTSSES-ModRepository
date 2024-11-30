@@ -49,41 +49,44 @@ namespace SuitOrganicInducer
         {
             try
             {
-                if (_inducerBlock.IsWorking)
+                if (_inducerBlock?.IsWorking != true)
                 {
-                    if (_currentTarget == null || _noTargetCounter >= 30 || !IsValidTarget(_currentTarget))
-                    {
-                        _currentTarget = FindNewTarget();
-                        _noTargetCounter = 0;
-                    }
+                    _inducerBlock.HudText = "Organic Inducer Offline";
+                    return;
+                }
 
-                    if (_currentTarget != null)
+                // If we have no target or current target is invalid
+                if (_currentTarget == null || _noTargetCounter >= 30 || !IsValidTarget(_currentTarget))
+                {
+                    _currentTarget = FindNewTarget();
+                    _noTargetCounter = 0;
+                }
+
+                if (_currentTarget != null)
+                {
+                    var controllingPlayer = _currentTarget.ControllerInfo?.ControllingIdentityId;
+                    if (controllingPlayer.HasValue)
                     {
-                        var controllingPlayer = _currentTarget.ControllerInfo?.ControllingIdentityId;
-                        if (controllingPlayer.HasValue)
+                        float energyLevel = MyVisualScriptLogicProvider.GetPlayersEnergyLevel(controllingPlayer.Value);
+                        if (energyLevel >= 1.0f)
                         {
-                            float energyLevel = MyVisualScriptLogicProvider.GetPlayersEnergyLevel(controllingPlayer.Value);
-                            if (energyLevel < 1.0f)
+                            _inducerBlock.HudText = "Target fully charged. Searching for new target...";
+                            _currentTarget = null;
+                        }
+                        else
+                        {
+                            ChargeTarget(_currentTarget);
+                            if (_currentTarget != null) // Check again as ChargeTarget might set it to null
                             {
-                                ChargeTarget(_currentTarget);
                                 UpdateHudText(_currentTarget);
                             }
-                            else
-                            {
-                                _currentTarget = null;
-                                _inducerBlock.HudText = "Target fully charged. Searching for new target...";
-                            }
                         }
-                    }
-                    else
-                    {
-                        _noTargetCounter++;
-                        _inducerBlock.HudText = "Searching for target...";
                     }
                 }
                 else
                 {
-                    _inducerBlock.HudText = "Organic Inducer Offline";
+                    _noTargetCounter++;
+                    _inducerBlock.HudText = "Searching for target...";
                 }
             }
             catch (System.Exception e)
@@ -94,11 +97,20 @@ namespace SuitOrganicInducer
 
         private void UpdateHudText(IMyCharacter target)
         {
+            if (target == null || _inducerBlock == null) return;
+
             var controllingPlayer = target.ControllerInfo?.ControllingIdentityId;
-            if (controllingPlayer.HasValue)
+            if (!controllingPlayer.HasValue) return;
+
+            var playerName = MyVisualScriptLogicProvider.GetPlayersName(controllingPlayer.Value);
+            var energyLevel = MyVisualScriptLogicProvider.GetPlayersEnergyLevel(controllingPlayer.Value);
+
+            if (energyLevel >= 1.0f)
             {
-                var playerName = MyVisualScriptLogicProvider.GetPlayersName(controllingPlayer.Value);
-                var energyLevel = MyVisualScriptLogicProvider.GetPlayersEnergyLevel(controllingPlayer.Value);
+                _inducerBlock.HudText = $"{playerName}'s suit is fully charged";
+            }
+            else
+            {
                 _inducerBlock.HudText = $"Charging {playerName} ({energyLevel:P0})";
             }
         }
@@ -149,22 +161,23 @@ namespace SuitOrganicInducer
 
         private void ChargeTarget(IMyCharacter character)
         {
-            var controllingPlayer = character.ControllerInfo?.ControllingIdentityId;
-            if (controllingPlayer.HasValue)
-            {
-                var playerid = controllingPlayer.Value;
-                var elevel = MyVisualScriptLogicProvider.GetPlayersEnergyLevel(playerid);
-                elevel += ChargeAmount;
+            if (character == null) return;
 
-                if (elevel >= 1)
-                {
-                    MyVisualScriptLogicProvider.SetPlayersEnergyLevel(playerid, 1);
-                    _currentTarget = null; // Target is fully charged, find a new target next update
-                }
-                else
-                {
-                    MyVisualScriptLogicProvider.SetPlayersEnergyLevel(playerid, elevel);
-                }
+            var controllingPlayer = character.ControllerInfo?.ControllingIdentityId;
+            if (!controllingPlayer.HasValue) return;
+
+            var playerid = controllingPlayer.Value;
+            var elevel = MyVisualScriptLogicProvider.GetPlayersEnergyLevel(playerid);
+            elevel += ChargeAmount;
+
+            if (elevel >= 1)
+            {
+                MyVisualScriptLogicProvider.SetPlayersEnergyLevel(playerid, 1);
+                _currentTarget = null;
+            }
+            else
+            {
+                MyVisualScriptLogicProvider.SetPlayersEnergyLevel(playerid, elevel);
             }
         }
 
