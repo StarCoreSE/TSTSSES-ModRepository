@@ -1,5 +1,4 @@
-﻿using DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities;
-using RealGasGiants;
+﻿using DynamicAsteroids;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using System;
@@ -12,11 +11,12 @@ using VRage.Game.Entity;
 using VRage.Game.ModAPI;
 using VRage.ModAPI;
 using VRageMath;
-using static DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidZone;
-using static DynamicAsteroids.Data.Scripts.DynamicAsteroids.MainSession;
+using static DynamicAsteroids.AsteroidZone;
+using static DynamicAsteroids.MainSession;
 
 
-namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
+namespace DynamicAsteroids
+{
     public class AsteroidZone {
         public Vector3D Center { get; set; }
         public double Radius { get; set; }
@@ -106,6 +106,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
         private Dictionary<long, DateTime> _newAsteroidTimestamps = new Dictionary<long, DateTime>(); //JUST ONE MORE BRO JUST ONE MORE DICTIONARY WE GOTTA STORE THE DATA BRO WE MIGHT FORGET!!!
         private const double NEW_ASTEROID_GRACE_PERIOD = 5.0; // seconds
+
 
         private class ZoneCache {
             public AsteroidZone Zone { get; set; }
@@ -259,7 +260,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
         public AsteroidSpawner(RealGasGiantsApi realGasGiantsApi) {
             _realGasGiantsApi = realGasGiantsApi;
-            _networkManager = new ZoneNetworkManager();
+            _networkManager = new ZoneNetworkManager(Log.Info);
         }
 
 

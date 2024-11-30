@@ -1,4 +1,4 @@
-﻿using DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities;
+﻿using DynamicAsteroids;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using System;
@@ -12,7 +12,8 @@ using VRage.Utils;
 using VRageMath;
 using VRageRender;
 
-namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
+namespace DynamicAsteroids
+{
     public partial class MainSession {
         private Queue<AsteroidZone> _lastRemovedZones = new Queue<AsteroidZone>(5); // Add this to class fields
         private HashSet<AsteroidEntity> _orphanedAsteroids = new HashSet<AsteroidEntity>();

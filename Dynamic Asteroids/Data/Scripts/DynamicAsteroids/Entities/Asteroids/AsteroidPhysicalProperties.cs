@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using DynamicAsteroids;
 using VRage.Game;
 using VRageMath;
 
-namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
+namespace DynamicAsteroids
+{
     public class AsteroidPhysicalProperties {
         public float Mass { get; private set; }
         public float Volume { get; private set; }

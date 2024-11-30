@@ -1,21 +1,24 @@
-﻿using DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities;
+﻿using DynamicAsteroids;
 using ProtoBuf;
 using Sandbox.ModAPI;
 using System;
 using System.Collections.Generic;
 using VRageMath;
 
-namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
+namespace DynamicAsteroids
+{
     [ProtoInclude(10, typeof(AsteroidUpdatePacket))]
     [ProtoInclude(11, typeof(AsteroidRemovalPacket))]
     [ProtoInclude(12, typeof(AsteroidSpawnPacket))]
     [ProtoInclude(13, typeof(AsteroidBatchUpdatePacket))]
     [ProtoInclude(14, typeof(ZoneUpdatePacket))]
-    public abstract partial class PacketBase {
+    public abstract partial class PacketBase
+    {
     }
 
     [ProtoContract]
-    public class AsteroidState {
+    public class AsteroidState
+    {
         [ProtoMember(1)]
         public Vector3D Position { get; set; }
 
@@ -39,7 +42,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
         public AsteroidState() { }
 
-        public AsteroidState(AsteroidEntity asteroid) {
+        public AsteroidState(AsteroidEntity asteroid)
+        {
             Position = asteroid.PositionComp.GetPosition();
             Velocity = asteroid.Physics.LinearVelocity;
             AngularVelocity = asteroid.Physics.AngularVelocity;
@@ -49,13 +53,15 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             EntityId = asteroid.EntityId;
         }
 
-        private float GetQuaternionAngleDifference(Quaternion a, Quaternion b) {
+        private float GetQuaternionAngleDifference(Quaternion a, Quaternion b)
+        {
             float dot = a.X * b.X + a.Y * b.Y + a.Z * b.Z + a.W * b.W;
             dot = MathHelper.Clamp(dot, -1f, 1f);
             return 2f * (float)Math.Acos(Math.Abs(dot));
         }
 
-        public bool HasChanged(AsteroidEntity asteroid) {
+        public bool HasChanged(AsteroidEntity asteroid)
+        {
             const double POSITION_THRESHOLD = 0.01;
             const double VELOCITY_THRESHOLD = 0.01;
             const double ROTATION_THRESHOLD = 0.01;
@@ -70,10 +76,17 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
     public class AsteroidUpdatePacket : PacketBase {
         [ProtoMember(1)]
         public List<AsteroidState> States { get; set; } = new List<AsteroidState>();
+
+        public AsteroidUpdatePacket() { }
+
+        public AsteroidUpdatePacket(AsteroidEntity asteroid) {
+            States.Add(new AsteroidState(asteroid));
+        }
     }
 
     [ProtoContract]
-    public class AsteroidSpawnPacket : PacketBase {
+    public class AsteroidSpawnPacket : PacketBase
+    {
         [ProtoMember(1)]
         public Vector3D Position { get; set; }
 
@@ -97,7 +110,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
         public AsteroidSpawnPacket() { }
 
-        public AsteroidSpawnPacket(AsteroidEntity asteroid) {
+        public AsteroidSpawnPacket(AsteroidEntity asteroid)
+        {
             Position = asteroid.PositionComp.GetPosition();
             Size = asteroid.Properties.Diameter;
             Velocity = asteroid.Physics.LinearVelocity;
@@ -109,13 +123,15 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
     }
 
     [ProtoContract]
-    public class AsteroidRemovalPacket : PacketBase {
+    public class AsteroidRemovalPacket : PacketBase
+    {
         [ProtoMember(1)]
         public long EntityId { get; set; }
     }
 
     [ProtoContract]
-    public class AsteroidBatchUpdatePacket : PacketBase {
+    public class AsteroidBatchUpdatePacket : PacketBase
+    {
         [ProtoMember(1)]
         public List<AsteroidState> Updates { get; set; } = new List<AsteroidState>();
 
@@ -127,7 +143,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
     }
 
     [ProtoContract]
-    public class ZoneData {
+    public class ZoneData
+    {
         [ProtoMember(1)]
         public Vector3D Center { get; set; }
 
@@ -148,13 +165,15 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
     }
 
     [ProtoContract]
-    public class ZoneUpdatePacket : PacketBase {
+    public class ZoneUpdatePacket : PacketBase
+    {
         [ProtoMember(1)]
         public List<ZoneData> Zones { get; set; } = new List<ZoneData>();
     }
 
     [ProtoContract]
-    public class AsteroidPacketData {
+    public class AsteroidPacketData
+    {
         [ProtoMember(1)]
         public Vector3D Position { get; set; }
 
@@ -184,7 +203,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
         public AsteroidPacketData() { } // Required for protobuf
 
-        public AsteroidPacketData(AsteroidEntity asteroid, bool isRemoval = false, bool isInitialCreation = false) {
+        public AsteroidPacketData(AsteroidEntity asteroid, bool isRemoval = false, bool isInitialCreation = false)
+        {
             Position = asteroid.PositionComp.GetPosition();
             Velocity = asteroid.Physics.LinearVelocity;
             AngularVelocity = asteroid.Physics.AngularVelocity;
@@ -198,15 +218,18 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
     }
 
     [ProtoContract]
-    public class AsteroidBatchPacket : PacketBase {
+    public class AsteroidBatchPacket : PacketBase
+    {
         [ProtoMember(1)]
         public List<AsteroidPacketData> Messages { get; set; } = new List<AsteroidPacketData>();
 
         public AsteroidBatchPacket() { }
 
-        public AsteroidBatchPacket(IEnumerable<AsteroidEntity> asteroids) {
+        public AsteroidBatchPacket(IEnumerable<AsteroidEntity> asteroids)
+        {
             Messages = new List<AsteroidPacketData>();
-            foreach (var asteroid in asteroids) {
+            foreach (var asteroid in asteroids)
+            {
                 Messages.Add(new AsteroidPacketData(asteroid));
             }
         }
@@ -214,8 +237,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
     //TODO: do networking something like this, but what we have...works? gotta move stuff over but then physics started syncing
 
-    public static class NetworkHandler {
-        public static void SendAsteroidUpdate(AsteroidEntity asteroid) {
+    public static class NetworkHandler
+    {
+        public static void SendAsteroidUpdate(AsteroidEntity asteroid)
+        {
             var packet = new AsteroidBatchPacket();
             packet.Messages.Add(new AsteroidPacketData(asteroid));
 
@@ -223,7 +248,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             MyAPIGateway.Multiplayer.SendMessageToOthers(32000, data);
         }
 
-        public static void SendAsteroidRemoval(long entityId) {
+        public static void SendAsteroidRemoval(long entityId)
+        {
             var packet = new AsteroidRemovalPacket { EntityId = entityId };
 
             byte[] data = MyAPIGateway.Utilities.SerializeToBinary(packet);
@@ -232,20 +258,23 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
     }
 
     [ProtoContract]
-    public class AsteroidNetworkMessageContainer {
+    public class AsteroidNetworkMessageContainer
+    {
 
         [ProtoMember(2)]
         public AsteroidNetworkMessage[] Messages { get; set; }
 
         public AsteroidNetworkMessageContainer() { }
 
-        public AsteroidNetworkMessageContainer(AsteroidNetworkMessage[] messages) {
+        public AsteroidNetworkMessageContainer(AsteroidNetworkMessage[] messages)
+        {
             Messages = messages;
         }
     }
 
     [ProtoContract]
-    public class AsteroidNetworkMessage {
+    public class AsteroidNetworkMessage
+    {
         [ProtoMember(1)]
         public double PosX;
         [ProtoMember(2)]
@@ -285,7 +314,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
         public AsteroidNetworkMessage() { }
 
-        public AsteroidNetworkMessage(Vector3D position, float size, Vector3D initialVelocity, Vector3D angularVelocity, AsteroidType type, bool isSubChunk, long entityId, bool isRemoval, bool isInitialCreation, Quaternion rotation) {
+        public AsteroidNetworkMessage(Vector3D position, float size, Vector3D initialVelocity, Vector3D angularVelocity, AsteroidType type, bool isSubChunk, long entityId, bool isRemoval, bool isInitialCreation, Quaternion rotation)
+        {
             PosX = position.X;
             PosY = position.Y;
             PosZ = position.Z;
@@ -314,7 +344,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
     }
 
     [ProtoContract]
-    public class SettingsSyncMessage : PacketBase {
+    public class SettingsSyncMessage : PacketBase
+    {
         [ProtoMember(1)]
         public bool EnableLogging { get; set; }
         // Add other settings that need to be synced
