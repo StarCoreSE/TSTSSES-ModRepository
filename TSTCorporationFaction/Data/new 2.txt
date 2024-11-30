@@ -1,0 +1,93 @@
+pve factions -> corporation title
+
+modder/computer peroson
+
+heirarchy + types
+
+
+xml = text file w/ extra data/text file but fancy
+eXtensible Markup Language
+sbc = for game. like xml
+
+Framework = creates glossary, labels 'stuff'
+assigns value to code
+has association, framework IS the association
+frameworks can be inside frameworks,
+like files inside of files, specifications
+
+
+frameworks have HEIRARCHY
+
+if you want more?
+dont need a NEW one
+if its small then u dont need to
+
+whens it good to seperate?
+- concept: all factions in ONE FACTION FILE, 
+huge list of space ships factions could use, 
+seperate them all by singular ships.
+
+the more convoluted/detailed, betwee to seperate
+importance of it. does it need that much detail?
+calculate what to seperate/section OFF. 
+
+id for faction = MUST BE UNIQUE.
+
+
+DEFINITIONS / TRUE / FALSE
+REFER TO FACTIONS.SBC
+
+type = how faction will act in category. 
+ex: trader, has trader related shit
+
+
+SUBTYPE MUST BE UNIQUE. if same = will load both, which make nada.
+<TypeID> + <SubtypeId>
+
+change <TypeId> when no longer want to work in factions
+ <TypeId>MyObjectBuilder_FactionDefinition</TypeId>
+ =
+  <TypeId>MyObjectBuilder_[Ship]Definition</TypeId>
+  
+  
+  IF CHANGE = glossary change, topic change.
+  faction change to space ship, etc.
+  
+  /////////////////////////////////////////
+  
+  CORP.cs
+  - what spawns, true/false spawns, 
+  
+ add on, for a frame work, for a game
+ rem faction add-ont
+ 
+ talks to frame work, ewhich goes into game yadaydada
+ 
+ 
+ modder vs. game dev
+ 
+ MAINLY, LIMITATIONS:
+ 
+ security reasons 
+ 
+ why game dev can only access?
+ CANT DISTRIBUTE UR VERSION OF GAME for COPYRIGHT REASONS
+ CANT PUBLISH!!
+
+ 
+ PLUG IN vs. MOD
+ 
+ mods = when game devs give u material to create 
+ plug in = when game devs DONT give you material to create.
+ thus, 'work arounds'.
+ mods gotta be shared
+ 
+ 
+ api = two pieces software connection. one database to another?
+ game dev HAS VERY SPECIFIC API. if not transfer [pain in ass]
+ then. only game dev can do stuff
+ 
+ 
+ 
+ 
+ 
