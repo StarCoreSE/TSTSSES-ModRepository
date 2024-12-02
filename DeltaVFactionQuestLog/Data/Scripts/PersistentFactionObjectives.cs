@@ -129,6 +129,9 @@ namespace Invalid.DeltaVQuestLog
         {
             if (!messageText.StartsWith("/obj") && !messageText.StartsWith("/objective")) return;
 
+            // Only process commands on the client side
+            if (isServer && !MyAPIGateway.Multiplayer.IsServer) return;
+
             sendToOthers = false;
 
             var args = messageText.Split(' ');
@@ -214,9 +217,19 @@ namespace Invalid.DeltaVQuestLog
                 SaveObjectives();
 
                 string playerName = MyAPIGateway.Session.Player?.DisplayName ?? "Unknown";
+                string title = $"Faction Objectives [Added by {playerName}: {objectiveText}]";
 
-                // Update to show quest log immediately after adding
-                ShowQuestLogToFaction(factionId, 30, $"Faction Objectives [Added by {playerName}: {objectiveText}]");
+                // In singleplayer or on client, show directly
+                if (!MyAPIGateway.Utilities.IsDedicated)
+                {
+                    DisplayQuestLog(factionObjectives[factionId], title, playerId);
+                }
+
+                // If server, broadcast to all faction members
+                if (isServer)
+                {
+                    ShowQuestLogToFaction(factionId, 30, title);
+                }
 
                 MyAPIGateway.Utilities.ShowMessage("Objectives", $"{playerName} added objective: {objectiveText}");
             }
@@ -292,9 +305,19 @@ namespace Invalid.DeltaVQuestLog
             SaveObjectives();
 
             string playerName = MyAPIGateway.Session.Player?.DisplayName ?? "Unknown";
+            string title = $"Faction Objectives [Removed by {playerName}: {removedObjective}]";
 
-            // Update to show quest log immediately after removing
-            ShowQuestLogToFaction(factionId, 30, $"Faction Objectives [Removed by {playerName}: {removedObjective}]");
+            // In singleplayer or on client, show directly
+            if (!MyAPIGateway.Utilities.IsDedicated)
+            {
+                DisplayQuestLog(factionObjectives[factionId], title, playerId);
+            }
+
+            // If server, broadcast to all faction members
+            if (isServer)
+            {
+                ShowQuestLogToFaction(factionId, 30, title);
+            }
 
             MyAPIGateway.Utilities.ShowMessage("Objectives", $"{playerName} removed objective: {removedObjective}");
         }
@@ -317,8 +340,17 @@ namespace Invalid.DeltaVQuestLog
             var playerName = MyAPIGateway.Session.Player?.DisplayName ?? "Unknown";
             string customTitle = $"Faction Objectives [Broadcasted by {playerName}, {duration}s]";
 
-            // Broadcast to faction members
-            ShowQuestLogToFaction(factionId, duration, customTitle);
+            // In singleplayer or on client, show directly
+            if (!MyAPIGateway.Utilities.IsDedicated)
+            {
+                DisplayQuestLog(factionObjectives[factionId], customTitle, MyAPIGateway.Session.Player.IdentityId);
+            }
+
+            // If server, broadcast to all faction members
+            if (isServer)
+            {
+                ShowQuestLogToFaction(factionId, duration, customTitle);
+            }
 
             MyAPIGateway.Utilities.ShowMessage("Objectives", $"Broadcasting objectives for {duration} seconds by {playerName}.");
         }
