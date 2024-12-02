@@ -553,17 +553,18 @@ namespace SKONanobotBuildAndRepairSystem
             return false;
         }
 
-        private void NotifyPlayersInRange(string message, Vector3D position, double radius, string color = "White")
+        private static void NotifyPlayersInRange(string text, Vector3D position, double radius, string font = "White")
         {
-            var sphere = new BoundingSphereD(position, radius);
-            var entities = MyAPIGateway.Entities.GetEntitiesInSphere(ref sphere);
+            BoundingSphereD bound = new BoundingSphereD(position, radius);
+            List<IMyEntity> nearbyEntities = MyAPIGateway.Entities.GetEntitiesInSphere(ref bound);
 
-            foreach (var entity in entities)
+            foreach (var entity in nearbyEntities)
             {
-                var character = entity as IMyCharacter;
+                IMyCharacter character = entity as IMyCharacter;
                 if (character != null && character.IsPlayer)
                 {
-                    MyAPIGateway.Utilities.CreateNotification(message, 2000, color);
+                    var notification = MyAPIGateway.Utilities.CreateNotification(text, 2000, font);
+                    notification.Show();
                 }
             }
         }
