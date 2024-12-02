@@ -49,15 +49,12 @@ namespace Invalid.DeltaVQuestLog
                 LoadObjectives();
             }
 
-            // Remove this line as it's duplicated below
-            // MyAPIGateway.Utilities.MessageEntered += OnMessageEntered;
-
             if (isServer)
             {
                 MyVisualScriptLogicProvider.PlayerConnected += OnPlayerConnected;
             }
             MyAPIGateway.Multiplayer.RegisterMessageHandler(QuestLogMessageId, OnQuestLogMessageReceived);
-            MyAPIGateway.Utilities.MessageEntered += OnMessageEntered; // Keep only this one
+            MyAPIGateway.Utilities.MessageEntered += OnMessageEntered;
         }
 
         protected override void UnloadData()
@@ -211,16 +208,15 @@ namespace Invalid.DeltaVQuestLog
                 factionObjectives[factionId] = new List<string>();
             }
 
-            if (!factionObjectives[factionId].Contains(objectiveText)) // Avoid duplicates
+            if (!factionObjectives[factionId].Contains(objectiveText))
             {
                 factionObjectives[factionId].Add(objectiveText);
                 SaveObjectives();
 
-                // Get the player's name
                 string playerName = MyAPIGateway.Session.Player?.DisplayName ?? "Unknown";
 
-                // Show updated quest log to all faction members
-                ShowQuestLogToFaction(factionId, 10, $"Faction Objectives [Added by {playerName}: {objectiveText}]");
+                // Update to show quest log immediately after adding
+                ShowQuestLogToFaction(factionId, 30, $"Faction Objectives [Added by {playerName}: {objectiveText}]");
 
                 MyAPIGateway.Utilities.ShowMessage("Objectives", $"{playerName} added objective: {objectiveText}");
             }
@@ -295,11 +291,10 @@ namespace Invalid.DeltaVQuestLog
             factionObjectives[factionId].RemoveAt(index - 1);
             SaveObjectives();
 
-            // Get the player's name
             string playerName = MyAPIGateway.Session.Player?.DisplayName ?? "Unknown";
 
-            // Show updated quest log to all faction members
-            ShowQuestLogToFaction(factionId, 10, $"Faction Objectives [Removed by {playerName}: {removedObjective}]");
+            // Update to show quest log immediately after removing
+            ShowQuestLogToFaction(factionId, 30, $"Faction Objectives [Removed by {playerName}: {removedObjective}]");
 
             MyAPIGateway.Utilities.ShowMessage("Objectives", $"{playerName} removed objective: {removedObjective}");
         }
@@ -391,11 +386,10 @@ namespace Invalid.DeltaVQuestLog
             factionObjectives[factionId].Clear();
             SaveObjectives();
 
-            // Get the player's name
             string playerName = MyAPIGateway.Session.Player?.DisplayName ?? "Unknown";
 
-            // Notify all faction members about the cleared objectives
-            ShowQuestLogToFaction(factionId, 10, $"[Cleared by {playerName}]");
+            // Update to show empty quest log immediately after clearing
+            ShowQuestLogToFaction(factionId, 30, $"Faction Objectives [Cleared by {playerName}]");
 
             MyAPIGateway.Utilities.ShowMessage("Objectives", $"{playerName} cleared all objectives.");
         }
@@ -452,8 +446,15 @@ namespace Invalid.DeltaVQuestLog
 
         private void DisplayQuestLog(List<string> objectives, string title, long playerId)
         {
+            if (objectives == null || objectives.Count == 0)
+            {
+                MyVisualScriptLogicProvider.SetQuestlog(false, "", playerId);
+                return;
+            }
+
             MyVisualScriptLogicProvider.SetQuestlog(true, title, playerId);
             MyVisualScriptLogicProvider.RemoveQuestlogDetails(playerId);
+
             foreach (var objective in objectives)
             {
                 MyVisualScriptLogicProvider.AddQuestlogObjective(objective, false, true, playerId);
