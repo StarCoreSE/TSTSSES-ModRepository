@@ -5,9 +5,22 @@ using VRage.Utils;
 using System.Collections.Generic;
 using System;
 using VRage.Game;
+using ProtoBuf;
 
-namespace DeltaVQuestLog
+namespace Invalid.DeltaVQuestLog
 {
+    [ProtoContract]
+    public class QuestLogMessage
+    {
+        [ProtoMember(1)]
+        public long FactionId { get; set; }
+        [ProtoMember(2)]
+        public List<string> Objectives { get; set; }
+        [ProtoMember(3)]
+        public string Title { get; set; }
+        [ProtoMember(4)]
+        public int Duration { get; set; }
+    }
 
     [MySessionComponentDescriptor(MyUpdateOrder.AfterSimulation)]
     public class PersistentFactionObjectives : MySessionComponentBase
@@ -24,31 +37,27 @@ namespace DeltaVQuestLog
 
         public override void LoadData()
         {
-            isServer = MyAPIGateway.Multiplayer.IsServer; // True for server instances (single-player, listen server host, dedicated server)
-            bool isDedicated = MyAPIGateway.Utilities.IsDedicated; // True only for dedicated servers
+            isServer = MyAPIGateway.Multiplayer.IsServer;
+            bool isDedicated = MyAPIGateway.Utilities.IsDedicated;
 
             if (isServer && !isDedicated)
             {
-                // Single-player or listen server host
                 LoadObjectives();
             }
             else if (isDedicated)
             {
-                // Dedicated server
                 LoadObjectives();
             }
 
-            // Register chat commands for all instances
-            MyAPIGateway.Utilities.MessageEntered += OnMessageEntered;
+            // Remove this line as it's duplicated below
+            // MyAPIGateway.Utilities.MessageEntered += OnMessageEntered;
 
-            // Register player connect events on the server side (for dedicated and listen servers)
             if (isServer)
             {
                 MyVisualScriptLogicProvider.PlayerConnected += OnPlayerConnected;
             }
             MyAPIGateway.Multiplayer.RegisterMessageHandler(QuestLogMessageId, OnQuestLogMessageReceived);
-            MyAPIGateway.Utilities.MessageEntered += OnMessageEntered;
-
+            MyAPIGateway.Utilities.MessageEntered += OnMessageEntered; // Keep only this one
         }
 
         protected override void UnloadData()
