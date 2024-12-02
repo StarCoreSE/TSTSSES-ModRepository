@@ -745,26 +745,29 @@ namespace TeleportMechanisms {
             return (int)(totalSeconds * 60); // Convert total time to ticks (assuming 60 ticks per second)
         }
 
-        private float CalculatePowerRequired(double distanceInMeters) {
+        private float CalculatePowerRequired(double distanceInMeters)
+        {
+            distanceInMeters = Math.Min(distanceInMeters, MAX_TELEPORT_DISTANCE); // Clamp distance
             float distanceInKm = (float)(distanceInMeters / 1000);
             float maxDistanceInKm = (float)(MAX_TELEPORT_DISTANCE / 1000);
-            float chargePercentage =
-                MathHelper.Clamp(distanceInKm / maxDistanceInKm, MIN_TELEPORT_CHARGE_PERCENTAGE, 1.0f);
+            float chargePercentage = MathHelper.Clamp(distanceInKm / maxDistanceInKm, MIN_TELEPORT_CHARGE_PERCENTAGE, 1.0f);
             return Settings.MaxStoredPower * chargePercentage;
         }
 
-
-        private void JumpAction(IMyCollector block) {
+        private void JumpAction(IMyCollector block)
+        {
             MyLogger.Log($"TPGate: JumpAction: Jump action triggered for EntityId: {block.EntityId}");
 
             var link = Settings.GatewayName;
-            if (string.IsNullOrEmpty(link)) {
+            if (string.IsNullOrEmpty(link))
+            {
                 MyLogger.Log($"TPGate: JumpAction: No valid link set");
                 return;
             }
 
             var destGatewayId = TeleportCore.GetDestinationGatewayId(link, block.EntityId);
-            if (destGatewayId == 0) {
+            if (destGatewayId == 0)
+            {
                 MyLogger.Log($"TPGate: JumpAction: No valid destination gateway found");
                 return;
             }
@@ -774,12 +777,26 @@ namespace TeleportMechanisms {
             if (destGateway == null) return;
 
             _jumpDistance = Vector3D.Distance(block.GetPosition(), destGateway.GetPosition());
-            float powerRequired = CalculatePowerRequired(_jumpDistance);
 
+            // Enforce the maximum distance restriction
+            if (_jumpDistance > MAX_TELEPORT_DISTANCE)
+            {
+                MyLogger.Log($"TPGate: JumpAction: Jump distance {_jumpDistance / 1000:F1}km exceeds maximum allowed distance {MAX_TELEPORT_DISTANCE / 1000:F1}km.");
+                NotifyPlayersInRange(
+                    $"Jump distance {_jumpDistance / 1000:F1}km exceeds maximum allowed range of {MAX_TELEPORT_DISTANCE / 1000:F1}km.",
+                    block.GetPosition(),
+                    100,
+                    "Red"
+                );
+                return;
+            }
+
+            float powerRequired = CalculatePowerRequired(_jumpDistance);
             MyLogger.Log(
                 $"TPGate: JumpAction: Distance: {_jumpDistance / 1000:F1}km, Power Required: {powerRequired:F1}MWh");
 
-            if (Settings.StoredPower < powerRequired) {
+            if (Settings.StoredPower < powerRequired)
+            {
                 MyLogger.Log(
                     $"TPGate: JumpAction: Not enough power for jump. Required: {powerRequired:F1}MWh, Available: {Settings.StoredPower:F1}MWh");
                 NotifyPlayersInRange(
@@ -848,10 +865,20 @@ namespace TeleportMechanisms {
             BoundingSphereD sphere = new BoundingSphereD(sphereCenter, sphereRadius);
 
             // Teleport each player in range and play effects
-            foreach (var player in playerList) {
+            foreach (var player in playerList)
+            {
                 var distance = Vector3D.Distance(player.GetPosition(), sphereCenter);
 
-                if (distance <= sphereRadius) {
+                if (distance <= sphereRadius)
+                {
+                    // Check if player is inside a grid that is being teleported
+                    IMyCubeGrid gridBeingTeleported = player.Controller?.ControlledEntity?.Entity?.GetTopMostParent() as IMyCubeGrid;
+                    if (gridBeingTeleported != null)
+                    {
+                        MyLogger.Log($"TPGate: ProcessJumpRequest: Player {player.IdentityId} is inside grid {gridBeingTeleported.DisplayName}. Skipping individual teleport.");
+                        continue; // Skip teleporting the player individually
+                    }
+
                     // Play "enter" particle and sound effect at the starting position
                     MyVisualScriptLogicProvider.CreateParticleEffectAtPosition("InvalidCustomBlinkParticleEnter", player.GetPosition());
                     MyVisualScriptLogicProvider.PlaySingleSoundAtPosition("ShipPrototechJumpDriveJumpIn", player.GetPosition());
@@ -868,32 +895,44 @@ namespace TeleportMechanisms {
                     MyVisualScriptLogicProvider.CreateParticleEffectAtPosition("InvalidCustomBlinkParticleLeave", newPlayerPosition);
                     MyVisualScriptLogicProvider.PlaySingleSoundAtPosition("ShipPrototechJumpDriveJumpOut", newPlayerPosition);
 
-                    if (player.Controller.ControlledEntity is IMyShipController) {
+                    if (player.Controller.ControlledEntity is IMyShipController)
+                    {
                         shipsToTeleport++;
                     }
                 }
             }
 
+
             // Teleport unpiloted ships in range and play directional effects
             List<IMyEntity> potentialEntities = MyAPIGateway.Entities.GetEntitiesInSphere(ref sphere);
-            foreach (var entity in potentialEntities) {
+            foreach (var entity in potentialEntities)
+            {
                 var grid = entity as IMyCubeGrid;
-                if (grid != null && !grid.IsStatic && grid.EntityId != block.CubeGrid.EntityId) {
-                    // Play "enter" particle and sound effect at the starting position of the grid
-                    MyVisualScriptLogicProvider.CreateParticleEffectAtPosition("InvalidCustomBlinkParticleEnter", grid.GetPosition());
-                    MyVisualScriptLogicProvider.PlaySingleSoundAtPosition("ShipPrototechJumpDriveJumpIn", grid.GetPosition());
-
-                    // Teleport the grid
-                    TeleportCore.TeleportEntity(grid, block, destGateway);
-                    shipsToTeleport++;
-
-                    // Get grid's new position after teleport
-                    Vector3D newGridPosition = grid.GetPosition();
-
-                    // Play "leave" particle and sound effect at the new position
-                    MyVisualScriptLogicProvider.CreateParticleEffectAtPosition("InvalidCustomBlinkParticleLeave", newGridPosition);
-                    MyVisualScriptLogicProvider.PlaySingleSoundAtPosition("ShipPrototechJumpDriveJumpOut", newGridPosition);
+                if (grid == null || grid.IsStatic || grid.EntityId == block.CubeGrid.EntityId)
+                {
+                    continue;
                 }
+
+                // Skip grid if it already contains a player being teleported
+                bool hasPlayer = false;
+                foreach (var player in playerList)
+                {
+                    if (player.Controller?.ControlledEntity?.Entity?.GetTopMostParent() == grid)
+                    {
+                        hasPlayer = true;
+                        break;
+                    }
+                }
+
+                if (hasPlayer)
+                {
+                    MyLogger.Log($"TPGate: ProcessJumpRequest: Grid {grid.DisplayName} already contains a teleporting player. Skipping grid teleport.");
+                    continue;
+                }
+
+                // Teleport the grid
+                TeleportCore.TeleportEntity(grid, block, destGateway);
+                shipsToTeleport++;
             }
 
             if (teleportAttempted) {
