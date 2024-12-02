@@ -468,7 +468,7 @@ namespace SKONanobotBuildAndRepairSystem
                         NotifyPlayersInRange(
                             "Only one Build And Repair System can be powered per grid group",
                             _Welder.GetPosition(),
-                            100,
+                            1000,
                             "Red"
                         );
                         return;
@@ -563,7 +563,7 @@ namespace SKONanobotBuildAndRepairSystem
                 var character = entity as IMyCharacter;
                 if (character != null && character.IsPlayer)
                 {
-                    MyAPIGateway.Utilities.ShowNotification(message, 2000, color);
+                    MyAPIGateway.Utilities.CreateNotification(message, 2000, color);
                 }
             }
         }
