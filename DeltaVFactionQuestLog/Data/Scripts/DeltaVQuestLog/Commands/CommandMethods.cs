@@ -104,7 +104,7 @@ namespace Invalid.DeltaVQuestLog.Commands
             manager.ForceShow(duration);
         }
 
-        public static void HandleHideQuestLog(long PlayerId)
+        public static void HandleHideQuestLog(string[] args)
         {
             MyVisualScriptLogicProvider.SetQuestlog(false, "", PlayerId);
             MyAPIGateway.Utilities.ShowMessage("Objectives", "Quest log hidden.");
@@ -156,31 +156,15 @@ namespace Invalid.DeltaVQuestLog.Commands
                 return;
             }
 
-            if (!factionObjectives.ContainsKey(factionId) || factionObjectives[factionId].Count == 0)
+            var manager = PersistentFactionObjectives.I.GetFactionManger(factionId);
+
+            if (manager.Objectives.Count == 0)
             {
                 MyAPIGateway.Utilities.ShowMessage("Objectives", "No objectives to clear.");
                 return;
             }
 
-            // Clear all objectives for the faction
-            factionObjectives[factionId].Clear();
-            SaveObjectives();
-
-            string playerName = MyAPIGateway.Session.Player?.DisplayName ?? "Unknown";
-
-            // In singleplayer or on client, show directly
-            if (!MyAPIGateway.Utilities.IsDedicated)
-            {
-                DisplayQuestLog(factionObjectives[factionId], $"Faction Objectives [Cleared by {playerName}]", MyAPIGateway.Session.Player.IdentityId);
-            }
-
-            // If server, broadcast to all faction members
-            if (isServer)
-            {
-                ShowQuestLogToFaction(factionId, 30, $"Faction Objectives [Cleared by {playerName}]");
-            }
-
-            MyAPIGateway.Utilities.ShowMessage("Objectives", $"{playerName} cleared all objectives.");
+            manager.ClearAllQuests();
         }
     }
 }

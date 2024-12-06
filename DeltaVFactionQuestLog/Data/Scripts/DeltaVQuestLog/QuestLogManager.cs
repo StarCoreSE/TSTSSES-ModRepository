@@ -17,7 +17,11 @@ namespace Invalid.DeltaVQuestLog
         [ProtoMember(1)] public List<string> Objectives = new List<string>();
         [ProtoMember(2)] public Dictionary<string, DateTimeOffset> TemporaryObjectives = new Dictionary<string, DateTimeOffset>();
         [ProtoMember(3)] public long FactionId { get; private set; }
-        [ProtoMember(4)] public DateTimeOffset ForceShowTime; // TODO
+        [ProtoMember(4)] public DateTimeOffset? ForceShowTime; // TODO
+        /// <summary>
+        /// All playerIds with notifications off.
+        /// </summary>
+        [ProtoMember(5)] public HashSet<long> SilencedPlayers = new HashSet<long>();
 
         public IMyFaction Faction => MyAPIGateway.Session.Factions.TryGetFactionById(FactionId);
         public IEnumerable<long> Players => Faction.Members.Values.Select(m => m.PlayerId);
@@ -46,9 +50,15 @@ namespace Invalid.DeltaVQuestLog
             }
             
             // Force showing (broadcast)
+            if (ForceShowTime != null)
             {
-                if (ForceShowTime > DateTimeOffset.Now)
-                    UpdateFactionQuestlog($"Faction Objectives [Force-Enabled for {(ForceShowTime - DateTimeOffset.Now).TotalSeconds:N0}s]");
+                if (ForceShowTime.Value > DateTimeOffset.Now)
+                    UpdateFactionQuestlog($"Faction Objectives [Force-Enabled for {(ForceShowTime.Value - DateTimeOffset.Now).TotalSeconds:N0}s]", true);
+                else
+                {
+                    UpdateFactionQuestlog();
+                    ForceShowTime = null;
+                }
             }
         }
 
@@ -79,9 +89,17 @@ namespace Invalid.DeltaVQuestLog
         public bool RemoveQuest(string quest)
         {
             bool didRemove = Objectives.Remove(quest);
+            TemporaryObjectives.Remove(quest);
             if (didRemove)
                 UpdateFactionQuestlog();
             return didRemove;
+        }
+
+        public void ClearAllQuests()
+        {
+            Objectives.Clear();
+            TemporaryObjectives.Clear();
+            UpdateFactionQuestlog();
         }
 
         /// <summary>
@@ -102,15 +120,15 @@ namespace Invalid.DeltaVQuestLog
 
 
 
-        public void UpdateFactionQuestlog(string title = "Faction Objectives")
+        public void UpdateFactionQuestlog(string title = "Faction Objectives", bool forceVisible = false)
         {
             foreach (var player in Players)
-                UpdatePlayerQuestlog(title, player);
+                UpdatePlayerQuestlog(title, player, forceVisible);
         }
 
-        public void UpdatePlayerQuestlog(string title = "Faction Objectives", long playerId = -1)
+        public void UpdatePlayerQuestlog(string title = "Faction Objectives", long playerId = -1, bool forceVisible = false)
         {
-            if (Objectives == null || Objectives.Count == 0)
+            if ((!forceVisible && SilencedPlayers.Contains(playerId)) || Objectives == null || Objectives.Count == 0)
             {
                 MyVisualScriptLogicProvider.SetQuestlog(false, "", playerId);
                 return;
