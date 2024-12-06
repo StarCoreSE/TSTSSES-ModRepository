@@ -1,30 +1,18 @@
-﻿using Sandbox.Game;
+﻿using System;
+using System.Collections.Generic;
+using Sandbox.Game;
 using Sandbox.ModAPI;
+using VRage.Game;
 using VRage.Game.Components;
 using VRage.Utils;
-using System.Collections.Generic;
-using System;
-using VRage.Game;
-using ProtoBuf;
 
 namespace Invalid.DeltaVQuestLog
 {
-    [ProtoContract]
-    public class QuestLogMessage
-    {
-        [ProtoMember(1)]
-        public long FactionId { get; set; }
-        [ProtoMember(2)]
-        public List<string> Objectives { get; set; }
-        [ProtoMember(3)]
-        public string Title { get; set; }
-        [ProtoMember(4)]
-        public int Duration { get; set; }
-    }
-
     [MySessionComponentDescriptor(MyUpdateOrder.AfterSimulation)]
     public class PersistentFactionObjectives : MySessionComponentBase
     {
+        public static PersistentFactionObjectives I;
+
         private const string FileName = "FactionObjectives.txt";
 
         private Dictionary<long, List<string>> factionObjectives = new Dictionary<long, List<string>>();
@@ -32,11 +20,13 @@ namespace Invalid.DeltaVQuestLog
         private bool isServer;
         private Dictionary<long, DateTime> questLogHideTimes = new Dictionary<long, DateTime>();
         private Dictionary<long, int> questLogCountdowns = new Dictionary<long, int>();
-        private const ushort QuestLogMessageId = 16852; // Choose a unique ID
 
+
+        internal ObjectiveNetworking Network = new ObjectiveNetworking();
 
         public override void LoadData()
         {
+            I = this;
             isServer = MyAPIGateway.Multiplayer.IsServer;
             bool isDedicated = MyAPIGateway.Utilities.IsDedicated;
 
@@ -53,20 +43,23 @@ namespace Invalid.DeltaVQuestLog
             {
                 MyVisualScriptLogicProvider.PlayerConnected += OnPlayerConnected;
             }
-            MyAPIGateway.Multiplayer.RegisterMessageHandler(QuestLogMessageId, OnQuestLogMessageReceived);
+
+            Network.Init();
             MyAPIGateway.Utilities.MessageEntered += OnMessageEntered;
         }
 
         protected override void UnloadData()
         {
             MyAPIGateway.Utilities.MessageEntered -= OnMessageEntered;
-            MyAPIGateway.Multiplayer.UnregisterMessageHandler(QuestLogMessageId, OnQuestLogMessageReceived);
+            Network.Close();
 
             if (isServer)
             {
                 SaveObjectives();
                 MyVisualScriptLogicProvider.PlayerConnected -= OnPlayerConnected;
             }
+
+            I = null;
         }
 
         public override void UpdateAfterSimulation()
@@ -102,40 +95,18 @@ namespace Invalid.DeltaVQuestLog
             ShowQuestLogForPlayer(factionId, playerId, 30);
         }
 
-        private void OnQuestLogMessageReceived(byte[] data)
-        {
-            try
-            {
-                var message = MyAPIGateway.Utilities.SerializeFromBinary<QuestLogMessage>(data);
-                if (message == null) return;
 
-                if (isServer)
-                {
-                    // Handle server-side logic
-                }
-                else
-                {
-                    // Handle client-side display
-                    HandleClientQuestLogDisplay(message);
-                }
-            }
-            catch (Exception e)
-            {
-                MyLog.Default.WriteLineAndConsole($"Error processing quest log message: {e}");
-            }
-        }
 
         private void OnMessageEntered(string messageText, ref bool sendToOthers)
         {
             if (!messageText.StartsWith("/obj") && !messageText.StartsWith("/objective")) return;
 
-            // Only process commands on the client side
-            if (isServer && !MyAPIGateway.Multiplayer.IsServer) return;
-
             sendToOthers = false;
 
-            var args = messageText.Split(' ');
-            if (args.Length < 2)
+            bool isValid;
+            QuestLogCommand command = new QuestLogCommand(messageText, out isValid);
+
+            if (!isValid)
             {
                 MyAPIGateway.Utilities.ShowMessage("Objectives", "Invalid command. Use '/obj help' for a list of valid commands.");
                 return;
@@ -144,13 +115,13 @@ namespace Invalid.DeltaVQuestLog
             var playerId = MyAPIGateway.Session.Player.IdentityId;
             var playerFaction = MyAPIGateway.Session.Factions.TryGetPlayerFaction(playerId);
 
-            if (args[1].ToLower() == "help")
+            if (command.Command == "help")
             {
                 ShowHelp();
                 return;
             }
 
-            if (playerFaction == null && args[1].ToLower() != "notifications")
+            if (playerFaction == null && command.Command != "notifications")
             {
                 MyAPIGateway.Utilities.ShowMessage("Objectives", "You are not in a faction.");
                 return;
@@ -158,10 +129,10 @@ namespace Invalid.DeltaVQuestLog
 
             var factionId = playerFaction?.FactionId ?? -1;
 
-            switch (args[1].ToLower())
+            switch (command.Command)
             {
                 case "add":
-                    HandleAddObjective(args, factionId, playerId);
+                    HandleAddObjective(command.Arguments, factionId, playerId);
                     break;
                 case "list":
                     HandleListObjectives(factionId);
@@ -170,35 +141,33 @@ namespace Invalid.DeltaVQuestLog
                     HandleShowObjectives(factionId, playerId);
                     break;
                 case "remove":
-                    HandleRemoveObjective(args, factionId, playerId);
+                    HandleRemoveObjective(command.Arguments, factionId, playerId);
                     break;
                 case "broadcast":
-                    HandleBroadcast(args, factionId);
+                    HandleBroadcast(command.Arguments, factionId);
                     break;
                 case "hide":
                     HandleHideQuestLog(playerId);
                     break;
                 case "notifications":
-                    HandleNotifications(args, playerId);
+                    HandleNotifications(command.Arguments, playerId);
                     break;
                 case "clear":
                     HandleClearObjectives(factionId, playerId);
                     break;
                 default:
-                    MyAPIGateway.Utilities.ShowMessage("Objectives", $"Invalid command '{args[1]}'. Use '/obj help' for a list of valid commands.");
+                    MyAPIGateway.Utilities.ShowMessage("Objectives", $"Invalid command '{command.Command}'. Use '/obj help' for a list of valid commands.");
                     break;
             }
         }
 
-        private void HandleAddObjective(string[] args, long factionId, long playerId)
+        private void HandleAddObjective(string objectiveText, long factionId, long playerId)
         {
-            if (args.Length < 3)
+            if (string.IsNullOrWhiteSpace(objectiveText))
             {
                 MyAPIGateway.Utilities.ShowMessage("Objectives", "Please provide an objective description.");
                 return;
             }
-
-            var objectiveText = string.Join(" ", args, 2, args.Length - 2);
 
             if (!IsFactionLeaderOrFounder(factionId, playerId))
             {
@@ -279,10 +248,10 @@ namespace Invalid.DeltaVQuestLog
             }
         }
 
-        private void HandleRemoveObjective(string[] args, long factionId, long playerId)
+        private void HandleRemoveObjective(string args, long factionId, long playerId)
         {
             int index;
-            if (args.Length < 3 || !int.TryParse(args[2], out index))
+            if (!int.TryParse(args, out index))
             {
                 MyAPIGateway.Utilities.ShowMessage("Objectives", "Please provide a valid objective index to remove.");
                 return;
@@ -322,10 +291,10 @@ namespace Invalid.DeltaVQuestLog
             MyAPIGateway.Utilities.ShowMessage("Objectives", $"{playerName} removed objective: {removedObjective}");
         }
 
-        private void HandleBroadcast(string[] args, long factionId)
+        private void HandleBroadcast(string args, long factionId)
         {
             int duration;
-            if (args.Length < 3 || !int.TryParse(args[2], out duration))
+            if (!int.TryParse(args, out duration))
             {
                 MyAPIGateway.Utilities.ShowMessage("Objectives", "Usage: /obj broadcast <duration in seconds>");
                 return;
@@ -361,15 +330,14 @@ namespace Invalid.DeltaVQuestLog
             MyAPIGateway.Utilities.ShowMessage("Objectives", "Quest log hidden.");
         }
 
-        private void HandleNotifications(string[] args, long playerId)
+        private void HandleNotifications(string option, long playerId)
         {
-            if (args.Length < 3)
+            if (string.IsNullOrWhiteSpace(option))
             {
                 MyAPIGateway.Utilities.ShowMessage("Objectives", "Usage: /obj notifications <on/off>");
                 return;
             }
 
-            string option = args[2].ToLower();
             if (option == "off")
             {
                 if (notificationsDisabled.Contains(playerId))
@@ -455,15 +423,13 @@ namespace Invalid.DeltaVQuestLog
             {
                 try
                 {
-                    var message = new QuestLogMessage
+                    Network.SendQuestLogIndividual(new QuestLogMessage
                     {
                         FactionId = factionId,
                         Objectives = factionObjectives[factionId],
                         Title = customTitle,
                         Duration = duration
-                    };
-                    var data = MyAPIGateway.Utilities.SerializeToBinary(message);
-                    MyAPIGateway.Multiplayer.SendMessageTo(QuestLogMessageId, data, (ulong)playerId);
+                    }, (ulong) playerId);
                 }
                 catch (Exception e)
                 {
@@ -493,7 +459,7 @@ namespace Invalid.DeltaVQuestLog
             }
         }
 
-        private void HandleClientQuestLogDisplay(QuestLogMessage message)
+        public void HandleClientQuestLogDisplay(QuestLogMessage message)
         {
             if (MyAPIGateway.Session.Player == null) return;
 
