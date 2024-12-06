@@ -9,11 +9,11 @@ namespace Invalid.DeltaVQuestLog.Commands
         private static long PlayerId => MyAPIGateway.Session.Player.IdentityId;
         private static long? FactionId => MyAPIGateway.Session.Factions.TryGetPlayerFaction(PlayerId)?.FactionId;
 
-        private static bool IsFactionLeaderOrFounder() => FactionId != null && PersistentFactionObjectives.IsFactionLeaderOrFounder(PlayerId, FactionId.Value);
+        private static bool IsFactionLeaderOrFounder() => FactionId != null && PersistentFactionObjectives.IsFactionLeaderOrFounder(FactionId.Value, PlayerId);
 
         public static void HandleAddObjective(string[] args)
         {
-            string objectiveText = string.Join(" ", args, 1, args.Length - 2);
+            string objectiveText = string.Join(" ", args, 1, args.Length - 1);
 
             if (string.IsNullOrWhiteSpace(objectiveText))
             {
@@ -23,7 +23,7 @@ namespace Invalid.DeltaVQuestLog.Commands
 
             if (!IsFactionLeaderOrFounder())
             {
-                MyAPIGateway.Utilities.ShowMessage("Objectives", "Only faction leaders or founders can add objectives.");
+                MyAPIGateway.Utilities.ShowMessage("Objectives", $"Only faction leaders or founders can add objectives.");
                 return;
             }
 
