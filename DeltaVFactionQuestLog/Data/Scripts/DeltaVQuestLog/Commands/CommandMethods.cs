@@ -11,8 +11,10 @@ namespace Invalid.DeltaVQuestLog.Commands
 
         private static bool IsFactionLeaderOrFounder() => FactionId != null && PersistentFactionObjectives.IsFactionLeaderOrFounder(PlayerId, FactionId.Value);
 
-        public static void HandleAddObjective(string objectiveText)
+        public static void HandleAddObjective(string[] args)
         {
+            string objectiveText = string.Join(" ", args, 1, args.Length - 2);
+
             if (string.IsNullOrWhiteSpace(objectiveText))
             {
                 MyAPIGateway.Utilities.ShowMessage("Objectives", "Please provide an objective description.");
@@ -35,7 +37,7 @@ namespace Invalid.DeltaVQuestLog.Commands
             manager.AddQuest(objectiveText);
         }
 
-        public static void HandleListObjectives()
+        public static void HandleListObjectives(string[] args)
         {
             var manager = PersistentFactionObjectives.I.GetFactionManger(FactionId);
             if (manager == null)
@@ -57,7 +59,7 @@ namespace Invalid.DeltaVQuestLog.Commands
             }
         }
 
-        public static void HandleShowObjectives()
+        public static void HandleShowObjectives(string[] args)
         {
             var manager = PersistentFactionObjectives.I.GetFactionManger(FactionId);
             if (manager == null)
@@ -76,10 +78,10 @@ namespace Invalid.DeltaVQuestLog.Commands
             manager.UpdatePlayerQuestlog();
         }
 
-        public static void HandleRemoveObjective(string args)
+        public static void HandleRemoveObjective(string[] args)
         {
             int index;
-            if (!int.TryParse(args, out index))
+            if (args.Length < 2 || !int.TryParse(args[1], out index))
             {
                 MyAPIGateway.Utilities.ShowMessage("Objectives", "Please provide a valid objective index to remove.");
                 return;
@@ -105,10 +107,10 @@ namespace Invalid.DeltaVQuestLog.Commands
             }
         }
 
-        public static void HandleBroadcast(string args)
+        public static void HandleBroadcast(string[] args)
         {
             int duration;
-            if (!int.TryParse(args, out duration))
+            if (args.Length < 2 || !int.TryParse(args[1], out duration))
             {
                 MyAPIGateway.Utilities.ShowMessage("Objectives", "Usage: /obj broadcast <duration in seconds>");
                 return;
@@ -155,7 +157,7 @@ namespace Invalid.DeltaVQuestLog.Commands
             manager.SilencePlayer(MyAPIGateway.Session.Player.IdentityId);
         }
 
-        public static void HandleClearObjectives()
+        public static void HandleClearObjectives(string[] args)
         {
             if (!IsFactionLeaderOrFounder())
             {

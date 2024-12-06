@@ -17,13 +17,9 @@ namespace Invalid.DeltaVQuestLog
         private const string FileName = "FactionObjectives.txt";
 
         private Dictionary<long, QuestLogManager> _factionObjectives = new Dictionary<long, QuestLogManager>();
-        private HashSet<long> notificationsDisabled = new HashSet<long>();
         private bool isServer;
         private Dictionary<long, DateTime> questLogHideTimes = new Dictionary<long, DateTime>();
-        private Dictionary<long, int> questLogCountdowns = new Dictionary<long, int>();
 
-
-        internal ObjectiveNetworking Network = new ObjectiveNetworking();
 
         public override void LoadData()
         {
@@ -45,14 +41,12 @@ namespace Invalid.DeltaVQuestLog
                 MyVisualScriptLogicProvider.PlayerConnected += OnPlayerConnected;
             }
 
-            Network.Init();
             CommandHandler.Init();
         }
 
         protected override void UnloadData()
         {
             CommandHandler.Close();
-            Network.Close();
 
             if (isServer)
             {
@@ -63,7 +57,7 @@ namespace Invalid.DeltaVQuestLog
             I = null;
         }
 
-        private int _ticks = 0;
+        private int _ticks;
         public override void UpdateAfterSimulation()
         {
             if (!isServer) return;
@@ -110,36 +104,6 @@ namespace Invalid.DeltaVQuestLog
             if (!_factionObjectives.ContainsKey(factionId.Value))
                 _factionObjectives[factionId.Value] = new QuestLogManager(factionId.Value);
             return _factionObjectives[factionId.Value];
-        }
-
-        private void DisplayQuestLog(List<string> objectives, string title, long playerId)
-        {
-            if (objectives == null || objectives.Count == 0)
-            {
-                MyVisualScriptLogicProvider.SetQuestlog(false, "", playerId);
-                return;
-            }
-
-            MyVisualScriptLogicProvider.SetQuestlog(true, title, playerId);
-            MyVisualScriptLogicProvider.RemoveQuestlogDetails(playerId);
-
-            foreach (var objective in objectives)
-            {
-                MyVisualScriptLogicProvider.AddQuestlogObjective(objective, false, true, playerId);
-            }
-        }
-
-        public void HandleClientQuestLogDisplay(QuestLogMessage message)
-        {
-            if (MyAPIGateway.Session.Player == null) return;
-
-            var playerId = MyAPIGateway.Session.Player.IdentityId;
-            DisplayQuestLog(message.Objectives, message.Title, playerId);
-
-            if (message.Duration > 0)
-            {
-                questLogHideTimes[playerId] = DateTime.UtcNow.AddSeconds(message.Duration);
-            }
         }
 
         public static bool IsFactionLeaderOrFounder(long factionId, long playerId)
