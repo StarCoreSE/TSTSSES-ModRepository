@@ -18,7 +18,6 @@ namespace Invalid.DeltaVQuestLog
 
         private Dictionary<long, QuestLogManager> _factionObjectives = new Dictionary<long, QuestLogManager>();
         private bool isServer;
-        private Dictionary<long, DateTime> questLogHideTimes = new Dictionary<long, DateTime>();
 
         internal QuestLogNetworking Networking;
 
@@ -65,23 +64,6 @@ namespace Invalid.DeltaVQuestLog
         {
             if (!isServer) return;
             _ticks++;
-
-            var now = DateTime.UtcNow;
-            var playersToRemove = new List<long>();
-
-            foreach (var entry in questLogHideTimes)
-            {
-                if (entry.Value <= now)
-                {
-                    MyVisualScriptLogicProvider.SetQuestlog(false, "", entry.Key);
-                    playersToRemove.Add(entry.Key);
-                }
-            }
-
-            foreach (var playerId in playersToRemove)
-            {
-                questLogHideTimes.Remove(playerId);
-            }
 
             if (_ticks % 10 == 0)
                 foreach (var manager in _factionObjectives.Values)
