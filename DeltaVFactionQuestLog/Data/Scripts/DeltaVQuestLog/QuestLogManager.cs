@@ -125,10 +125,16 @@ namespace Invalid.DeltaVQuestLog
             UpdatePlayerQuestlog(playerId: id);
         }
 
-        public void UpdateFactionQuestlog(string title = "Faction Objectives", bool forceVisible = false)
+        public void UpdateFactionQuestlog(string title = "Faction Objectives", bool forceVisible = false, bool isNetworkUpdate = false)
         {
-            foreach (var player in Players)
-                UpdatePlayerQuestlog(title, player, forceVisible);
+            if (MyAPIGateway.Session.IsServer)
+            {
+                foreach (var player in Players)
+                    UpdatePlayerQuestlog(title, player, forceVisible);
+            }
+
+            if (!isNetworkUpdate)
+                SendNetworkUpdate();
         }
 
         public void UpdatePlayerQuestlog(string title = "Faction Objectives", long playerId = -1, bool forceVisible = false)
@@ -146,6 +152,11 @@ namespace Invalid.DeltaVQuestLog
             {
                 MyVisualScriptLogicProvider.AddQuestlogObjective(objective, false, !forceVisible, playerId);
             }
+        }
+
+        private void SendNetworkUpdate()
+        {
+            PersistentFactionObjectives.I.Networking.SendMessageToAll(this);
         }
     }
 }

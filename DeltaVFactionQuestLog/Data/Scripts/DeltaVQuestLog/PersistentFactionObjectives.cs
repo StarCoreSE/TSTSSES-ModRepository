@@ -20,6 +20,7 @@ namespace Invalid.DeltaVQuestLog
         private bool isServer;
         private Dictionary<long, DateTime> questLogHideTimes = new Dictionary<long, DateTime>();
 
+        internal QuestLogNetworking Networking;
 
         public override void LoadData()
         {
@@ -42,10 +43,12 @@ namespace Invalid.DeltaVQuestLog
             }
 
             CommandHandler.Init();
+            Networking = new QuestLogNetworking();
         }
 
         protected override void UnloadData()
         {
+            Networking.Close();
             CommandHandler.Close();
 
             if (isServer)
@@ -104,6 +107,15 @@ namespace Invalid.DeltaVQuestLog
             if (!_factionObjectives.ContainsKey(factionId.Value))
                 _factionObjectives[factionId.Value] = new QuestLogManager(factionId.Value);
             return _factionObjectives[factionId.Value];
+        }
+
+        public void UpdateManager(QuestLogManager manager)
+        {
+            if (manager == null)
+                return;
+
+            _factionObjectives[manager.FactionId] = manager;
+            manager.UpdateFactionQuestlog(isNetworkUpdate: true);
         }
 
         public static bool IsFactionLeaderOrFounder(long factionId, long playerId)
