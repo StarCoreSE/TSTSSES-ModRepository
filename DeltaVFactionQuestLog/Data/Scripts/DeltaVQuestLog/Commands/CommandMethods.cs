@@ -7,11 +7,11 @@ namespace Invalid.DeltaVQuestLog.Commands
     internal static class CommandMethods
     {
         private static long PlayerId => MyAPIGateway.Session.Player.IdentityId;
+        private static long? FactionId => MyAPIGateway.Session.Factions.TryGetPlayerFaction(PlayerId)?.FactionId;
 
-        private static bool IsFactionLeaderOrFounder(long factionId, long playerId) =>
-            PersistentFactionObjectives.IsFactionLeaderOrFounder(factionId, playerId);
+        private static bool IsFactionLeaderOrFounder() => FactionId != null && PersistentFactionObjectives.IsFactionLeaderOrFounder(PlayerId, FactionId.Value);
 
-        public static void HandleAddObjective(string objectiveText, long factionId)
+        public static void HandleAddObjective(string objectiveText)
         {
             if (string.IsNullOrWhiteSpace(objectiveText))
             {
@@ -19,19 +19,30 @@ namespace Invalid.DeltaVQuestLog.Commands
                 return;
             }
 
-            if (!IsFactionLeaderOrFounder(factionId, PlayerId))
+            if (!IsFactionLeaderOrFounder())
             {
                 MyAPIGateway.Utilities.ShowMessage("Objectives", "Only faction leaders or founders can add objectives.");
                 return;
             }
 
-            var manager = PersistentFactionObjectives.I.GetFactionManger(factionId);
+            var manager = PersistentFactionObjectives.I.GetFactionManger(FactionId);
+            if (manager == null)
+            {
+                MyAPIGateway.Utilities.ShowMessage("Objectives", "You must be in a faction to run this command.");
+                return;
+            }
+
             manager.AddQuest(objectiveText);
         }
 
-        public static void HandleListObjectives(long factionId)
+        public static void HandleListObjectives()
         {
-            var manager = PersistentFactionObjectives.I.GetFactionManger(factionId);
+            var manager = PersistentFactionObjectives.I.GetFactionManger(FactionId);
+            if (manager == null)
+            {
+                MyAPIGateway.Utilities.ShowMessage("Objectives", "You must be in a faction to run this command.");
+                return;
+            }
 
             if (manager.Objectives.Count == 0)
             {
@@ -46,9 +57,14 @@ namespace Invalid.DeltaVQuestLog.Commands
             }
         }
 
-        public static void HandleShowObjectives(long factionId)
+        public static void HandleShowObjectives()
         {
-            var manager = PersistentFactionObjectives.I.GetFactionManger(factionId);
+            var manager = PersistentFactionObjectives.I.GetFactionManger(FactionId);
+            if (manager == null)
+            {
+                MyAPIGateway.Utilities.ShowMessage("Objectives", "You must be in a faction to run this command.");
+                return;
+            }
 
             if (manager.Objectives.Count == 0)
             {
@@ -60,7 +76,7 @@ namespace Invalid.DeltaVQuestLog.Commands
             manager.UpdatePlayerQuestlog();
         }
 
-        public static void HandleRemoveObjective(string args, long factionId)
+        public static void HandleRemoveObjective(string args)
         {
             int index;
             if (!int.TryParse(args, out index))
@@ -69,13 +85,18 @@ namespace Invalid.DeltaVQuestLog.Commands
                 return;
             }
 
-            if (!IsFactionLeaderOrFounder(factionId, PlayerId))
+            if (!IsFactionLeaderOrFounder())
             {
                 MyAPIGateway.Utilities.ShowMessage("Objectives", "Only faction leaders or founders can remove objectives.");
                 return;
             }
 
-            var manager = PersistentFactionObjectives.I.GetFactionManger(factionId);
+            var manager = PersistentFactionObjectives.I.GetFactionManger(FactionId);
+            if (manager == null)
+            {
+                MyAPIGateway.Utilities.ShowMessage("Objectives", "You must be in a faction to run this command.");
+                return;
+            }
 
             if (!manager.RemoveQuest(index))
             {
@@ -84,7 +105,7 @@ namespace Invalid.DeltaVQuestLog.Commands
             }
         }
 
-        public static void HandleBroadcast(string args, long factionId)
+        public static void HandleBroadcast(string args)
         {
             int duration;
             if (!int.TryParse(args, out duration))
@@ -93,7 +114,12 @@ namespace Invalid.DeltaVQuestLog.Commands
                 return;
             }
 
-            var manager = PersistentFactionObjectives.I.GetFactionManger(factionId);
+            var manager = PersistentFactionObjectives.I.GetFactionManger(FactionId);
+            if (manager == null)
+            {
+                MyAPIGateway.Utilities.ShowMessage("Objectives", "You must be in a faction to run this command.");
+                return;
+            }
 
             if (manager.Objectives.Count == 0)
             {
@@ -110,53 +136,39 @@ namespace Invalid.DeltaVQuestLog.Commands
             MyAPIGateway.Utilities.ShowMessage("Objectives", "Quest log hidden.");
         }
 
-        public static void HandleNotifications(string option)
+        public static void HandleNotifications(string[] args)
         {
-            if (string.IsNullOrWhiteSpace(option))
+            var faction = MyAPIGateway.Session.Factions.TryGetPlayerFaction(MyAPIGateway.Session.Player.IdentityId);
+            if (faction == null)
             {
-                MyAPIGateway.Utilities.ShowMessage("Objectives", "Usage: /obj notifications <on/off>");
+                MyAPIGateway.Utilities.ShowMessage("Objectives", "Must be in a faction!");
                 return;
             }
 
-            if (option == "off")
+            var manager = PersistentFactionObjectives.I.GetFactionManger(faction.FactionId);
+            if (manager == null)
             {
-                if (notificationsDisabled.Contains(PlayerId))
-                {
-                    MyAPIGateway.Utilities.ShowMessage("Objectives", "Notifications are already turned off.");
-                }
-                else
-                {
-                    notificationsDisabled.Add(PlayerId);
-                    MyAPIGateway.Utilities.ShowMessage("Objectives", "Notifications turned off.");
-                }
+                MyAPIGateway.Utilities.ShowMessage("Objectives", "You must be in a faction to run this command.");
+                return;
             }
-            else if (option == "on")
-            {
-                if (!notificationsDisabled.Contains(PlayerId))
-                {
-                    MyAPIGateway.Utilities.ShowMessage("Objectives", "Notifications are already turned on.");
-                }
-                else
-                {
-                    notificationsDisabled.Remove(PlayerId);
-                    MyAPIGateway.Utilities.ShowMessage("Objectives", "Notifications turned on.");
-                }
-            }
-            else
-            {
-                MyAPIGateway.Utilities.ShowMessage("Objectives", "Invalid option. Usage: /obj notifications <on/off>");
-            }
+
+            manager.SilencePlayer(MyAPIGateway.Session.Player.IdentityId);
         }
 
-        public static void HandleClearObjectives(long factionId)
+        public static void HandleClearObjectives()
         {
-            if (!IsFactionLeaderOrFounder(factionId, PlayerId))
+            if (!IsFactionLeaderOrFounder())
             {
                 MyAPIGateway.Utilities.ShowMessage("Objectives", "Only faction leaders or founders can clear all objectives.");
                 return;
             }
 
-            var manager = PersistentFactionObjectives.I.GetFactionManger(factionId);
+            var manager = PersistentFactionObjectives.I.GetFactionManger(FactionId);
+            if (manager == null)
+            {
+                MyAPIGateway.Utilities.ShowMessage("Objectives", "You must be in a faction to run this command.");
+                return;
+            }
 
             if (manager.Objectives.Count == 0)
             {

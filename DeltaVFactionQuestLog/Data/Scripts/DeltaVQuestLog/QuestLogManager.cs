@@ -118,7 +118,11 @@ namespace Invalid.DeltaVQuestLog
             return didRemove;
         }
 
-
+        public void SilencePlayer(long id)
+        {
+            if (!SilencedPlayers.Add(id))
+                SilencedPlayers.Remove(id);
+        }
 
         public void UpdateFactionQuestlog(string title = "Faction Objectives", bool forceVisible = false)
         {

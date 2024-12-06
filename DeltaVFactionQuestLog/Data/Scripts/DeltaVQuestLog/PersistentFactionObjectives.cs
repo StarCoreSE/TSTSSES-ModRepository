@@ -99,41 +99,17 @@ namespace Invalid.DeltaVQuestLog
             if (playerFaction == null) return;
 
             var factionId = playerFaction.FactionId;
-            ShowQuestLogForPlayer(factionId, playerId, 30);
+            GetFactionManger(factionId)?.UpdatePlayerQuestlog(playerId: playerId);
         }
 
-        public QuestLogManager GetFactionManger(long factionId)
+        public QuestLogManager GetFactionManger(long? factionId)
         {
-            if (!_factionObjectives.ContainsKey(factionId))
-                _factionObjectives[factionId] = new QuestLogManager(factionId);
-            return _factionObjectives[factionId];
-        }
+            if (factionId == null)
+                return null;
 
-        private void ShowQuestLogForPlayer(long factionId, long playerId, int duration, string customTitle = "Faction Objectives")
-        {
-            if (!factionObjectives.ContainsKey(factionId)) return;
-
-            if (isServer)
-            {
-                try
-                {
-                    Network.SendQuestLogIndividual(new QuestLogMessage
-                    {
-                        FactionId = factionId,
-                        Objectives = factionObjectives[factionId],
-                        Title = customTitle,
-                        Duration = duration
-                    }, (ulong) playerId);
-                }
-                catch (Exception e)
-                {
-                    MyLog.Default.WriteLineAndConsole($"Error sending quest log message: {e}");
-                }
-            }
-            else
-            {
-                DisplayQuestLog(factionObjectives[factionId], customTitle, playerId);
-            }
+            if (!_factionObjectives.ContainsKey(factionId.Value))
+                _factionObjectives[factionId.Value] = new QuestLogManager(factionId.Value);
+            return _factionObjectives[factionId.Value];
         }
 
         private void DisplayQuestLog(List<string> objectives, string title, long playerId)
@@ -166,19 +142,6 @@ namespace Invalid.DeltaVQuestLog
             }
         }
 
-        public void ShowQuestLogToFaction(long factionId, int duration, string customTitle = "Faction Objectives")
-        {
-            var faction = MyAPIGateway.Session.Factions.TryGetFactionById(factionId);
-            if (faction == null) return;
-
-            foreach (var memberId in faction.Members.Keys)
-            {
-                if (notificationsDisabled.Contains(memberId)) continue;
-
-                ShowQuestLogForPlayer(factionId, memberId, duration, customTitle);
-            }
-        }
-
         public static bool IsFactionLeaderOrFounder(long factionId, long playerId)
         {
             var faction = MyAPIGateway.Session.Factions.TryGetFactionById(factionId);
@@ -204,9 +167,9 @@ namespace Invalid.DeltaVQuestLog
             {
                 using (var writer = MyAPIGateway.Utilities.WriteFileInWorldStorage(FileName, typeof(PersistentFactionObjectives)))
                 {
-                    foreach (var kvp in factionObjectives)
+                    foreach (var kvp in _factionObjectives)
                     {
-                        foreach (var obj in kvp.Value)
+                        foreach (var obj in kvp.Value.Objectives)
                         {
                             writer.WriteLine($"{kvp.Key}:{obj}");
                         }
@@ -235,13 +198,16 @@ namespace Invalid.DeltaVQuestLog
                         var parts = line.Split(new[] { ':' }, 2);
                         if (parts.Length == 2 && long.TryParse(parts[0], out factionId))
                         {
-                            if (!factionObjectives.ContainsKey(factionId))
-                                factionObjectives[factionId] = new List<string>();
+                            if (!_factionObjectives.ContainsKey(factionId))
+                                _factionObjectives[factionId] = new QuestLogManager(factionId);
 
-                            if (!factionObjectives[factionId].Contains(parts[1]))
-                                factionObjectives[factionId].Add(parts[1]);
+                            if (!_factionObjectives[factionId].Objectives.Contains(parts[1]))
+                                _factionObjectives[factionId].Objectives.Add(parts[1]);
                         }
                     }
+
+                    foreach (var objective in _factionObjectives.Values)
+                        objective.UpdateFactionQuestlog();
                 }
             }
             catch (Exception ex)
