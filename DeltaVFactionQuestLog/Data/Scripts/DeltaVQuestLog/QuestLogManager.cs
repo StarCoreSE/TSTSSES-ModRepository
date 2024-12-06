@@ -122,7 +122,8 @@ namespace Invalid.DeltaVQuestLog
         {
             if (!SilencedPlayers.Add(id))
                 SilencedPlayers.Remove(id);
-            UpdatePlayerQuestlog(playerId: id);
+            UpdateFactionQuestlog();
+            SendNetworkUpdate();
         }
 
         public void UpdateFactionQuestlog(string title = "Faction Objectives", bool forceVisible = false, bool isNetworkUpdate = false)
@@ -154,7 +155,7 @@ namespace Invalid.DeltaVQuestLog
             }
         }
 
-        private void SendNetworkUpdate()
+        public void SendNetworkUpdate()
         {
             PersistentFactionObjectives.I.Networking.SendMessageToAll(this);
         }

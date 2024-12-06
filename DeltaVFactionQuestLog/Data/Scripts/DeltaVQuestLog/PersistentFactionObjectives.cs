@@ -96,7 +96,7 @@ namespace Invalid.DeltaVQuestLog
             if (playerFaction == null) return;
 
             var factionId = playerFaction.FactionId;
-            GetFactionManger(factionId)?.UpdatePlayerQuestlog(playerId: playerId);
+            GetFactionManger(factionId)?.SendNetworkUpdate();
         }
 
         public QuestLogManager GetFactionManger(long? factionId)
