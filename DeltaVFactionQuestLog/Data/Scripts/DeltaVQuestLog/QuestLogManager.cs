@@ -17,7 +17,7 @@ namespace Invalid.DeltaVQuestLog
         [ProtoMember(1)] public List<string> Objectives = new List<string>();
         [ProtoMember(2)] public Dictionary<string, DateTime> TemporaryObjectives = new Dictionary<string, DateTime>();
         [ProtoMember(3)] public long FactionId { get; private set; }
-        [ProtoMember(4)] public DateTime? ForceShowTime; // TODO
+        [ProtoMember(4)] public DateTime? ForceShowTime;
         /// <summary>
         /// All playerIds with notifications off.
         /// </summary>
@@ -53,10 +53,10 @@ namespace Invalid.DeltaVQuestLog
             if (ForceShowTime != null)
             {
                 if (ForceShowTime.Value > DateTime.UtcNow)
-                    UpdateFactionQuestlog($"Faction Objectives [Force-Enabled for {(ForceShowTime.Value - DateTime.UtcNow).TotalSeconds:N0}s]", true);
+                    UpdateFactionQuestlog($"Faction Objectives [Force-Enabled for {(ForceShowTime.Value - DateTime.UtcNow).TotalSeconds:N0}s]", true, true);
                 else
                 {
-                    UpdateFactionQuestlog();
+                    UpdateFactionQuestlog(isNetworkUpdate: !MyAPIGateway.Session.IsServer);
                     ForceShowTime = null;
                 }
             }
@@ -131,7 +131,8 @@ namespace Invalid.DeltaVQuestLog
             if (MyAPIGateway.Session.IsServer)
             {
                 foreach (var player in Players)
-                    UpdatePlayerQuestlog(title, player, forceVisible);
+                    if (player != -1)
+                        UpdatePlayerQuestlog(title, player, forceVisible);
             }
 
             if (!isNetworkUpdate)

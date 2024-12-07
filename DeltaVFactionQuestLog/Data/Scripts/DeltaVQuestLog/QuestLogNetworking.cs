@@ -18,7 +18,10 @@ namespace Invalid.DeltaVQuestLog
 
         public void SendMessageToAll(QuestLogManager manager)
         {
-            MyAPIGateway.Multiplayer.SendMessageToOthers(NetworkId, MyAPIGateway.Utilities.SerializeToBinary(manager));
+            if (MyAPIGateway.Session.IsServer)
+                MyAPIGateway.Multiplayer.SendMessageToOthers(NetworkId, MyAPIGateway.Utilities.SerializeToBinary(manager));
+            else
+                MyAPIGateway.Multiplayer.SendMessageToServer(NetworkId, MyAPIGateway.Utilities.SerializeToBinary(manager));
         }
 
         private void MessageHandler(ushort handlerId, byte[] data, ulong senderId, bool fromServer)
@@ -27,6 +30,9 @@ namespace Invalid.DeltaVQuestLog
             if (manager == null)
                 return;
             PersistentFactionObjectives.I.UpdateManager(manager);
+
+            if (MyAPIGateway.Session.IsServer && !fromServer)
+                MyAPIGateway.Multiplayer.SendMessageToOthers(NetworkId, MyAPIGateway.Utilities.SerializeToBinary(manager));
         }
     }
 }
