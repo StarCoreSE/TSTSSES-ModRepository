@@ -168,6 +168,13 @@ namespace TeleportMechanisms
         }
         private static void HandleTeleportRequest(byte[] data)
         {
+            MyLogger.Log("NetworkHandler: HandleTeleportRequest: called");
+            if (!MyAPIGateway.Multiplayer.IsServer)
+            {
+                MyLogger.Log("NetworkHandler: HandleTeleportRequest: Not server, ignoring TeleportRequest");
+                return;
+            }
+
             var message = MyAPIGateway.Utilities.SerializeFromBinary<TeleportRequestMessage>(data);
             TeleportCore.ServerProcessTeleportRequest(message);
         }

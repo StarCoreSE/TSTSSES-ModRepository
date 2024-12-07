@@ -100,17 +100,108 @@ namespace TeleportMechanisms {
             return powerPerSecond * 1000f; // Convert to watts
         }
 
-        private void AppendingCustomInfo(IMyTerminalBlock block, StringBuilder sb)
-        {
-            sb.Append("--- Teleport Gateway Status ---\n");
+        private void AppendingCustomInfo(IMyTerminalBlock block, StringBuilder sb) {
+            try {
+                if (!block.IsWorking) {
+                    sb.Append("--- Gateway Offline ---\n");
+                    sb.Append("The gateway is not functional. Check power and block integrity.\n");
+                    return;
+                }
 
-            // Always show linked destinations, assuming server knows best
-            sb.Append($"Gateway Name: {Settings.GatewayName}\n");
-            sb.Append($"Linked Gateways: {TeleportCore._TeleportLinks[Settings.GatewayName]?.Count ?? 0}\n");
-            sb.Append("Status: Ready to Jump\n");
+                sb.Append("--- Teleport Gateway Status ---\n");
 
-            sb.Append($"Allow Players: {(Settings.AllowPlayers ? "Yes" : "No")}\n");
-            sb.Append($"Allow Ships: {(Settings.AllowShips ? "Yes" : "No")}\n");
+                if (Sink != null) {
+                    float currentStoredPower = (float)Settings.StoredPower;
+                    float maxStoredPower = Settings.MaxStoredPower;
+                    float chargePercentage = (currentStoredPower / maxStoredPower) * 100f;
+
+                    // Display power level
+                    sb.Append($"Charge: {chargePercentage:F1}% ({currentStoredPower:F2}/{maxStoredPower:F2} MWh)\n");
+                    sb.Append($"Minimum Charge for Teleport: {MIN_TELEPORT_CHARGE_PERCENTAGE * 100}%\n");
+
+                    // Status based on charging and power availability
+                    if (_isTeleporting) {
+                        sb.Append("Status: Teleporting...\n");
+                    }
+                    else if (Settings.StoredPower >= maxStoredPower) {
+                        sb.Append("Status: Fully Charged - Ready to Jump\n");
+                    }
+                    else if (Sink.IsPowerAvailable(MyResourceDistributorComponent.ElectricityId, CHARGE_RATE * 1000f)) {
+                        sb.Append("Status: Charging...\n");
+
+                        float remainingPower = maxStoredPower - currentStoredPower;
+                        float timeToFullCharge = remainingPower / CHARGE_RATE; // in seconds
+                        sb.Append($"Time to Full Charge: {timeToFullCharge:F1} seconds\n");
+                    }
+                    else {
+                        sb.Append("Status: Insufficient Power for Charging\n");
+                        sb.Append("Check reactor output or power supply.\n");
+                    }
+
+                    // Warning if power level is low and teleport cannot proceed
+                    if (Settings.StoredPower < maxStoredPower * POWER_THRESHOLD && !_isTeleporting) {
+                        sb.Append("Warning: Power below safe teleport threshold\n");
+                        sb.Append("Charge to at least 10% to ensure successful teleport.\n");
+                    }
+                }
+
+                // Display linked gateways info (unchanged)
+                var linkedGateways = TeleportCore._TeleportLinks.ContainsKey(Settings.GatewayName)
+                    ? TeleportCore._TeleportLinks[Settings.GatewayName]
+                    : new List<long>();
+                int linkedCount = linkedGateways.Count;
+                sb.Append($"Linked Gateways: {linkedCount}\n");
+
+                if (linkedCount > 2) {
+                    sb.Append($"WARNING: More than two gateways on channel '{Settings.GatewayName}'.\n");
+                    sb.Append("         Only the nearest gateway will be used.\n");
+                }
+
+                if (linkedCount > 0) {
+                    sb.Append("Linked To:\n");
+                    var sourcePosition = RingwayBlock.GetPosition();
+
+                    IMyCollector nearestGateway = null;
+                    double nearestDistance = double.MaxValue;
+
+                    foreach (var gatewayId in linkedGateways) {
+                        if (gatewayId != RingwayBlock.EntityId) {
+                            var linkedGateway = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyCollector;
+                            if (linkedGateway != null) {
+                                var distance = Vector3D.Distance(sourcePosition, linkedGateway.GetPosition());
+                                string distanceStr = $"{distance / 1000:F1} km";
+
+                                if (distance < nearestDistance) {
+                                    nearestDistance = distance;
+                                    nearestGateway = linkedGateway;
+                                }
+
+                                sb.Append($"  - {linkedGateway.CustomName}: {distanceStr}\n");
+                            }
+                            else {
+                                sb.Append($"  - Unknown (ID: {gatewayId})\n");
+                            }
+                        }
+                    }
+
+                    if (nearestGateway != null && linkedCount > 1) {
+                        sb.Append($"Active Destination: {nearestGateway.CustomName}\n");
+                    }
+                }
+                else {
+                    sb.Append("Status: Not linked to any other gateways\n");
+                }
+
+                // Settings Info (unchanged)
+                sb.Append($"Allow Players: {(Settings.AllowPlayers ? "Yes" : "No")}\n");
+                sb.Append($"Allow Ships: {(Settings.AllowShips ? "Yes" : "No")}\n");
+                sb.Append($"Show Sphere: {(Settings.ShowSphere ? "Yes" : "No")}\n");
+                sb.Append($"Sphere Diameter: {Settings.SphereDiameter} m\n");
+
+            }
+            catch (Exception e) {
+                MyLog.Default.WriteLineAndConsole($"Error in AppendingCustomInfo: {e}");
+            }
         }
 
         public override void UpdateOnceBeforeFrame() {
@@ -665,19 +756,70 @@ namespace TeleportMechanisms {
 
         private void JumpAction(IMyCollector block)
         {
-            MyLogger.Log($"JumpAction: Triggered by client for Gateway {block.EntityId}");
+            MyLogger.Log($"TPGate: JumpAction: Jump action triggered for EntityId: {block.EntityId}");
 
-            // Send a jump request to the server with no client-side validation
-            var message = new JumpRequestMessage
+            var link = Settings.GatewayName;
+            if (string.IsNullOrEmpty(link))
             {
-                GatewayId = block.EntityId,
-                Link = Settings.GatewayName
-            };
+                MyLogger.Log($"TPGate: JumpAction: No valid link set");
+                return;
+            }
 
-            var data = MyAPIGateway.Utilities.SerializeToBinary(message);
-            MyAPIGateway.Multiplayer.SendMessageToServer(NetworkHandler.JumpRequestId, data);
+            var destGatewayId = TeleportCore.GetDestinationGatewayId(link, block.EntityId);
+            if (destGatewayId == 0)
+            {
+                MyLogger.Log($"TPGate: JumpAction: No valid destination gateway found");
+                return;
+            }
 
-            MyLogger.Log($"JumpAction: Request sent to server for Gateway {block.EntityId}");
+            // Calculate distance to destination
+            var destGateway = MyAPIGateway.Entities.GetEntityById(destGatewayId) as IMyCollector;
+            if (destGateway == null) return;
+
+            _jumpDistance = Vector3D.Distance(block.GetPosition(), destGateway.GetPosition());
+
+            // Enforce the maximum distance restriction
+            if (_jumpDistance > MAX_TELEPORT_DISTANCE)
+            {
+                MyLogger.Log($"TPGate: JumpAction: Jump distance {_jumpDistance / 1000:F1}km exceeds maximum allowed distance {MAX_TELEPORT_DISTANCE / 1000:F1}km.");
+                NotifyPlayersInRange(
+                    $"Jump distance {_jumpDistance / 1000:F1}km exceeds maximum allowed range of {MAX_TELEPORT_DISTANCE / 1000:F1}km.",
+                    block.GetPosition(),
+                    100,
+                    "Red"
+                );
+                return;
+            }
+
+            float powerRequired = CalculatePowerRequired(_jumpDistance);
+            MyLogger.Log(
+                $"TPGate: JumpAction: Distance: {_jumpDistance / 1000:F1}km, Power Required: {powerRequired:F1}MWh");
+
+            if (Settings.StoredPower < powerRequired)
+            {
+                MyLogger.Log(
+                    $"TPGate: JumpAction: Not enough power for jump. Required: {powerRequired:F1}MWh, Available: {Settings.StoredPower:F1}MWh");
+                NotifyPlayersInRange(
+                    $"Insufficient power for {_jumpDistance / 1000:F1}km jump. Need {powerRequired:F1}MWh",
+                    block.GetPosition(),
+                    100,
+                    "Red"
+                );
+                return;
+            }
+
+            // Start teleport sequence
+            _isTeleporting = true;
+            _teleportCountdown = CalculateCountdown(_jumpDistance); // Apply calculated countdown
+            _initialPower = Settings.StoredPower;
+
+            float totalSeconds = _teleportCountdown / 60f;
+            NotifyPlayersInRange(
+                $"Initiating {_jumpDistance / 1000:F1}km jump - {totalSeconds:F1} seconds",
+                block.GetPosition(),
+                100,
+                "White"
+            );
         }
 
         private static void NotifyPlayersInRange(string text, Vector3D position, double radius, string font = "White") {
