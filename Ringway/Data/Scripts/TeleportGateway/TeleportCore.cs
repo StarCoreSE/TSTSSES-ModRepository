@@ -17,82 +17,70 @@ using Sandbox.Game.Entities.Cube;
 using SpaceEngineers.Game.ModAPI.Ingame;
 using Sandbox.Game.Entities;
 using System.Reflection.Emit;
+using Sandbox.Game;
 
-namespace TeleportMechanisms
-{
-    public static class TeleportCore
-    {
+namespace TeleportMechanisms {
+    public static class TeleportCore {
         internal static Dictionary<string, List<long>> _TeleportLinks = new Dictionary<string, List<long>>();
         internal static Dictionary<long, TeleportGateway> _instances = new Dictionary<long, TeleportGateway>();
         internal static readonly object _lock = new object();
 
-        public static void UpdateTeleportLinks()
-        {
-            lock (_lock)
-            {
+        public static void UpdateTeleportLinks() {
+            lock (_lock) {
                 _TeleportLinks.Clear();
                 MyLogger.Log($"TPCore: UpdateTeleportLinks: Updating Teleport links. Total instances: {_instances.Count}");
 
                 var gateways = new HashSet<IMyCollector>();
-                foreach (var instance in _instances.Values)
-                {
-                    if (instance.Block != null && (instance.Block.BlockDefinition.SubtypeName == "RingwayCore" || instance.Block.BlockDefinition.SubtypeName == "RingwayCoreSmall"))
-                    {
-                        MyLogger.Log($"TPCore: UpdateTeleportLinks: Found instance gateway: {instance.Block.CustomName}, EntityId: {instance.Block.EntityId}, IsWorking: {instance.Block.IsWorking}");
-                        gateways.Add(instance.Block);
+                foreach (var instance in _instances.Values) {
+                    if (instance.RingwayBlock != null &&
+                        instance.RingwayBlock.IsWorking &&
+                        (instance.RingwayBlock.BlockDefinition.SubtypeName == "RingwayCore" ||
+                         instance.RingwayBlock.BlockDefinition.SubtypeName == "SmallRingwayCore")) {
+                        MyLogger.Log($"TPCore: UpdateTeleportLinks: Found instance gateway: {instance.RingwayBlock.CustomName}, EntityId: {instance.RingwayBlock.EntityId}, IsWorking: {instance.RingwayBlock.IsWorking}");
+                        gateways.Add(instance.RingwayBlock);
                     }
-                    else
-                    {
+                    else {
                         MyLogger.Log($"TPCore: UpdateTeleportLinks: Instance has null or invalid gateway");
                     }
                 }
 
                 MyLogger.Log($"TPCore: UpdateTeleportLinks: Total gateways found: {gateways.Count}");
 
-                foreach (var gateway in gateways)
-                {
+                foreach (var gateway in gateways) {
                     var gatewayLogic = gateway.GameLogic.GetAs<TeleportGateway>();
                     var link = GetTeleportLink(gateway);
-                    if (!string.IsNullOrEmpty(link))
-                    {
-                        if (!_TeleportLinks.ContainsKey(link))
-                        {
+                    if (!string.IsNullOrEmpty(link)) {
+                        if (!_TeleportLinks.ContainsKey(link)) {
                             _TeleportLinks[link] = new List<long>();
                         }
                         _TeleportLinks[link].Add(gateway.EntityId);
                         MyLogger.Log($"TPCore: UpdateTeleportLinks: Added gateway {gateway.CustomName} (EntityId: {gateway.EntityId}) to link {link}. AllowPlayers: {gatewayLogic.Settings.AllowPlayers}, AllowShips: {gatewayLogic.Settings.AllowShips}");
                     }
-                    else
-                    {
+                    else {
                         MyLogger.Log($"TPCore: UpdateTeleportLinks: Gateway {gateway.CustomName} (EntityId: {gateway.EntityId}) does not have a valid teleport link");
                     }
                 }
 
                 MyLogger.Log($"TPCore: UpdateTeleportLinks: Total Teleport links: {_TeleportLinks.Count}");
-                foreach (var kvp in _TeleportLinks)
-                {
+                foreach (var kvp in _TeleportLinks) {
                     MyLogger.Log($"TPCore: UpdateTeleportLinks: Link {kvp.Key}: {string.Join(", ", kvp.Value)}");
                 }
             }
         }
 
-        public static string GetTeleportLink(IMyCollector gateway)
-        {
+        public static string GetTeleportLink(IMyCollector gateway) {
             var gatewayLogic = gateway.GameLogic.GetAs<TeleportGateway>();
-            if (gatewayLogic != null)
-            {
+            if (gatewayLogic != null) {
                 MyLogger.Log($"TPCore: GetTeleportLink: GatewayName: {gatewayLogic.Settings.GatewayName}, AllowPlayers: {gatewayLogic.Settings.AllowPlayers}, AllowShips: {gatewayLogic.Settings.AllowShips}");
                 return gatewayLogic.Settings.GatewayName;
             }
             return null;
         }
 
-        public static void RequestTeleport(long playerId, long sourceGatewayId, string link)
-        {
+        public static void RequestTeleport(long playerId, long sourceGatewayId, string link) {
             MyLogger.Log($"TPCore: RequestTeleport: Player {playerId}, Gateway {sourceGatewayId}, Link {link}");
 
-            var message = new TeleportRequestMessage
-            {
+            var message = new TeleportRequestMessage {
                 PlayerId = (ulong)playerId,
                 SourceGatewayId = sourceGatewayId,
                 TeleportLink = link
@@ -103,110 +91,92 @@ namespace TeleportMechanisms
             MyAPIGateway.Multiplayer.SendMessageToServer(NetworkHandler.TeleportRequestId, data);
         }
 
-        public static void ServerProcessTeleportRequest(TeleportRequestMessage message)
-        {
+        public static void ServerProcessTeleportRequest(TeleportRequestMessage message) {
             MyLogger.Log($"TPCore: ProcessTeleportRequest: Player {message.PlayerId}, Link {message.TeleportLink}");
-            MyLogger.Log($"TPCore: ProcessTeleportRequest: Current Teleport links: {string.Join(", ", _TeleportLinks.Keys)}");
 
             List<long> linkedGateways;
-            lock (_lock)
-            {
-                if (!_TeleportLinks.TryGetValue(message.TeleportLink, out linkedGateways))
-                {
+            lock (_lock) {
+                if (!_TeleportLinks.TryGetValue(message.TeleportLink, out linkedGateways)) {
                     MyLogger.Log($"TPCore: ProcessTeleportRequest: No linked gateways found for link {message.TeleportLink}");
                     return;
                 }
             }
 
-            MyLogger.Log($"TPCore: ProcessTeleportRequest: Found {linkedGateways.Count} linked gateways for link {message.TeleportLink}");
-
-            if (linkedGateways.Count < 2)
-            {
-                MyLogger.Log("TPCore: ProcessTeleportRequest: At least two linked gateways are required for teleportation. Aborting.");
-                return;
-            }
-
-            var sourceIndex = linkedGateways.IndexOf(message.SourceGatewayId);
-            if (sourceIndex == -1)
-            {
-                MyLogger.Log($"TPCore: ProcessTeleportRequest: Source gateway {message.SourceGatewayId} not found in linked gateways");
-                return;
-            }
-
-            var destIndex = (sourceIndex + 1) % linkedGateways.Count;
-            var destGatewayId = linkedGateways[destIndex];
-
-            var destGateway = MyAPIGateway.Entities.GetEntityById(destGatewayId) as IMyCollector;
-            if (destGateway == null)
-            {
-                MyLogger.Log($"TPCore: ProcessTeleportRequest: Destination gateway {destGatewayId} not found");
-                return;
-            }
-
-            var player = GetPlayerById((long)message.PlayerId);
-            if (player == null || player.Character == null)
-            {
-                MyLogger.Log($"TPCore: ProcessTeleportRequest: Player {message.PlayerId} or their character not found");
-                return;
-            }
-
             var sourceGateway = MyAPIGateway.Entities.GetEntityById(message.SourceGatewayId) as IMyCollector;
-            if (sourceGateway == null)
-            {
+            if (sourceGateway == null) {
                 MyLogger.Log($"TPCore: ProcessTeleportRequest: Source gateway {message.SourceGatewayId} not found");
                 return;
             }
 
-            // Check the source gateway settings
+            var sourcePosition = sourceGateway.GetPosition();
+            long nearestGatewayId = 0;
+            double nearestDistance = double.MaxValue;
+
+            foreach (var gatewayId in linkedGateways) {
+                if (gatewayId == message.SourceGatewayId) continue;
+
+                var candidateGateway = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyCollector;
+                if (candidateGateway == null) continue;
+
+                var distance = Vector3D.Distance(sourcePosition, candidateGateway.GetPosition());
+                if (distance < nearestDistance) {
+                    nearestDistance = distance;
+                    nearestGatewayId = gatewayId;
+                }
+            }
+
+            if (nearestGatewayId == 0) {
+                MyLogger.Log($"TPCore: ProcessTeleportRequest: No valid destination gateway found for link {message.TeleportLink}");
+                return;
+            }
+
+            var destGateway = MyAPIGateway.Entities.GetEntityById(nearestGatewayId) as IMyCollector;
+            if (destGateway == null) {
+                MyLogger.Log($"TPCore: ProcessTeleportRequest: Destination gateway {nearestGatewayId} not found");
+                return;
+            }
+
+            var player = GetPlayerById((long)message.PlayerId);
+            if (player == null || player.Character == null) {
+                MyLogger.Log($"TPCore: ProcessTeleportRequest: Player {message.PlayerId} or their character not found");
+                return;
+            }
+
             var sourceGatewayLogic = sourceGateway.GameLogic.GetAs<TeleportGateway>();
-            if (sourceGatewayLogic == null)
-            {
+            if (sourceGatewayLogic == null) {
                 MyLogger.Log($"TPCore: ProcessTeleportRequest: Could not retrieve TeleportGateway for source gateway {sourceGateway.EntityId}");
                 return;
             }
 
             var sourceGatewaySettings = sourceGatewayLogic.Settings;
-            MyLogger.Log($"TPCore: ProcessTeleportRequest: Source gateway settings - AllowPlayers: {sourceGatewaySettings.AllowPlayers}, AllowShips: {sourceGatewaySettings.AllowShips}");
-
-            if (!sourceGatewaySettings.AllowPlayers)
-            {
+            if (!sourceGatewaySettings.AllowPlayers) {
                 MyLogger.Log($"TPCore: ProcessTeleportRequest: Player teleportation is not allowed for source gateway {sourceGateway.EntityId}");
                 return;
             }
 
             var isShip = player.Controller.ControlledEntity is IMyCubeBlock;
-            if (isShip && !sourceGatewaySettings.AllowShips)
-            {
+            if (isShip && !sourceGatewaySettings.AllowShips) {
                 MyLogger.Log($"TPCore: ProcessTeleportRequest: Ship teleportation is not allowed for source gateway {sourceGateway.EntityId}");
                 return;
             }
 
-            // Perform teleportation
             TeleportEntity(player.Character, sourceGateway, destGateway);
 
             var grid = player.Controller.ControlledEntity?.Entity.GetTopMostParent() as IMyCubeGrid;
-            if (grid != null)
-            {
-                // Ensure the grid is not static
-                if (grid.IsStatic)
-                {
+            if (grid != null) {
+                if (grid.IsStatic) {
                     MyLogger.Log($"TPCore: ProcessTeleportRequest: Grid {grid.DisplayName} is static, teleportation aborted");
                     return;
                 }
-
-                // Ensure the grid is not locked to a static grid
-                if (HasLockedLandingGear(grid))
-                {
+                if (HasLockedLandingGear(grid)) {
                     MyLogger.Log($"TPCore: ProcessTeleportRequest: Grid {grid.DisplayName} has locked landing gear, teleportation aborted");
                     return;
                 }
-
                 TeleportEntity(grid, sourceGateway, destGateway);
             }
         }
 
-        private static void TeleportEntity(IMyEntity entity, IMyCollector sourceGateway, IMyCollector destGateway)
-        {
+        public static void TeleportEntity(IMyEntity entity, IMyCollector sourceGateway, IMyCollector destGateway) {
             MyLogger.Log($"TPCore: TeleportEntity: Teleporting entity {entity.EntityId}");
 
             var relativePosition = entity.GetPosition() - sourceGateway.GetPosition();
@@ -218,16 +188,13 @@ namespace TeleportMechanisms
             var newOrientation = relativeOrientation * destGateway.WorldMatrix;
 
             var character = entity as IMyCharacter;
-            if (character != null)
-            {
+            if (character != null) {
                 character.Teleport(newOrientation);
                 character.SetWorldMatrix(newOrientation);
             }
-            else
-            {
+            else {
                 var grid = entity as IMyCubeGrid;
-                if (grid != null)
-                {
+                if (grid != null) {
                     TeleportGrid(grid, newOrientation, sourceGateway.WorldMatrix, destGateway.WorldMatrix);
                 }
             }
@@ -235,8 +202,7 @@ namespace TeleportMechanisms
             MyLogger.Log($"TPCore: TeleportEntity: Entity {entity.EntityId} teleported to {newPosition}");
         }
 
-        private static void TeleportGrid(IMyCubeGrid mainGrid, MatrixD newOrientation, MatrixD sourceGatewayMatrix, MatrixD destinationGatewayMatrix)
-        {
+        private static void TeleportGrid(IMyCubeGrid mainGrid, MatrixD newOrientation, MatrixD sourceGatewayMatrix, MatrixD destinationGatewayMatrix) {
             var allGrids = new List<IMyCubeGrid>();
             MyAPIGateway.GridGroups.GetGroup(mainGrid, GridLinkTypeEnum.Physical, allGrids);
 
@@ -247,8 +213,7 @@ namespace TeleportMechanisms
             Dictionary<IMyCubeGrid, MatrixD> relativeLocalMatrices = new Dictionary<IMyCubeGrid, MatrixD>();
 
             // Calculate and store the relative local matrix for each subgrid
-            foreach (var subgrid in subgrids)
-            {
+            foreach (var subgrid in subgrids) {
                 MatrixD relativeMatrix = subgrid.WorldMatrix * MatrixD.Invert(mainGrid.WorldMatrix);
                 relativeLocalMatrices[subgrid] = relativeMatrix;
                 MyLogger.Log($"TPCore: TeleportGrid: Calculated relative matrix for subgrid {subgrid.DisplayName} (EntityId: {subgrid.EntityId}), Relative Matrix: {relativeMatrix}");
@@ -261,8 +226,7 @@ namespace TeleportMechanisms
 
             // Update physics for the main grid
             var mainPhysics = mainGrid.Physics;
-            if (mainPhysics != null)
-            {
+            if (mainPhysics != null) {
                 mainPhysics.LinearVelocity = Vector3D.Zero;
                 mainPhysics.AngularVelocity = Vector3D.Zero;
 
@@ -276,24 +240,20 @@ namespace TeleportMechanisms
             HashSet<long> processedSubgrids = new HashSet<long>();
 
             // Transform and update all subgrids
-            foreach (var subgrid in subgrids)
-            {
-                if (processedSubgrids.Contains(subgrid.EntityId))
-                {
+            foreach (var subgrid in subgrids) {
+                if (processedSubgrids.Contains(subgrid.EntityId)) {
                     MyLogger.Log($"TPCore: TeleportGrid: Skipping already processed subgrid {subgrid.DisplayName} (EntityId: {subgrid.EntityId})");
                     continue;
                 }
 
-                try
-                {
+                try {
                     MatrixD newGridWorldMatrix = relativeLocalMatrices[subgrid] * mainGrid.WorldMatrix;
                     MyLogger.Log($"TPCore: TeleportGrid: Calculating new WorldMatrix for subgrid {subgrid.DisplayName} (EntityId: {subgrid.EntityId}), New World Matrix: {newGridWorldMatrix}");
                     subgrid.WorldMatrix = newGridWorldMatrix;
                     MyLogger.Log($"TPCore: TeleportGrid: Updated WorldMatrix for subgrid {subgrid.DisplayName} (EntityId: {subgrid.EntityId}), New World Matrix: {newGridWorldMatrix}");
 
                     var physics = subgrid.Physics;
-                    if (physics != null)
-                    {
+                    if (physics != null) {
                         physics.LinearVelocity = Vector3D.Zero;
                         physics.AngularVelocity = Vector3D.Zero;
                         physics.Gravity = mainPhysics?.Gravity ?? Vector3.Zero;
@@ -303,8 +263,7 @@ namespace TeleportMechanisms
                     // Mark this subgrid as processed
                     processedSubgrids.Add(subgrid.EntityId);
                 }
-                catch (Exception ex)
-                {
+                catch (Exception ex) {
                     MyLogger.Log($"TPCore: TeleportGrid: Exception occurred while handling subgrid {subgrid.DisplayName} (EntityId: {subgrid.EntityId}): {ex.Message}");
                 }
             }
@@ -316,30 +275,25 @@ namespace TeleportMechanisms
             MyLogger.Log($"TPCore: TeleportGrid: Teleportation complete for main grid {mainGrid.DisplayName} (EntityId: {mainGrid.EntityId}) and its {subgrids.Count} subgrids");
         }
 
-        public static void ClientApplyTeleportResponse(TeleportResponseMessage message)
-        {
+        public static void ClientApplyTeleportResponse(TeleportResponseMessage message) {
             MyLogger.Log($"TPCore: ApplyTeleport: Player {message.PlayerId}, Success {message.Success}");
-            if (!message.Success)
-            {
+            if (!message.Success) {
                 MyLogger.Log($"TPCore: ApplyTeleport: Teleport unsuccessful for player {message.PlayerId}");
                 return;
             }
 
             var player = GetPlayerById((long)message.PlayerId);
-            if (player == null || player.Character == null)
-            {
+            if (player == null || player.Character == null) {
                 MyLogger.Log($"TPCore: ApplyTeleport: Player {message.PlayerId} or their character not found during teleport");
                 return;
             }
 
             // Teleport the player's controlled grid, if any
             var controlledEntity = player.Controller.ControlledEntity;
-            if (controlledEntity != null)
-            {
+            if (controlledEntity != null) {
                 var topMostParent = controlledEntity.Entity.GetTopMostParent();
                 var grid = topMostParent as IMyCubeGrid;
-                if (grid != null)
-                {
+                if (grid != null) {
                     MyLogger.Log($"TPCore: ApplyTeleport: Attempting to teleport ship: {grid.DisplayName}");
                     var shipRelativeOrientation = grid.WorldMatrix * MatrixD.Invert(player.Character.WorldMatrix);
                     var newShipOrientation = shipRelativeOrientation * message.NewOrientation;
@@ -351,8 +305,7 @@ namespace TeleportMechanisms
 
                 }
             }
-            else
-            {
+            else {
                 // Teleport the player's character
                 player.Character.Teleport(message.NewOrientation);
                 player.Character.SetWorldMatrix(message.NewOrientation);
@@ -360,42 +313,54 @@ namespace TeleportMechanisms
             }
         }
 
-        public static long GetDestinationGatewayId(string link, long sourceGatewayId)
-        {
+        public static long GetDestinationGatewayId(string link, long sourceGatewayId) {
             List<long> linkedGateways;
-            lock (_lock)
-            {
-                if (!_TeleportLinks.TryGetValue(link, out linkedGateways))
-                {
-                    MyLogger.Log($"TPCore: GetDestinationGatewayId: No linked gateways found for link {link}");
+            lock (_lock) {
+                if (!_TeleportLinks.TryGetValue(link, out linkedGateways) || linkedGateways.Count < 2) {
+                    MyLogger.Log($"TPCore: GetDestinationGatewayId: No valid linked gateways found for link {link}");
                     return 0;
                 }
             }
 
-            MyLogger.Log($"TPCore: GetDestinationGatewayId: Found {linkedGateways.Count} linked gateways for link {link}");
-
-            if (linkedGateways.Count < 2)
-            {
-                MyLogger.Log("TPCore: GetDestinationGatewayId: At least two linked gateways are required for teleportation. Aborting.");
+            var sourceGateway = MyAPIGateway.Entities.GetEntityById(sourceGatewayId) as IMyCollector;
+            if (sourceGateway == null) {
+                MyLogger.Log($"TPCore: GetDestinationGatewayId: Source gateway {sourceGatewayId} not found");
                 return 0;
             }
 
-            var sourceIndex = linkedGateways.IndexOf(sourceGatewayId);
-            if (sourceIndex == -1)
-            {
-                MyLogger.Log($"TPCore: GetDestinationGatewayId: Source gateway {sourceGatewayId} not found in linked gateways");
-                return 0;
+            var sourcePosition = sourceGateway.GetPosition();
+
+            long nearestGatewayId = 0;
+            double nearestDistance = double.MaxValue;
+
+            foreach (var gatewayId in linkedGateways) {
+                if (gatewayId == sourceGatewayId) continue;
+
+                var destinationGateway = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyCollector;
+                if (destinationGateway == null) continue;
+
+                var distance = Vector3D.Distance(sourcePosition, destinationGateway.GetPosition());
+                if (distance < nearestDistance) {
+                    nearestDistance = distance;
+                    nearestGatewayId = gatewayId;
+                }
             }
 
-            var destIndex = (sourceIndex + 1) % linkedGateways.Count;
-            return linkedGateways[destIndex];
+            if (nearestGatewayId == 0) {
+                MyLogger.Log($"TPCore: GetDestinationGatewayId: No valid destination gateway found for link {link}");
+            }
+
+            return nearestGatewayId;
         }
 
-        public static int TeleportNearbyShips(IMyCollector sourceGateway, IMyCollector destGateway)
-        {
+        public static int TeleportNearbyShips(IMyCollector sourceGateway, IMyCollector destGateway) {
+            if (!sourceGateway.IsWorking || !destGateway.IsWorking) {
+                MyLogger.Log($"TPCore: TeleportNearbyShips: Source or destination gateway not functional");
+                return 0;
+            }
+
             var teleportGatewayLogic = sourceGateway.GameLogic.GetAs<TeleportGateway>();
-            if (teleportGatewayLogic == null)
-            {
+            if (teleportGatewayLogic == null) {
                 MyLogger.Log($"TPCore: TeleportNearbyShips: TeleportGateway logic not found for source gateway {sourceGateway.EntityId}");
                 return 0;
             }
@@ -414,11 +379,9 @@ namespace TeleportMechanisms
 
             int teleportedShipsCount = 0;
 
-            foreach (var entity in potentialEntities)
-            {
+            foreach (var entity in potentialEntities) {
                 var grid = entity as IMyCubeGrid;
-                if (grid == null || grid.IsStatic || grid.EntityId == sourceGateway.CubeGrid.EntityId)
-                {
+                if (grid == null || grid.IsStatic || grid.EntityId == sourceGateway.CubeGrid.EntityId) {
                     continue;
                 }
 
@@ -430,37 +393,34 @@ namespace TeleportMechanisms
                 MyLogger.Log($"  Sphere radius: {sphereRadius}");
 
                 // Only teleport if the grid's center is within the sphere
-                if (distanceToSphereCenter > sphereRadius)
-                {
+                if (distanceToSphereCenter > sphereRadius) {
                     MyLogger.Log($"  Grid is outside the teleport sphere, skipping");
                     continue;
                 }
 
-                if (IsControlledByPlayer(grid))
-                {
+                if (IsControlledByPlayer(grid)) {
                     MyLogger.Log($"  Grid is controlled by a player, skipping");
                     continue;
                 }
 
-                if (IsSubgridOrConnectedToLargerGrid(grid))
-                {
+                if (IsSubgridOrConnectedToLargerGrid(grid)) {
                     MyLogger.Log($"  Grid is a subgrid or connected to a larger grid, skipping");
                     continue;
                 }
 
-                if (HasLockedLandingGear(grid))
-                {
+                if (HasLockedLandingGear(grid)) {
                     MyLogger.Log($"  Grid has locked landing gear, skipping");
                     continue;
                 }
 
-                if (!teleportGatewayLogic.Settings.AllowShips)
-                {
+                if (!teleportGatewayLogic.Settings.AllowShips) {
                     MyLogger.Log($"  Ship teleportation is not allowed for this gateway, skipping");
                     continue;
                 }
 
+                // Teleport the ship and play effects at its position
                 TeleportEntity(grid, sourceGateway, destGateway);
+                PlayEffectsAtPosition(grid.GetPosition()); // Play particle and sound effects at the ship's position
                 MyLogger.Log($"  Teleported grid {grid.DisplayName}");
                 teleportedShipsCount++;
             }
@@ -469,24 +429,26 @@ namespace TeleportMechanisms
             return teleportedShipsCount;
         }
 
-        private static bool IsControlledByPlayer(IMyCubeGrid grid)
-        {
+        // Separate method to play effects at a specific position
+        private static void PlayEffectsAtPosition(Vector3D position) {
+            MyVisualScriptLogicProvider.CreateParticleEffectAtPosition("TeleportEntityEffect", position);
+            MyVisualScriptLogicProvider.PlaySingleSoundAtPosition("TeleportEntitySound", position);
+        }
+
+        private static bool IsControlledByPlayer(IMyCubeGrid grid) {
             var blocks = new List<IMySlimBlock>();
             grid.GetBlocks(blocks);
 
-            foreach (var block in blocks)
-            {
+            foreach (var block in blocks) {
                 var controller = block.FatBlock as IMyShipController;
-                if (controller != null && controller.Pilot != null)
-                {
+                if (controller != null && controller.Pilot != null) {
                     return true;
                 }
             }
             return false;
         }
 
-        private static bool IsSubgridOrConnectedToLargerGrid(IMyCubeGrid grid)
-        {
+        private static bool IsSubgridOrConnectedToLargerGrid(IMyCubeGrid grid) {
             // Get the group of grids the current grid is part of
             var group = MyAPIGateway.GridGroups.GetGroup(grid, GridLinkTypeEnum.Physical);
 
@@ -494,11 +456,9 @@ namespace TeleportMechanisms
             IMyCubeGrid largestGrid = null;
             int largestBlockCount = 0;
 
-            foreach (var g in group)
-            {
+            foreach (var g in group) {
                 var myGrid = g as MyCubeGrid;
-                if (myGrid != null && myGrid.BlocksCount > largestBlockCount)
-                {
+                if (myGrid != null && myGrid.BlocksCount > largestBlockCount) {
                     largestGrid = myGrid;
                     largestBlockCount = myGrid.BlocksCount;
                 }
@@ -508,16 +468,13 @@ namespace TeleportMechanisms
             return largestGrid != null && largestGrid.EntityId != grid.EntityId;
         }
 
-        private static bool HasLockedLandingGear(IMyCubeGrid grid)
-        {
+        private static bool HasLockedLandingGear(IMyCubeGrid grid) {
             List<IMySlimBlock> landingGears = new List<IMySlimBlock>();
             grid.GetBlocks(landingGears, b => b.FatBlock is SpaceEngineers.Game.ModAPI.Ingame.IMyLandingGear);
 
-            foreach (var gear in landingGears)
-            {
+            foreach (var gear in landingGears) {
                 var landingGear = gear.FatBlock as SpaceEngineers.Game.ModAPI.Ingame.IMyLandingGear;
-                if (landingGear != null && landingGear.IsLocked)
-                {
+                if (landingGear != null && landingGear.IsLocked) {
                     return true;
                 }
             }
@@ -525,8 +482,7 @@ namespace TeleportMechanisms
             return false;
         }
 
-        private static IMyPlayer GetPlayerById(long playerId)
-        {
+        private static IMyPlayer GetPlayerById(long playerId) {
             var playerList = new List<IMyPlayer>();
             MyAPIGateway.Players.GetPlayers(playerList);
             return playerList.Find(p => p.IdentityId == playerId);
