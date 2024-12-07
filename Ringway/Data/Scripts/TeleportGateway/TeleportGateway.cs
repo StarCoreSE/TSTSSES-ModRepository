@@ -761,27 +761,33 @@ namespace TeleportMechanisms {
             var link = Settings.GatewayName;
             if (string.IsNullOrEmpty(link))
             {
-                MyLogger.Log($"TPGate: JumpAction: No valid link set");
-                return;
+                MyLogger.Log($"TPGate: JumpAction: No valid link set. Proceeding with request to server.");
             }
 
+            // Use server-calculated destination if available
+            _jumpDistance = 0; // Default value if destination is not directly visible
+            float powerRequired = 0;
+
+            // Check for destination gateway locally (optional)
             var destGatewayId = TeleportCore.GetDestinationGatewayId(link, block.EntityId);
-            if (destGatewayId == 0)
+            if (destGatewayId != 0)
             {
-                MyLogger.Log($"TPGate: JumpAction: No valid destination gateway found");
-                return;
+                var destGateway = MyAPIGateway.Entities.GetEntityById(destGatewayId) as IMyCollector;
+                if (destGateway != null)
+                {
+                    _jumpDistance = Vector3D.Distance(block.GetPosition(), destGateway.GetPosition());
+                    powerRequired = CalculatePowerRequired(_jumpDistance);
+                }
+                else
+                {
+                    MyLogger.Log($"TPGate: JumpAction: Destination gateway not found on client side. Server will handle validation.");
+                }
             }
-
-            // Calculate distance to destination
-            var destGateway = MyAPIGateway.Entities.GetEntityById(destGatewayId) as IMyCollector;
-            if (destGateway == null) return;
-
-            _jumpDistance = Vector3D.Distance(block.GetPosition(), destGateway.GetPosition());
 
             // Enforce the maximum distance restriction
-            if (_jumpDistance > MAX_TELEPORT_DISTANCE)
+            if (_jumpDistance > MAX_TELEPORT_DISTANCE && destGatewayId != 0)
             {
-                MyLogger.Log($"TPGate: JumpAction: Jump distance {_jumpDistance / 1000:F1}km exceeds maximum allowed distance {MAX_TELEPORT_DISTANCE / 1000:F1}km.");
+                MyLogger.Log($"TPGate: JumpAction: Jump distance {_jumpDistance / 1000:F1}km exceeds maximum allowed range of {MAX_TELEPORT_DISTANCE / 1000:F1}km.");
                 NotifyPlayersInRange(
                     $"Jump distance {_jumpDistance / 1000:F1}km exceeds maximum allowed range of {MAX_TELEPORT_DISTANCE / 1000:F1}km.",
                     block.GetPosition(),
@@ -791,14 +797,10 @@ namespace TeleportMechanisms {
                 return;
             }
 
-            float powerRequired = CalculatePowerRequired(_jumpDistance);
-            MyLogger.Log(
-                $"TPGate: JumpAction: Distance: {_jumpDistance / 1000:F1}km, Power Required: {powerRequired:F1}MWh");
-
+            // Check power availability
             if (Settings.StoredPower < powerRequired)
             {
-                MyLogger.Log(
-                    $"TPGate: JumpAction: Not enough power for jump. Required: {powerRequired:F1}MWh, Available: {Settings.StoredPower:F1}MWh");
+                MyLogger.Log($"TPGate: JumpAction: Insufficient power for jump. Required: {powerRequired:F1}MWh, Available: {Settings.StoredPower:F1}MWh");
                 NotifyPlayersInRange(
                     $"Insufficient power for {_jumpDistance / 1000:F1}km jump. Need {powerRequired:F1}MWh",
                     block.GetPosition(),
@@ -808,11 +810,17 @@ namespace TeleportMechanisms {
                 return;
             }
 
-            // Start teleport sequence
+            // Deduct power and start teleport sequence
             _isTeleporting = true;
-            _teleportCountdown = CalculateCountdown(_jumpDistance); // Apply calculated countdown
+            _teleportCountdown = CalculateCountdown(_jumpDistance); // Calculate countdown
             _initialPower = Settings.StoredPower;
 
+            Settings.StoredPower = Math.Max(0, Settings.StoredPower - powerRequired);
+            Settings.Changed = true;
+
+            MyLogger.Log($"TPGate: JumpAction: Teleport sequence initiated. Power deducted: {powerRequired:F1}MWh. Remaining: {Settings.StoredPower:F1}MWh");
+
+            // Notify players of jump initiation
             float totalSeconds = _teleportCountdown / 60f;
             NotifyPlayersInRange(
                 $"Initiating {_jumpDistance / 1000:F1}km jump - {totalSeconds:F1} seconds",
@@ -820,6 +828,11 @@ namespace TeleportMechanisms {
                 100,
                 "White"
             );
+
+            // Update per simulation tick
+            NeedsUpdate |= MyEntityUpdateEnum.EACH_FRAME; // Start update loop
+
+            // Countdown will decrement in `UpdateAfterSimulation`
         }
 
         private static void NotifyPlayersInRange(string text, Vector3D position, double radius, string font = "White") {
