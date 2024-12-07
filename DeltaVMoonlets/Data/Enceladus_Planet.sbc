@@ -3,13 +3,13 @@
   <Definition xsi:type="PlanetGeneratorDefinition">
 		<Id>
 		  <TypeId>PlanetGeneratorDefinition</TypeId>
-		  <SubtypeId>Tohil</SubtypeId>
+		  <SubtypeId>Enceladus</SubtypeId>
 		</Id>
 		<PlanetMaps Material="true" Ores="true" Biome="true" Occlusion="false"/>
 
 		<Difficulty>Hard</Difficulty>
 		<SurfaceGravity>0.328</SurfaceGravity>
-		<DefaultSurfaceMaterial Material="TohilSnow02" MaxDepth="5"/>  <!--should never appear-->
+		<DefaultSurfaceMaterial Material="EnceladusSnow02" MaxDepth="5"/>  <!--should never appear-->
 		<DefaultSubSurfaceMaterial Material="Stone_02"/>	<!--stone core-->
 
 		<MaterialsMaxDepth Min="4000" Max="4000"/>	<!--doesn't really matter-->
@@ -41,7 +41,7 @@
 			<Rule>
 			  <Layers>
 				<Layer Material="IceEuropa2" Depth="5"/>
-				<Layer Material="TohilIce03" Depth="500"/>
+				<Layer Material="EnceladusIce03" Depth="500"/>
 			  </Layers>
 			  <Height Min="-0.1" Max="1.0"/>
 			  <Latitude Min="0" Max="90"/>
@@ -49,8 +49,8 @@
 			</Rule>
 			<Rule>
 			  <Layers>
-				<Layer Material="TohilIce02" Depth="5"/>
-				<Layer Material="TohilIce03" Depth="500"/>
+				<Layer Material="EnceladusIce02" Depth="5"/>
+				<Layer Material="EnceladusIce03" Depth="500"/>
 			  </Layers>
 			  <Height Min="-0.1" Max="1.0"/>
 			  <Latitude Min="0" Max="90"/>
@@ -58,8 +58,8 @@
 			</Rule>
 			<Rule>
 			  <Layers>
-				<Layer Material="TohilSnow02" Depth="3"/>
-				<Layer Material="TohilIce03" Depth="500"/>
+				<Layer Material="EnceladusSnow02" Depth="3"/>
+				<Layer Material="EnceladusIce03" Depth="500"/>
 			  </Layers>
 			  <Height Min="-0.1" Max="1.0"/>
 			  <Latitude Min="0" Max="90"/>
@@ -71,7 +71,7 @@
 			<Rule>
 			  <Layers>
 				<Layer Material="IceEuropa2" Depth="5"/>
-				<Layer Material="TohilIce03" Depth="500"/>
+				<Layer Material="EnceladusIce03" Depth="500"/>
 			  </Layers>
 			  <Height Min="-0.1" Max="1.0"/>
 			  <Latitude Min="0" Max="90"/>
@@ -79,8 +79,8 @@
 			</Rule>
 			<Rule>
 			  <Layers>
-				<Layer Material="TohilIce02" Depth="5"/>
-				<Layer Material="TohilIce03" Depth="500"/>
+				<Layer Material="EnceladusIce02" Depth="5"/>
+				<Layer Material="EnceladusIce03" Depth="500"/>
 			  </Layers>
 			  <Height Min="-0.1" Max="1.0"/>
 			  <Latitude Min="0" Max="90"/>
@@ -88,8 +88,8 @@
 			</Rule>
 			<Rule>
 			  <Layers>
-				<Layer Material="TohilSnow01" Depth="3"/>
-				<Layer Material="TohilIce03" Depth="500"/>
+				<Layer Material="EnceladusSnow01" Depth="3"/>
+				<Layer Material="EnceladusIce03" Depth="500"/>
 			  </Layers>
 			  <Height Min="-0.1" Max="1.0"/>
 			  <Latitude Min="0" Max="90"/>
@@ -100,8 +100,8 @@
 		  <MaterialGroup Name="Cracks" Value="150"> <!--250m lower-> 250m, then stone-->
 			<Rule>
 			  <Layers>
-				<Layer Material="TohilIce02" Depth="5"/>
-				<Layer Material="TohilIce03" Depth="450"/>
+				<Layer Material="EnceladusIce02" Depth="5"/>
+				<Layer Material="EnceladusIce03" Depth="450"/>
 			  </Layers>
 			  <Height Min="0.34" Max="1.0"/>
 			  <Latitude Min="0" Max="90"/>
@@ -109,8 +109,8 @@
 			</Rule>
 			<Rule>
 			  <Layers>
-				<Layer Material="TohilIce01" Depth="5"/>
-				<Layer Material="TohilIce03" Depth="350"/>
+				<Layer Material="EnceladusIce01" Depth="5"/>
+				<Layer Material="EnceladusIce03" Depth="350"/>
 			  </Layers>
 			  <Height Min="-0.1" Max="1.0"/>
 			  <Latitude Min="0" Max="90"/>
@@ -119,7 +119,7 @@
 			<Rule>
 			  <Layers>
 				<Layer Material="IceEuropa2" Depth="5"/>
-				<Layer Material="TohilIce03" Depth="250"/>
+				<Layer Material="EnceladusIce03" Depth="250"/>
 			  </Layers>
 			  <Height Min="-0.1" Max="0.05"/>
 			  <Latitude Min="0" Max="90"/>
@@ -135,11 +135,11 @@
 			  <Biome>100</Biome>
 			</Biomes>
 			<Materials>
-			  <Material>TohilSnow01</Material>
-			  <Material>TohilSnow02</Material>
+			  <Material>EnceladusSnow01</Material>
+			  <Material>EnceladusSnow02</Material>
 			</Materials>
 			<Items>
-				<Item TypeId="MyObjectBuilder_DestroyableItems" SubtypeId="Rocks_Tohil" Density="0.25"/>
+				<Item TypeId="MyObjectBuilder_DestroyableItems" SubtypeId="Rocks_Enceladus" Density="0.25"/>
 			</Items>
 			<Rule>
 			  <Height Min="0" Max="1"/>
@@ -240,7 +240,7 @@
 				<Voxel>Ice</Voxel>
 				<Weathers>
 					<Weather>
-						<Name>SnowTohil</Name>
+						<Name>SnowEnceladus</Name>
 						<Weight>1</Weight>
 						<MinLength>3000</MinLength>
 						<MaxLength>3000</MaxLength>

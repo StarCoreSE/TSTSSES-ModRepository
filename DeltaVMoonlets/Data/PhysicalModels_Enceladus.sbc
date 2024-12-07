@@ -4,72 +4,72 @@
 	<Definition xsi:type="VR.PhysicalModelDefinition">
       <Id>
         <TypeId>PhysicalModelDefinition</TypeId>
-        <SubtypeId>Rock_2_1_Tohil</SubtypeId>
+        <SubtypeId>Rock_2_1_Enceladus</SubtypeId>
       </Id>
-      <Model>Models\Environment\Rocks\2_1_Tohil.mwm</Model>
+      <Model>Models\Environment\Rocks\2_1_Enceladus.mwm</Model>
       <PhysicalMaterial>Rock</PhysicalMaterial>
     </Definition>
 	
 	<Definition xsi:type="VR.PhysicalModelDefinition">
       <Id>
         <TypeId>PhysicalModelDefinition</TypeId>
-        <SubtypeId>Rock_2_2_Tohil</SubtypeId>
+        <SubtypeId>Rock_2_2_Enceladus</SubtypeId>
       </Id>
-      <Model>Models\Environment\Rocks\2_2_Tohil.mwm</Model>
+      <Model>Models\Environment\Rocks\2_2_Enceladus.mwm</Model>
       <PhysicalMaterial>Rock</PhysicalMaterial>
     </Definition>
 	
 	<Definition xsi:type="VR.PhysicalModelDefinition">
       <Id>
         <TypeId>PhysicalModelDefinition</TypeId>
-        <SubtypeId>Rock_2_3_Tohil</SubtypeId>
+        <SubtypeId>Rock_2_3_Enceladus</SubtypeId>
       </Id>
-      <Model>Models\Environment\Rocks\2_3_Tohil.mwm</Model>
+      <Model>Models\Environment\Rocks\2_3_Enceladus.mwm</Model>
       <PhysicalMaterial>Rock</PhysicalMaterial>
     </Definition>
 	
 	<Definition xsi:type="VR.PhysicalModelDefinition">
       <Id>
         <TypeId>PhysicalModelDefinition</TypeId>
-        <SubtypeId>Rock_2_4_Tohil</SubtypeId>
+        <SubtypeId>Rock_2_4_Enceladus</SubtypeId>
       </Id>
-      <Model>Models\Environment\Rocks\2_4_Tohil.mwm</Model>
+      <Model>Models\Environment\Rocks\2_4_Enceladus.mwm</Model>
       <PhysicalMaterial>Rock</PhysicalMaterial>
     </Definition>
 	
 	<Definition xsi:type="VR.PhysicalModelDefinition">
       <Id>
         <TypeId>PhysicalModelDefinition</TypeId>
-        <SubtypeId>Rock_4_1_Tohil</SubtypeId>
+        <SubtypeId>Rock_4_1_Enceladus</SubtypeId>
       </Id>
-      <Model>Models\Environment\Rocks\4_1_Tohil.mwm</Model>
+      <Model>Models\Environment\Rocks\4_1_Enceladus.mwm</Model>
       <PhysicalMaterial>Rock</PhysicalMaterial>
     </Definition>
 	
 	<Definition xsi:type="VR.PhysicalModelDefinition">
       <Id>
         <TypeId>PhysicalModelDefinition</TypeId>
-        <SubtypeId>Rock_4_2_Tohil</SubtypeId>
+        <SubtypeId>Rock_4_2_Enceladus</SubtypeId>
       </Id>
-      <Model>Models\Environment\Rocks\4_2_Tohil.mwm</Model>
+      <Model>Models\Environment\Rocks\4_2_Enceladus.mwm</Model>
       <PhysicalMaterial>Rock</PhysicalMaterial>
     </Definition>
 	
 	<Definition xsi:type="VR.PhysicalModelDefinition">
       <Id>
         <TypeId>PhysicalModelDefinition</TypeId>
-        <SubtypeId>Rock_4_3_Tohil</SubtypeId>
+        <SubtypeId>Rock_4_3_Enceladus</SubtypeId>
       </Id>
-      <Model>Models\Environment\Rocks\4_3_Tohil.mwm</Model>
+      <Model>Models\Environment\Rocks\4_3_Enceladus.mwm</Model>
       <PhysicalMaterial>Rock</PhysicalMaterial>
     </Definition>
 	
 	<Definition xsi:type="VR.PhysicalModelDefinition">
       <Id>
         <TypeId>PhysicalModelDefinition</TypeId>
-        <SubtypeId>Rock_4_4_Tohil</SubtypeId>
+        <SubtypeId>Rock_4_4_Enceladus</SubtypeId>
       </Id>
-      <Model>Models\Environment\Rocks\4_4_Tohil.mwm</Model>
+      <Model>Models\Environment\Rocks\4_4_Enceladus.mwm</Model>
       <PhysicalMaterial>Rock</PhysicalMaterial>
     </Definition>
 	

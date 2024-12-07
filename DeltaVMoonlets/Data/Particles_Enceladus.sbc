@@ -2,7 +2,7 @@
 <Definitions xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <ParticleEffects>
     <ParticleEffect xsi:type="ParticleEffect">
-      <Id Type="MyObjectBuilder_ParticleEffect" Subtype="WM_SnowTohil" />
+      <Id Type="MyObjectBuilder_ParticleEffect" Subtype="WM_SnowEnceladus" />
       <ParticleId>111</ParticleId>
       <Length>1</Length>
       <Preload>0</Preload>
@@ -12,7 +12,7 @@
       <DurationMax>0</DurationMax>
       <Version>0</Version>
       <ParticleGenerations>
-        <ParticleGeneration Name="LowSnowTohil" Version="0">
+        <ParticleGeneration Name="LowSnowEnceladus" Version="0">
           <GenerationType>GPU</GenerationType>
           <Properties>
             <Property Name="Array size" AnimationType="Const" Type="Vector3">
