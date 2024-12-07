@@ -127,27 +127,6 @@
 			</Rule>
 		  </MaterialGroup>
 		</ComplexMaterials>
-	   
-		<EnvironmentItems>	<!--just some rocks, rest is foliage in voxelmats-->
-		<Item>
-			<Biomes>
-			  <Biome>50</Biome>
-			  <Biome>100</Biome>
-			</Biomes>
-			<Materials>
-			  <Material>EnceladusSnow01</Material>
-			  <Material>EnceladusSnow02</Material>
-			</Materials>
-			<Items>
-				<Item TypeId="MyObjectBuilder_DestroyableItems" SubtypeId="Rocks_Enceladus" Density="0.25"/>
-			</Items>
-			<Rule>
-			  <Height Min="0" Max="1"/>
-			  <Latitude Min="0" Max="90"/>
-			  <Slope Min="0" Max="90"/>
-			</Rule>
-		  </Item>
-		</EnvironmentItems>
 
 		<OreMappings>	<!--5 Fe, 3 Ni, 3 Si, 3 Co, 1 Mg, 3 Ag, 2 Au-->
 		  <Ore Value="10" Type="Iron_02" Start="7" Depth="5" TargetColor="#616c83" ColorInfluence="15"/>
