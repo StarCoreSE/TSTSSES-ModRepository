@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    
+	<Definition xsi:type="VR.PhysicalModelDefinition">
+      <Id>
+        <TypeId>PhysicalModelDefinition</TypeId>
+        <SubtypeId>Rock_2_1_Tohil</SubtypeId>
+      </Id>
+      <Model>Models\Environment\Rocks\2_1_Tohil.mwm</Model>
+      <PhysicalMaterial>Rock</PhysicalMaterial>
+    </Definition>
+	
+	<Definition xsi:type="VR.PhysicalModelDefinition">
+      <Id>
+        <TypeId>PhysicalModelDefinition</TypeId>
+        <SubtypeId>Rock_2_2_Tohil</SubtypeId>
+      </Id>
+      <Model>Models\Environment\Rocks\2_2_Tohil.mwm</Model>
+      <PhysicalMaterial>Rock</PhysicalMaterial>
+    </Definition>
+	
+	<Definition xsi:type="VR.PhysicalModelDefinition">
+      <Id>
+        <TypeId>PhysicalModelDefinition</TypeId>
+        <SubtypeId>Rock_2_3_Tohil</SubtypeId>
+      </Id>
+      <Model>Models\Environment\Rocks\2_3_Tohil.mwm</Model>
+      <PhysicalMaterial>Rock</PhysicalMaterial>
+    </Definition>
+	
+	<Definition xsi:type="VR.PhysicalModelDefinition">
+      <Id>
+        <TypeId>PhysicalModelDefinition</TypeId>
+        <SubtypeId>Rock_2_4_Tohil</SubtypeId>
+      </Id>
+      <Model>Models\Environment\Rocks\2_4_Tohil.mwm</Model>
+      <PhysicalMaterial>Rock</PhysicalMaterial>
+    </Definition>
+	
+	<Definition xsi:type="VR.PhysicalModelDefinition">
+      <Id>
+        <TypeId>PhysicalModelDefinition</TypeId>
+        <SubtypeId>Rock_4_1_Tohil</SubtypeId>
+      </Id>
+      <Model>Models\Environment\Rocks\4_1_Tohil.mwm</Model>
+      <PhysicalMaterial>Rock</PhysicalMaterial>
+    </Definition>
+	
+	<Definition xsi:type="VR.PhysicalModelDefinition">
+      <Id>
+        <TypeId>PhysicalModelDefinition</TypeId>
+        <SubtypeId>Rock_4_2_Tohil</SubtypeId>
+      </Id>
+      <Model>Models\Environment\Rocks\4_2_Tohil.mwm</Model>
+      <PhysicalMaterial>Rock</PhysicalMaterial>
+    </Definition>
+	
+	<Definition xsi:type="VR.PhysicalModelDefinition">
+      <Id>
+        <TypeId>PhysicalModelDefinition</TypeId>
+        <SubtypeId>Rock_4_3_Tohil</SubtypeId>
+      </Id>
+      <Model>Models\Environment\Rocks\4_3_Tohil.mwm</Model>
+      <PhysicalMaterial>Rock</PhysicalMaterial>
+    </Definition>
+	
+	<Definition xsi:type="VR.PhysicalModelDefinition">
+      <Id>
+        <TypeId>PhysicalModelDefinition</TypeId>
+        <SubtypeId>Rock_4_4_Tohil</SubtypeId>
+      </Id>
+      <Model>Models\Environment\Rocks\4_4_Tohil.mwm</Model>
+      <PhysicalMaterial>Rock</PhysicalMaterial>
+    </Definition>
+	
+	
+</Definitions>
