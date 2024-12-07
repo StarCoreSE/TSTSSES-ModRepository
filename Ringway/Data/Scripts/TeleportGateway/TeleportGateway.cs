@@ -50,7 +50,7 @@ namespace TeleportMechanisms {
         private const float POWER_PER_100KM = 1.0f; // 1 MWh per 100km
         private const float MIN_TELEPORT_CHARGE_PERCENTAGE = 0.1f; // 10% charge threshold
 
-        private const double MAX_TELEPORT_DISTANCE = 1000000.0 * 1000; // 100,000,000 km in meters
+        private const double MAX_TELEPORT_DISTANCE = 1000000.0 * 1000; // 1,000,000 km in meters
         private static MyParticleEffect teleportEffect;
 
         static TeleportGateway() {
