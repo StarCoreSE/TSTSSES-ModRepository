@@ -112,22 +112,6 @@
         <W>1.0</W>
       </Far3Color>
 	  
-      <!--Ice-Grass-->
-      <FoliageColorTextureArray>
-        <Color>Textures\Models\Environment\Grass\Icicle_cm.dds</Color>
-      </FoliageColorTextureArray>
-      
-      <FoliageNormalTextureArray>
-        <Normal>Textures\Models\Environment\Grass\Icicle_ng.dds</Normal>
-      </FoliageNormalTextureArray>
-
-      <FoliageDensity>0.2</FoliageDensity>
-      <FoliageScale>
-        <X>1</X>
-        <Y>0.6</Y>
-      </FoliageScale>
-      <FoliageRandomRescaleMult>1.2</FoliageRandomRescaleMult>
-	  
       <Friction>0.85</Friction>
       <Restitution>0.1</Restitution>
       <ColorKey Hex="#FFFFFF"/>
