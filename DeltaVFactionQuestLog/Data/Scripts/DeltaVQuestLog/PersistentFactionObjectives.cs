@@ -5,6 +5,7 @@ using Sandbox.Game;
 using Sandbox.ModAPI;
 using VRage.Game;
 using VRage.Game.Components;
+using VRage.Game.ModAPI;
 using VRage.Utils;
 
 namespace Invalid.DeltaVQuestLog
@@ -38,11 +39,24 @@ namespace Invalid.DeltaVQuestLog
 
             if (isServer)
             {
+                MyAPIGateway.Session.Factions.FactionStateChanged += FactionsOnFactionStateChanged;
                 MyVisualScriptLogicProvider.PlayerConnected += OnPlayerConnected;
             }
 
             CommandHandler.Init();
             Networking = new QuestLogNetworking();
+        }
+
+        private void FactionsOnFactionStateChanged(MyFactionStateChange action, long fromFactionId, long toFactionId, long playerId, long senderId)
+        {
+            if (action == MyFactionStateChange.FactionMemberAcceptJoin)
+            {
+                GetFactionManger(fromFactionId)?.SendNetworkUpdate();
+            }
+            if (action == MyFactionStateChange.FactionMemberLeave || action == MyFactionStateChange.FactionMemberKick)
+            {
+                MyVisualScriptLogicProvider.SetQuestlog(false, "", playerId);
+            }
         }
 
         protected override void UnloadData()
@@ -54,6 +68,7 @@ namespace Invalid.DeltaVQuestLog
             {
                 SaveObjectives();
                 MyVisualScriptLogicProvider.PlayerConnected -= OnPlayerConnected;
+                MyAPIGateway.Session.Factions.FactionStateChanged -= FactionsOnFactionStateChanged;
             }
 
             I = null;
@@ -70,15 +85,6 @@ namespace Invalid.DeltaVQuestLog
                     manager.Update10();
         }
 
-        public override void BeforeStart()
-        {
-            if (MyAPIGateway.Session.Player == null)
-                return;
-
-            if (MyAPIGateway.Session.Factions.TryGetPlayerFaction(MyAPIGateway.Session.Player.IdentityId) == null)
-                MyVisualScriptLogicProvider.RemoveQuestlogDetails(MyAPIGateway.Session.Player.IdentityId);
-        }
-
         private void OnPlayerConnected(long playerId)
         {
             if (!isServer) return;
@@ -87,6 +93,7 @@ namespace Invalid.DeltaVQuestLog
             if (playerFaction == null) return;
 
             var factionId = playerFaction.FactionId;
+            MyVisualScriptLogicProvider.SetQuestlog(false, "", playerId);
             GetFactionManger(factionId)?.SendNetworkUpdate();
         }
 
