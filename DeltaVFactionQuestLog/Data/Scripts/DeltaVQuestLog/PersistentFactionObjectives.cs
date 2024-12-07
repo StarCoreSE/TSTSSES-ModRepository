@@ -70,6 +70,15 @@ namespace Invalid.DeltaVQuestLog
                     manager.Update10();
         }
 
+        public override void BeforeStart()
+        {
+            if (MyAPIGateway.Session.Player == null)
+                return;
+
+            if (MyAPIGateway.Session.Factions.TryGetPlayerFaction(MyAPIGateway.Session.Player.IdentityId) == null)
+                MyVisualScriptLogicProvider.RemoveQuestlogDetails(MyAPIGateway.Session.Player.IdentityId);
+        }
+
         private void OnPlayerConnected(long playerId)
         {
             if (!isServer) return;

@@ -17,7 +17,7 @@ namespace Invalid.DeltaVQuestLog
         [ProtoMember(1)] public List<string> Objectives = new List<string>();
         [ProtoMember(2)] public Dictionary<string, DateTime> TemporaryObjectives = new Dictionary<string, DateTime>();
         [ProtoMember(3)] public long FactionId { get; private set; }
-        [ProtoMember(4)] public DateTime? ForceShowTime;
+        [ProtoMember(4)] public double? ForceShowTime;
         /// <summary>
         /// All playerIds with notifications off.
         /// </summary>
@@ -52,8 +52,9 @@ namespace Invalid.DeltaVQuestLog
             // Force showing (broadcast)
             if (ForceShowTime != null)
             {
-                if (ForceShowTime.Value > DateTime.UtcNow)
-                    UpdateFactionQuestlog($"Faction Objectives [Force-Enabled for {(ForceShowTime.Value - DateTime.UtcNow).TotalSeconds:N0}s]", true, true);
+                ForceShowTime -= 1 / 6f;
+                if (ForceShowTime > 0)
+                    UpdateFactionQuestlog($"Faction Objectives [Force-Enabled for {ForceShowTime:N0}s]", true, true);
                 else
                 {
                     UpdateFactionQuestlog(isNetworkUpdate: !MyAPIGateway.Session.IsServer);
@@ -64,7 +65,7 @@ namespace Invalid.DeltaVQuestLog
 
         public void ForceShow(double duration)
         {
-            ForceShowTime = DateTime.UtcNow.AddSeconds(duration);
+            ForceShowTime = duration;
             UpdateFactionQuestlog($"Faction Objectives [Force-Enabled for {duration}s]");
         }
 
