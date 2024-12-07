@@ -21,11 +21,6 @@ namespace TeleportMechanisms
         [ProtoMember(5)]
         public float SphereDiameter { get; set; } = 50.0f;
 
-        [ProtoMember(6)]
-        public float StoredPower { get; set; } = 0f;
-        [ProtoMember(7)]
-        public float MaxStoredPower { get; set; } = 1000f;
-
         [ProtoIgnore]
         public bool Changed { get; set; } = false;
 
