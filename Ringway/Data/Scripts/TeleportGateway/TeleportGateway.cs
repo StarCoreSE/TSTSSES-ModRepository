@@ -549,20 +549,36 @@ namespace TeleportMechanisms {
             MyLogger.Log("TPGate: CreateControl: Custom controls and actions created");
         }
 
-        private static IMyTerminalControl CreateGatewayNameControl() {
+        private static IMyTerminalControl CreateGatewayNameControl()
+        {
             var control =
                 MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlTextbox, IMyCollector>("GatewayName");
             control.Title = MyStringId.GetOrCompute("Gateway Name");
-            control.Getter = (block) => {
+            control.Getter = (block) =>
+            {
                 var gateway = block.GameLogic.GetAs<TeleportGateway>();
                 return gateway != null ? new StringBuilder(gateway.Settings.GatewayName) : new StringBuilder();
             };
-            control.Setter = (block, value) => {
+            control.Setter = (block, value) =>
+            {
                 var gateway = block.GameLogic.GetAs<TeleportGateway>();
-                if (gateway != null) {
+                if (gateway != null)
+                {
                     gateway.Settings.GatewayName = value.ToString();
                     gateway.Settings.Changed = true;
                     gateway.TrySave();
+
+                    // Send the updated channel information to the server
+                    if (!MyAPIGateway.Multiplayer.IsServer)
+                    {
+                        var message = new ChannelUpdateMessage
+                        {
+                            EntityId = gateway.RingwayBlock.EntityId,
+                            GatewayName = gateway.Settings.GatewayName
+                        };
+                        var data = MyAPIGateway.Utilities.SerializeToBinary(message);
+                        MyAPIGateway.Multiplayer.SendMessageToServer(NetworkHandler.ChannelUpdateId, data);
+                    }
                 }
             };
             control.SupportsMultipleBlocks = false;
@@ -835,11 +851,13 @@ namespace TeleportMechanisms {
             }
         }
 
-        public static void ProcessJumpRequest(long gatewayId, string link) {
+        public static void ProcessJumpRequest(long gatewayId, string link)
+        {
             MyLogger.Log($"TPGate: ProcessJumpRequest: Processing jump request for gateway {gatewayId}, link {link}");
 
             var block = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyCollector;
-            if (block == null || !block.IsWorking) {
+            if (block == null || !block.IsWorking)
+            {
                 MyLogger.Log($"TPCore: ProcessJumpRequest: Gateway {gatewayId} is null or not functional");
                 return;
             }
@@ -902,7 +920,6 @@ namespace TeleportMechanisms {
                 }
             }
 
-
             // Teleport unpiloted ships in range and play directional effects
             List<IMyEntity> potentialEntities = MyAPIGateway.Entities.GetEntitiesInSphere(ref sphere);
             foreach (var entity in potentialEntities)
@@ -935,7 +952,8 @@ namespace TeleportMechanisms {
                 shipsToTeleport++;
             }
 
-            if (teleportAttempted) {
+            if (teleportAttempted)
+            {
                 MyLogger.Log($"TPGate: ProcessJumpRequest: Teleport attempted");
                 NotifyPlayersInRange(
                     $"TPGate: Teleporting {playersToTeleport} player(s) and {shipsToTeleport} ship(s)",
@@ -945,6 +963,15 @@ namespace TeleportMechanisms {
                 );
             }
         }
-
     }
+    [ProtoContract]
+    public class ChannelUpdateMessage
+    {
+        [ProtoMember(1)]
+        public long EntityId { get; set; }
+        [ProtoMember(2)]
+        public string GatewayName { get; set; }
+    }
+
+
 }

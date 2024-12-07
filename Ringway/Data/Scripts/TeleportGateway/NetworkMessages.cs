@@ -124,6 +124,7 @@ namespace TeleportMechanisms
         public const ushort TeleportResponseId = 8002;
         public const ushort JumpRequestId = 8003;
         public const ushort SyncSettingsId = 8004;
+        public const ushort ChannelUpdateId = 8005;
 
 
         public static void Register()
@@ -133,6 +134,8 @@ namespace TeleportMechanisms
             MyAPIGateway.Multiplayer.RegisterMessageHandler(TeleportResponseId, HandleTeleportResponse);
             MyAPIGateway.Multiplayer.RegisterMessageHandler(JumpRequestId, HandleJumpRequest);
             MyAPIGateway.Multiplayer.RegisterMessageHandler(SyncSettingsId, HandleSyncSettings);
+            MyAPIGateway.Multiplayer.RegisterMessageHandler(ChannelUpdateId, TeleportCore.OnChannelUpdateReceived);
+
         }
 
         public static void Unregister()
@@ -142,6 +145,8 @@ namespace TeleportMechanisms
             MyAPIGateway.Multiplayer.UnregisterMessageHandler(TeleportResponseId, HandleTeleportResponse);
             MyAPIGateway.Multiplayer.UnregisterMessageHandler(JumpRequestId, HandleJumpRequest);
             MyAPIGateway.Multiplayer.UnregisterMessageHandler(SyncSettingsId, HandleSyncSettings);
+            MyAPIGateway.Multiplayer.UnregisterMessageHandler(ChannelUpdateId, TeleportCore.OnChannelUpdateReceived);
+
         }
 
         private static void HandleSyncSettings(byte[] data)
