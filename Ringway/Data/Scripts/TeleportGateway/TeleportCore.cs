@@ -24,8 +24,6 @@ namespace TeleportMechanisms {
         internal static Dictionary<string, List<long>> _TeleportLinks = new Dictionary<string, List<long>>();
         internal static Dictionary<long, TeleportGateway> _instances = new Dictionary<long, TeleportGateway>();
         internal static readonly object _lock = new object();
-        public static Dictionary<long, GateInfo> _gateChannels = new Dictionary<long, GateInfo>();
-
 
         public static void UpdateTeleportLinks() {
             lock (_lock) {
@@ -46,8 +44,7 @@ namespace TeleportMechanisms {
                     }
                 }
 
-
-        MyLogger.Log($"TPCore: UpdateTeleportLinks: Total gateways found: {gateways.Count}");
+                MyLogger.Log($"TPCore: UpdateTeleportLinks: Total gateways found: {gateways.Count}");
 
                 foreach (var gateway in gateways) {
                     var gatewayLogic = gateway.GameLogic.GetAs<TeleportGateway>();
@@ -178,25 +175,6 @@ namespace TeleportMechanisms {
                 TeleportEntity(grid, sourceGateway, destGateway);
             }
         }
-
-        public static void OnChannelUpdateReceived(byte[] data)
-        {
-            var message = MyAPIGateway.Utilities.SerializeFromBinary<ChannelUpdateMessage>(data);
-            if (message == null) return;
-
-            lock (_lock)
-            {
-                if (!_gateChannels.ContainsKey(message.EntityId))
-                {
-                    _gateChannels[message.EntityId] = new GateInfo();
-                }
-
-                _gateChannels[message.EntityId].GatewayName = message.GatewayName;
-            }
-
-            UpdateTeleportLinks();
-        }
-
 
         public static void TeleportEntity(IMyEntity entity, IMyCollector sourceGateway, IMyCollector destGateway) {
             MyLogger.Log($"TPCore: TeleportEntity: Teleporting entity {entity.EntityId}");
@@ -335,35 +313,41 @@ namespace TeleportMechanisms {
             }
         }
 
-        public static long GetDestinationGatewayId(string link, long sourceGatewayId)
-        {
-            if (!_TeleportLinks.ContainsKey(link))
-                return 0;
+        public static long GetDestinationGatewayId(string link, long sourceGatewayId) {
+            List<long> linkedGateways;
+            lock (_lock) {
+                if (!_TeleportLinks.TryGetValue(link, out linkedGateways) || linkedGateways.Count < 2) {
+                    MyLogger.Log($"TPCore: GetDestinationGatewayId: No valid linked gateways found for link {link}");
+                    return 0;
+                }
+            }
 
-            var linkedGateways = _TeleportLinks[link];
-            if (linkedGateways.Count == 0)
+            var sourceGateway = MyAPIGateway.Entities.GetEntityById(sourceGatewayId) as IMyCollector;
+            if (sourceGateway == null) {
+                MyLogger.Log($"TPCore: GetDestinationGatewayId: Source gateway {sourceGatewayId} not found");
                 return 0;
+            }
 
-            // Find the nearest gateway that is not the source gateway
+            var sourcePosition = sourceGateway.GetPosition();
+
             long nearestGatewayId = 0;
             double nearestDistance = double.MaxValue;
-            var sourcePosition = MyAPIGateway.Entities.GetEntityById(sourceGatewayId)?.GetPosition() ?? Vector3D.Zero;
 
-            foreach (var gatewayId in linkedGateways)
-            {
-                if (gatewayId == sourceGatewayId)
-                    continue;
+            foreach (var gatewayId in linkedGateways) {
+                if (gatewayId == sourceGatewayId) continue;
 
-                var gateway = MyAPIGateway.Entities.GetEntityById(gatewayId);
-                if (gateway == null)
-                    continue;
+                var destinationGateway = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyCollector;
+                if (destinationGateway == null) continue;
 
-                var distance = Vector3D.Distance(sourcePosition, gateway.GetPosition());
-                if (distance < nearestDistance)
-                {
+                var distance = Vector3D.Distance(sourcePosition, destinationGateway.GetPosition());
+                if (distance < nearestDistance) {
                     nearestDistance = distance;
                     nearestGatewayId = gatewayId;
                 }
+            }
+
+            if (nearestGatewayId == 0) {
+                MyLogger.Log($"TPCore: GetDestinationGatewayId: No valid destination gateway found for link {link}");
             }
 
             return nearestGatewayId;
@@ -503,10 +487,5 @@ namespace TeleportMechanisms {
             MyAPIGateway.Players.GetPlayers(playerList);
             return playerList.Find(p => p.IdentityId == playerId);
         }
-    }
-    public class GateInfo
-    {
-        public long EntityId { get; set; }
-        public string GatewayName { get; set; }
     }
 }
