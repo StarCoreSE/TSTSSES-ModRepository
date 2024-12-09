@@ -632,6 +632,7 @@ namespace TeleportMechanisms {
                 if (gateway != null) gateway.JumpAction(block as IMyCollector);
             };
             action.Writer = (b, sb) => sb.Append("Initiate Jump");
+            action.ValidForGroups = true;
             return action;
         }
 
