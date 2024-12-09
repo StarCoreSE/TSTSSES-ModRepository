@@ -623,15 +623,18 @@ namespace TeleportMechanisms {
             return control;
         }
 
-        private static IMyTerminalAction CreateJumpAction() {
+        private static IMyTerminalAction CreateJumpAction()
+        {
             var action = MyAPIGateway.TerminalControls.CreateAction<IMyCollector>("Jump");
             action.Name = new StringBuilder("Jump");
             action.Icon = @"Textures\GUI\Icons\Actions\Jump.dds";
-            action.Action = (block) => {
+            action.Action = (block) =>
+            {
                 var gateway = block.GameLogic.GetAs<TeleportGateway>();
                 if (gateway != null) gateway.JumpAction(block as IMyCollector);
             };
             action.Writer = (b, sb) => sb.Append("Initiate Jump");
+            action.ValidForGroups = true;
             return action;
         }
 
