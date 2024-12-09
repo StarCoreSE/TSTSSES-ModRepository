@@ -254,19 +254,48 @@ namespace WarpDriveMod
             //    MyAPIGateway.Multiplayer.SendMessageToOthers(toggleWarpPacketIdSpeed, data);
         }
 
+        private Dictionary<long, SpeedUpdateInfo> speedUpdateInfo = new Dictionary<long, SpeedUpdateInfo>();
+
+        private class SpeedUpdateInfo
+        {
+            public int UpdateTick = 0;
+            public double LastSentSpeed = 0;
+        }
+
+        private const int SPEED_UPDATE_DELAY = 60; // Update once per second (assuming 60 ticks per second)
+        private const double SPEED_CHANGE_THRESHOLD = 1.0; // Only update if speed changed by 1 m/s or more
+
         public void TransmitWarpSpeed(IMyFunctionalBlock WarpBlock, double currentSpeedPt)
         {
             var DriveBlock = WarpBlock as IMyTerminalBlock;
-            WarpDrive drive = DriveBlock?.GameLogic?.GetAs<WarpDrive>();
+            WarpDrive drive = DriveBlock != null ? DriveBlock.GameLogic.GetAs<WarpDrive>() : null;
             if (drive == null)
                 return;
 
-            MyAPIGateway.Multiplayer.SendMessageToServer(toggleWarpPacketIdSpeed,
-                message: MyAPIGateway.Utilities.SerializeToBinary(new SpeedMessage
+            long entityId = DriveBlock.EntityId;
+
+            SpeedUpdateInfo updateInfo;
+            if (!speedUpdateInfo.TryGetValue(entityId, out updateInfo))
+            {
+                updateInfo = new SpeedUpdateInfo();
+                speedUpdateInfo[entityId] = updateInfo;
+            }
+
+            updateInfo.UpdateTick++;
+            if (updateInfo.UpdateTick >= SPEED_UPDATE_DELAY)
+            {
+                updateInfo.UpdateTick = 0;
+                if (Math.Abs(currentSpeedPt - updateInfo.LastSentSpeed) >= SPEED_CHANGE_THRESHOLD)
                 {
-                    EntityId = DriveBlock.EntityId,
-                    WarpSpeed = currentSpeedPt
-                }));
+                    MyAPIGateway.Multiplayer.SendMessageToServer(toggleWarpPacketIdSpeed,
+                        message: MyAPIGateway.Utilities.SerializeToBinary(new SpeedMessage
+                        {
+                            EntityId = entityId,
+                            WarpSpeed = currentSpeedPt
+                        }));
+                    updateInfo.LastSentSpeed = currentSpeedPt;
+                }
+            }
         }
 
         private void ReceiveWarpConfig(ushort channel, byte[] data, ulong sender, bool fromServer)
