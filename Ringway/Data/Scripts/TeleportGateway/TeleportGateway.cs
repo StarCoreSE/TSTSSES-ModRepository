@@ -40,9 +40,9 @@ namespace TeleportMechanisms {
 
         private const float CHARGE_RATE = 1.0f; // 0.5 MWh per second when charging
         private MyResourceSinkComponent Sink = null;
-        private bool _isTeleporting = false;
-        private int _teleportCountdown = 0;
-        private double _jumpDistance = 0;
+        public bool _isTeleporting = false;
+        public int _teleportCountdown = 0;
+        public double _jumpDistance = 0;
 
         private const float POWER_THRESHOLD = 0.1f; // 10% power threshold for failure
         private const float BASE_COUNTDOWN_SECONDS = 5; // Minimum countdown time
@@ -245,28 +245,30 @@ namespace TeleportMechanisms {
 
         private float _targetPowerDrain = 0f;
         private float _initialPower;
-        private bool _showSphereDuringCountdown;
+        public bool _showSphereDuringCountdown;
 
-        public override void UpdateAfterSimulation() {
+        public override void UpdateAfterSimulation()
+        {
             base.UpdateAfterSimulation();
-
             if (RingwayBlock == null) return;
 
-            // Draw a debug line to the nearest linked gateway, if one exists
             DrawDebugLineToNearestLinkedGateway();
 
-            // Retrieve destination position for teleport effects
             var destGatewayId = TeleportCore.GetDestinationGatewayId(Settings.GatewayName, RingwayBlock.EntityId);
             var destGateway = MyAPIGateway.Entities.GetEntityById(destGatewayId) as IMyCollector;
             Vector3D destinationPosition = destGateway?.GetPosition() ?? Vector3D.Zero;
 
-            if (_isTeleporting) {
-                if (_teleportCountdown > 0) {
+            if (_isTeleporting)
+            {
+                if (_teleportCountdown > 0)
+                {
                     _teleportCountdown--;
 
-                    // Show countdown text notification each second
-                    if (_teleportCountdown % 60 == 0) {
+                    // Show countdown every second (60 ticks)
+                    if (_teleportCountdown % 60 == 0)
+                    {
                         int secondsLeft = _teleportCountdown / 60;
+                        // Broadcast countdown to all nearby players
                         NotifyPlayersInRange(
                             $"Jump in {secondsLeft}s... Distance: {_jumpDistance / 1000:F1}km",
                             RingwayBlock.GetPosition(),
@@ -275,17 +277,16 @@ namespace TeleportMechanisms {
                         );
                     }
 
-                    // Render the sphere in transparent yellow during countdown
-                    if (Settings.ShowSphere) {
-                        Color countdownColor = new Color(255, 255, 0, 10); // Yellow with transparency
+                    // Update sphere color during countdown
+                    if (Settings.ShowSphere)
+                    {
+                        Color countdownColor = new Color(255, 255, 0, 10);
                         TeleportBubbleManager.CreateOrUpdateBubble(RingwayBlock, countdownColor);
                         TeleportBubbleManager.DrawBubble(RingwayBlock, countdownColor);
                     }
-
                     return;
                 }
 
-                // Teleportation completion
                 float powerRequired = CalculatePowerRequired(_jumpDistance);
                 Settings.StoredPower = Math.Max(0, Settings.StoredPower - powerRequired);
                 Settings.Changed = true;
@@ -300,8 +301,11 @@ namespace TeleportMechanisms {
                 _isTeleporting = false;
                 _showSphereDuringCountdown = false;
 
-                if (!MyAPIGateway.Multiplayer.IsServer) {
-                    var message = new JumpRequestMessage {
+                // Only send jump request if we're not the server
+                if (!MyAPIGateway.Multiplayer.IsServer)
+                {
+                    var message = new JumpRequestMessage
+                    {
                         GatewayId = RingwayBlock.EntityId,
                         Link = Settings.GatewayName
                     };
@@ -310,45 +314,48 @@ namespace TeleportMechanisms {
                         MyAPIGateway.Utilities.SerializeToBinary(message)
                     );
                 }
-                else {
+                else
+                {
                     ProcessJumpRequest(RingwayBlock.EntityId, Settings.GatewayName);
                 }
             }
-            else {
-                if (RingwayBlock.IsWorking && Settings.StoredPower < Settings.MaxStoredPower) {
-                    if (Sink != null && Sink.IsPowerAvailable(MyResourceDistributorComponent.ElectricityId, CHARGE_RATE * 1000f)) {
-                        if (Settings.StoredPower == 0) {
-                            // Charging started - can handle any non-particle effects here if needed
-                        }
-
-                        // Increment stored power as part of the charging process
+            else
+            {
+                // Normal charging logic...
+                if (RingwayBlock.IsWorking && Settings.StoredPower < Settings.MaxStoredPower)
+                {
+                    if (Sink != null && Sink.IsPowerAvailable(MyResourceDistributorComponent.ElectricityId, CHARGE_RATE * 1000f))
+                    {
                         Settings.StoredPower = Math.Min(Settings.MaxStoredPower, Settings.StoredPower + (CHARGE_RATE / 60f));
                         Settings.Changed = true;
                         Sink.SetRequiredInputByType(MyResourceDistributorComponent.ElectricityId, CHARGE_RATE * 1000f);
                         Sink.Update();
                     }
-                    else {
+                    else
+                    {
                         Sink?.SetRequiredInputByType(MyResourceDistributorComponent.ElectricityId, 0f);
                         Sink?.Update();
                     }
                 }
             }
 
-            // Save settings periodically
-            if (++_frameCounter >= SAVE_INTERVAL_FRAMES) {
+            if (++_frameCounter >= SAVE_INTERVAL_FRAMES)
+            {
                 _frameCounter = 0;
                 TrySave();
             }
 
-            if (MyAPIGateway.Gui.GetCurrentScreen == MyTerminalPageEnum.ControlPanel) {
+            if (MyAPIGateway.Gui.GetCurrentScreen == MyTerminalPageEnum.ControlPanel)
+            {
                 RingwayBlock.RefreshCustomInfo();
                 RingwayBlock.SetDetailedInfoDirty();
             }
 
-            // Display teleport bubble if in a client session
-            if (!MyAPIGateway.Utilities.IsDedicated && MyAPIGateway.Session != null) {
-                if (!_showSphereDuringCountdown && Settings.ShowSphere) {
-                    Color defaultColor = new Color(0, 0, 255, 10); // Blue with transparency
+            if (!MyAPIGateway.Utilities.IsDedicated && MyAPIGateway.Session != null)
+            {
+                if (!_showSphereDuringCountdown && Settings.ShowSphere)
+                {
+                    Color defaultColor = new Color(0, 0, 255, 10);
                     TeleportBubbleManager.CreateOrUpdateBubble(RingwayBlock, defaultColor);
                     TeleportBubbleManager.DrawBubble(RingwayBlock, defaultColor);
                 }
@@ -755,21 +762,26 @@ namespace TeleportMechanisms {
             return Settings.MaxStoredPower * chargePercentage;
         }
 
-        private void JumpAction(IMyCollector block)
+        public void JumpAction(IMyCollector block, bool isTimerInitiated = false)
         {
-            MyLogger.Log($"TPGate: JumpAction: Jump action triggered for EntityId: {block.EntityId}");
+            if (_isTeleporting)
+            {
+                MyLogger.Log($"TPGate: JumpAction: Already teleporting, ignoring new request");
+                return;
+            }
+
+            MyLogger.Log($"TPGate: JumpAction: Jump action triggered for EntityId: {block.EntityId}, Timer: {isTimerInitiated}");
 
             var link = Settings.GatewayName;
             if (string.IsNullOrEmpty(link))
             {
-                MyLogger.Log($"TPGate: JumpAction: No valid link set. Proceeding with request to server.");
+                MyLogger.Log($"TPGate: JumpAction: No valid link set");
+                return;
             }
 
-            // Use server-calculated destination if available
-            _jumpDistance = 0; // Default value if destination is not directly visible
+            _jumpDistance = 0;
             float powerRequired = 0;
 
-            // Check for destination gateway locally (optional)
             var destGatewayId = TeleportCore.GetDestinationGatewayId(link, block.EntityId);
             if (destGatewayId != 0)
             {
@@ -781,14 +793,14 @@ namespace TeleportMechanisms {
                 }
                 else
                 {
-                    MyLogger.Log($"TPGate: JumpAction: Destination gateway not found on client side. Server will handle validation.");
+                    MyLogger.Log($"TPGate: JumpAction: Destination gateway not found");
+                    return;
                 }
             }
 
-            // Enforce the maximum distance restriction
-            if (_jumpDistance > MAX_TELEPORT_DISTANCE && destGatewayId != 0)
+            if (_jumpDistance > MAX_TELEPORT_DISTANCE)
             {
-                MyLogger.Log($"TPGate: JumpAction: Jump distance {_jumpDistance / 1000:F1}km exceeds maximum allowed range of {MAX_TELEPORT_DISTANCE / 1000:F1}km.");
+                MyLogger.Log($"TPGate: JumpAction: Jump distance exceeds maximum allowed range");
                 NotifyPlayersInRange(
                     $"Jump distance {_jumpDistance / 1000:F1}km exceeds maximum allowed range of {MAX_TELEPORT_DISTANCE / 1000:F1}km.",
                     block.GetPosition(),
@@ -798,10 +810,9 @@ namespace TeleportMechanisms {
                 return;
             }
 
-            // Check power availability
             if (Settings.StoredPower < powerRequired)
             {
-                MyLogger.Log($"TPGate: JumpAction: Insufficient power for jump. Required: {powerRequired:F1}MWh, Available: {Settings.StoredPower:F1}MWh");
+                MyLogger.Log($"TPGate: JumpAction: Insufficient power for jump");
                 NotifyPlayersInRange(
                     $"Insufficient power for {_jumpDistance / 1000:F1}km jump. Need {powerRequired:F1}MWh",
                     block.GetPosition(),
@@ -811,17 +822,25 @@ namespace TeleportMechanisms {
                 return;
             }
 
-            // Deduct power and start teleport sequence
             _isTeleporting = true;
-            _teleportCountdown = CalculateCountdown(_jumpDistance); // Calculate countdown
-            _initialPower = Settings.StoredPower;
-
+            _teleportCountdown = CalculateCountdown(_jumpDistance);
             Settings.StoredPower = Math.Max(0, Settings.StoredPower - powerRequired);
             Settings.Changed = true;
 
-            MyLogger.Log($"TPGate: JumpAction: Teleport sequence initiated. Power deducted: {powerRequired:F1}MWh. Remaining: {Settings.StoredPower:F1}MWh");
+            // Send jump initiation to clients if this is server
+            if (MyAPIGateway.Multiplayer.IsServer)
+            {
+                var message = new JumpInitiatedMessage
+                {
+                    GatewayId = block.EntityId,
+                    JumpDistance = _jumpDistance,
+                    CountdownTicks = _teleportCountdown,
+                    PowerRequired = powerRequired
+                };
+                var data = MyAPIGateway.Utilities.SerializeToBinary(message);
+                MyAPIGateway.Multiplayer.SendMessageToOthers(NetworkHandler.JumpInitiatedId, data);
+            }
 
-            // Notify players of jump initiation
             float totalSeconds = _teleportCountdown / 60f;
             NotifyPlayersInRange(
                 $"Initiating {_jumpDistance / 1000:F1}km jump - {totalSeconds:F1} seconds",
@@ -830,13 +849,11 @@ namespace TeleportMechanisms {
                 "White"
             );
 
-            // Update per simulation tick
-            NeedsUpdate |= MyEntityUpdateEnum.EACH_FRAME; // Start update loop
-
-            // Countdown will decrement in `UpdateAfterSimulation`
+            NeedsUpdate |= MyEntityUpdateEnum.EACH_FRAME;
+            MyLogger.Log($"TPGate: JumpAction: Jump sequence started. Distance: {_jumpDistance / 1000:F1}km, Power: {powerRequired:F1}MWh");
         }
 
-        private static void NotifyPlayersInRange(string text, Vector3D position, double radius, string font = "White") {
+        public static void NotifyPlayersInRange(string text, Vector3D position, double radius, string font = "White") {
             BoundingSphereD bound = new BoundingSphereD(position, radius);
             List<IMyEntity> nearbyEntities = MyAPIGateway.Entities.GetEntitiesInSphere(ref bound);
 
@@ -849,116 +866,121 @@ namespace TeleportMechanisms {
             }
         }
 
-        public static void ProcessJumpRequest(long gatewayId, string link) {
+        public static void ProcessJumpRequest(long gatewayId, string link)
+        {
             MyLogger.Log($"TPGate: ProcessJumpRequest: Processing jump request for gateway {gatewayId}, link {link}");
 
-            var block = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyCollector;
-            if (block == null || !block.IsWorking) {
+            // Only server should process jump requests
+            if (!MyAPIGateway.Multiplayer.IsServer) return;
+
+            var sourceGateway = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyCollector;
+            if (sourceGateway == null || !sourceGateway.IsWorking)
+            {
                 MyLogger.Log($"TPCore: ProcessJumpRequest: Gateway {gatewayId} is null or not functional");
                 return;
             }
 
-            // Update teleport links
-            TeleportCore.UpdateTeleportLinks();
+            var sourceGatewayLogic = sourceGateway.GameLogic.GetAs<TeleportGateway>();
+            if (sourceGatewayLogic == null)
+            {
+                MyLogger.Log("TPCore: ProcessJumpRequest: Could not get gateway logic");
+                return;
+            }
 
-            var playerList = new List<IMyPlayer>();
-            MyAPIGateway.Players.GetPlayers(playerList);
+            // If already teleporting, don't start another jump
+            if (sourceGatewayLogic._isTeleporting)
+            {
+                MyLogger.Log("TPCore: ProcessJumpRequest: Gateway is already teleporting");
+                return;
+            }
 
-            bool teleportAttempted = false;
-            int playersToTeleport = 0;
-            int shipsToTeleport = 0;
-
-            // Get destination gateway
-            var destGatewayId = TeleportCore.GetDestinationGatewayId(link, block.EntityId);
+            var destGatewayId = TeleportCore.GetDestinationGatewayId(link, sourceGateway.EntityId);
             var destGateway = MyAPIGateway.Entities.GetEntityById(destGatewayId) as IMyCollector;
-            if (destGateway == null) return;
-
-            // Define the teleport sphere for range-based operations
-            float sphereRadius = block.GameLogic.GetAs<TeleportGateway>()?.Settings.SphereDiameter / 2.0f ?? 25.0f;
-            Vector3D sphereCenter = block.GetPosition() + block.WorldMatrix.Forward * sphereRadius;
-            BoundingSphereD sphere = new BoundingSphereD(sphereCenter, sphereRadius);
-
-            // Teleport each player in range and play effects
-            foreach (var player in playerList)
+            if (destGateway == null)
             {
-                var distance = Vector3D.Distance(player.GetPosition(), sphereCenter);
-
-                if (distance <= sphereRadius)
-                {
-                    // Check if player is inside a grid that is being teleported
-                    IMyCubeGrid gridBeingTeleported = player.Controller?.ControlledEntity?.Entity?.GetTopMostParent() as IMyCubeGrid;
-                    if (gridBeingTeleported != null)
-                    {
-                        MyLogger.Log($"TPGate: ProcessJumpRequest: Player {player.IdentityId} is inside grid {gridBeingTeleported.DisplayName}. Skipping individual teleport.");
-                        continue; // Skip teleporting the player individually
-                    }
-
-                    // Play "enter" particle and sound effect at the starting position
-                    MyVisualScriptLogicProvider.CreateParticleEffectAtPosition("InvalidCustomBlinkParticleEnter", player.GetPosition());
-                    MyVisualScriptLogicProvider.PlaySingleSoundAtPosition("ShipPrototechJumpDriveJumpIn", player.GetPosition());
-
-                    // Teleport the player
-                    TeleportCore.RequestTeleport(player.IdentityId, block.EntityId, link);
-                    teleportAttempted = true;
-                    playersToTeleport++;
-
-                    // Get player's new position after teleport
-                    Vector3D newPlayerPosition = player.GetPosition();
-
-                    // Play "leave" particle and sound effect at the new position
-                    MyVisualScriptLogicProvider.CreateParticleEffectAtPosition("InvalidCustomBlinkParticleLeave", newPlayerPosition);
-                    MyVisualScriptLogicProvider.PlaySingleSoundAtPosition("ShipPrototechJumpDriveJumpOut", newPlayerPosition);
-
-                    if (player.Controller.ControlledEntity is IMyShipController)
-                    {
-                        shipsToTeleport++;
-                    }
-                }
+                MyLogger.Log("TPCore: ProcessJumpRequest: Could not find destination gateway");
+                return;
             }
 
-
-            // Teleport unpiloted ships in range and play directional effects
-            List<IMyEntity> potentialEntities = MyAPIGateway.Entities.GetEntitiesInSphere(ref sphere);
-            foreach (var entity in potentialEntities)
+            // Schedule the actual teleport
+            MyAPIGateway.Utilities.InvokeOnGameThread(() =>
             {
-                var grid = entity as IMyCubeGrid;
-                if (grid == null || grid.IsStatic || grid.EntityId == block.CubeGrid.EntityId)
-                {
-                    continue;
-                }
+                float sphereRadius = sourceGatewayLogic.Settings.SphereDiameter / 2.0f;
+                Vector3D sphereCenter = sourceGateway.GetPosition() + sourceGateway.WorldMatrix.Forward * sphereRadius;
+                BoundingSphereD sphere = new BoundingSphereD(sphereCenter, sphereRadius);
 
-                // Skip grid if it already contains a player being teleported
-                bool hasPlayer = false;
-                foreach (var player in playerList)
+                List<IMyEntity> entitiesInSphere = MyAPIGateway.Entities.GetEntitiesInSphere(ref sphere);
+                int teleportedCount = 0;
+
+                foreach (var entity in entitiesInSphere)
                 {
-                    if (player.Controller?.ControlledEntity?.Entity?.GetTopMostParent() == grid)
+                    bool shouldTeleport = false;
+                    var character = entity as IMyCharacter;
+                    var grid = entity as IMyCubeGrid;
+
+                    if (character != null && sourceGatewayLogic.Settings.AllowPlayers)
                     {
-                        hasPlayer = true;
-                        break;
+                        shouldTeleport = true;
+                    }
+                    else if (grid != null && sourceGatewayLogic.Settings.AllowShips)
+                    {
+                        if (!grid.IsStatic && grid.EntityId != sourceGateway.CubeGrid.EntityId)
+                        {
+                            List<IMySlimBlock> landingGears = new List<IMySlimBlock>();
+                            grid.GetBlocks(landingGears, b => b.FatBlock is SpaceEngineers.Game.ModAPI.Ingame.IMyLandingGear);
+                            bool hasLockedGear = false;
+
+                            foreach (var gear in landingGears)
+                            {
+                                var landingGear = gear.FatBlock as SpaceEngineers.Game.ModAPI.Ingame.IMyLandingGear;
+                                if (landingGear != null && landingGear.IsLocked)
+                                {
+                                    hasLockedGear = true;
+                                    break;
+                                }
+                            }
+
+                            if (!hasLockedGear)
+                            {
+                                shouldTeleport = true;
+                            }
+                        }
+                    }
+
+                    if (shouldTeleport)
+                    {
+                        TeleportCore.TeleportEntity(entity, sourceGateway, destGateway);
+                        teleportedCount++;
+
+                        MyVisualScriptLogicProvider.CreateParticleEffectAtPosition(
+                            "InvalidCustomBlinkParticleEnter",
+                            entity.GetPosition()
+                        );
+                        MyVisualScriptLogicProvider.PlaySingleSoundAtPosition(
+                            "ShipPrototechJumpDriveJumpIn",
+                            entity.GetPosition()
+                        );
                     }
                 }
 
-                if (hasPlayer)
+                if (teleportedCount > 0)
                 {
-                    MyLogger.Log($"TPGate: ProcessJumpRequest: Grid {grid.DisplayName} already contains a teleporting player. Skipping grid teleport.");
-                    continue;
+                    MyLogger.Log($"TPGate: ProcessJumpRequest: Teleported {teleportedCount} entities");
+                    NotifyPlayersInRange(
+                        $"Teleported {teleportedCount} entities",
+                        sourceGateway.GetPosition(),
+                        100,
+                        "White"
+                    );
                 }
 
-                // Teleport the grid
-                TeleportCore.TeleportEntity(grid, block, destGateway);
-                shipsToTeleport++;
-            }
+                // Reset teleporting state
+                sourceGatewayLogic._isTeleporting = false;
+                sourceGatewayLogic._showSphereDuringCountdown = false;
 
-            if (teleportAttempted) {
-                MyLogger.Log($"TPGate: ProcessJumpRequest: Teleport attempted");
-                NotifyPlayersInRange(
-                    $"TPGate: Teleporting {playersToTeleport} player(s) and {shipsToTeleport} ship(s)",
-                    block.GetPosition(),
-                    100,
-                    "White"
-                );
-            }
+            }, sourceGatewayLogic._teleportCountdown.ToString());
+
+            MyLogger.Log($"TPGate: ProcessJumpRequest: Scheduled teleport after {sourceGatewayLogic._teleportCountdown / 60f}s");
         }
-
     }
 }
