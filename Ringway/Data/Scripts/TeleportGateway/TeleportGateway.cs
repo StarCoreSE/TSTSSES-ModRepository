@@ -247,26 +247,28 @@ namespace TeleportMechanisms {
         private float _initialPower;
         private bool _showSphereDuringCountdown;
 
-        public override void UpdateAfterSimulation() {
+        public override void UpdateAfterSimulation()
+        {
             base.UpdateAfterSimulation();
-
             if (RingwayBlock == null) return;
 
-            // Draw a debug line to the nearest linked gateway, if one exists
             DrawDebugLineToNearestLinkedGateway();
 
-            // Retrieve destination position for teleport effects
             var destGatewayId = TeleportCore.GetDestinationGatewayId(Settings.GatewayName, RingwayBlock.EntityId);
             var destGateway = MyAPIGateway.Entities.GetEntityById(destGatewayId) as IMyCollector;
             Vector3D destinationPosition = destGateway?.GetPosition() ?? Vector3D.Zero;
 
-            if (_isTeleporting) {
-                if (_teleportCountdown > 0) {
+            if (_isTeleporting)
+            {
+                if (_teleportCountdown > 0)
+                {
                     _teleportCountdown--;
 
-                    // Show countdown text notification each second
-                    if (_teleportCountdown % 60 == 0) {
+                    // Show countdown every second (60 ticks)
+                    if (_teleportCountdown % 60 == 0)
+                    {
                         int secondsLeft = _teleportCountdown / 60;
+                        // Broadcast countdown to all nearby players
                         NotifyPlayersInRange(
                             $"Jump in {secondsLeft}s... Distance: {_jumpDistance / 1000:F1}km",
                             RingwayBlock.GetPosition(),
@@ -275,17 +277,16 @@ namespace TeleportMechanisms {
                         );
                     }
 
-                    // Render the sphere in transparent yellow during countdown
-                    if (Settings.ShowSphere) {
-                        Color countdownColor = new Color(255, 255, 0, 10); // Yellow with transparency
+                    // Update sphere color during countdown
+                    if (Settings.ShowSphere)
+                    {
+                        Color countdownColor = new Color(255, 255, 0, 10);
                         TeleportBubbleManager.CreateOrUpdateBubble(RingwayBlock, countdownColor);
                         TeleportBubbleManager.DrawBubble(RingwayBlock, countdownColor);
                     }
-
                     return;
                 }
 
-                // Teleportation completion
                 float powerRequired = CalculatePowerRequired(_jumpDistance);
                 Settings.StoredPower = Math.Max(0, Settings.StoredPower - powerRequired);
                 Settings.Changed = true;
@@ -300,8 +301,11 @@ namespace TeleportMechanisms {
                 _isTeleporting = false;
                 _showSphereDuringCountdown = false;
 
-                if (!MyAPIGateway.Multiplayer.IsServer) {
-                    var message = new JumpRequestMessage {
+                // Only send jump request if we're not the server
+                if (!MyAPIGateway.Multiplayer.IsServer)
+                {
+                    var message = new JumpRequestMessage
+                    {
                         GatewayId = RingwayBlock.EntityId,
                         Link = Settings.GatewayName
                     };
@@ -310,45 +314,48 @@ namespace TeleportMechanisms {
                         MyAPIGateway.Utilities.SerializeToBinary(message)
                     );
                 }
-                else {
+                else
+                {
                     ProcessJumpRequest(RingwayBlock.EntityId, Settings.GatewayName);
                 }
             }
-            else {
-                if (RingwayBlock.IsWorking && Settings.StoredPower < Settings.MaxStoredPower) {
-                    if (Sink != null && Sink.IsPowerAvailable(MyResourceDistributorComponent.ElectricityId, CHARGE_RATE * 1000f)) {
-                        if (Settings.StoredPower == 0) {
-                            // Charging started - can handle any non-particle effects here if needed
-                        }
-
-                        // Increment stored power as part of the charging process
+            else
+            {
+                // Normal charging logic...
+                if (RingwayBlock.IsWorking && Settings.StoredPower < Settings.MaxStoredPower)
+                {
+                    if (Sink != null && Sink.IsPowerAvailable(MyResourceDistributorComponent.ElectricityId, CHARGE_RATE * 1000f))
+                    {
                         Settings.StoredPower = Math.Min(Settings.MaxStoredPower, Settings.StoredPower + (CHARGE_RATE / 60f));
                         Settings.Changed = true;
                         Sink.SetRequiredInputByType(MyResourceDistributorComponent.ElectricityId, CHARGE_RATE * 1000f);
                         Sink.Update();
                     }
-                    else {
+                    else
+                    {
                         Sink?.SetRequiredInputByType(MyResourceDistributorComponent.ElectricityId, 0f);
                         Sink?.Update();
                     }
                 }
             }
 
-            // Save settings periodically
-            if (++_frameCounter >= SAVE_INTERVAL_FRAMES) {
+            if (++_frameCounter >= SAVE_INTERVAL_FRAMES)
+            {
                 _frameCounter = 0;
                 TrySave();
             }
 
-            if (MyAPIGateway.Gui.GetCurrentScreen == MyTerminalPageEnum.ControlPanel) {
+            if (MyAPIGateway.Gui.GetCurrentScreen == MyTerminalPageEnum.ControlPanel)
+            {
                 RingwayBlock.RefreshCustomInfo();
                 RingwayBlock.SetDetailedInfoDirty();
             }
 
-            // Display teleport bubble if in a client session
-            if (!MyAPIGateway.Utilities.IsDedicated && MyAPIGateway.Session != null) {
-                if (!_showSphereDuringCountdown && Settings.ShowSphere) {
-                    Color defaultColor = new Color(0, 0, 255, 10); // Blue with transparency
+            if (!MyAPIGateway.Utilities.IsDedicated && MyAPIGateway.Session != null)
+            {
+                if (!_showSphereDuringCountdown && Settings.ShowSphere)
+                {
+                    Color defaultColor = new Color(0, 0, 255, 10);
                     TeleportBubbleManager.CreateOrUpdateBubble(RingwayBlock, defaultColor);
                     TeleportBubbleManager.DrawBubble(RingwayBlock, defaultColor);
                 }
