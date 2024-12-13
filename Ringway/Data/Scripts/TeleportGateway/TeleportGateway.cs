@@ -849,116 +849,111 @@ namespace TeleportMechanisms {
             }
         }
 
-        public static void ProcessJumpRequest(long gatewayId, string link) {
+        public static void ProcessJumpRequest(long gatewayId, string link)
+        {
             MyLogger.Log($"TPGate: ProcessJumpRequest: Processing jump request for gateway {gatewayId}, link {link}");
 
-            var block = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyCollector;
-            if (block == null || !block.IsWorking) {
+            var sourceGateway = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyCollector;
+            if (sourceGateway == null || !sourceGateway.IsWorking)
+            {
                 MyLogger.Log($"TPCore: ProcessJumpRequest: Gateway {gatewayId} is null or not functional");
                 return;
             }
 
-            // Update teleport links
+            var sourceGatewayLogic = sourceGateway.GameLogic.GetAs<TeleportGateway>();
+            if (sourceGatewayLogic == null)
+            {
+                MyLogger.Log("TPCore: ProcessJumpRequest: Could not get gateway logic");
+                return;
+            }
+
+            // Update links to ensure we have current data
             TeleportCore.UpdateTeleportLinks();
 
-            var playerList = new List<IMyPlayer>();
-            MyAPIGateway.Players.GetPlayers(playerList);
-
-            bool teleportAttempted = false;
-            int playersToTeleport = 0;
-            int shipsToTeleport = 0;
-
             // Get destination gateway
-            var destGatewayId = TeleportCore.GetDestinationGatewayId(link, block.EntityId);
+            var destGatewayId = TeleportCore.GetDestinationGatewayId(link, sourceGateway.EntityId);
             var destGateway = MyAPIGateway.Entities.GetEntityById(destGatewayId) as IMyCollector;
-            if (destGateway == null) return;
+            if (destGateway == null)
+            {
+                MyLogger.Log("TPCore: ProcessJumpRequest: Could not find destination gateway");
+                return;
+            }
 
-            // Define the teleport sphere for range-based operations
-            float sphereRadius = block.GameLogic.GetAs<TeleportGateway>()?.Settings.SphereDiameter / 2.0f ?? 25.0f;
-            Vector3D sphereCenter = block.GetPosition() + block.WorldMatrix.Forward * sphereRadius;
+            // Calculate teleport sphere
+            float sphereRadius = sourceGatewayLogic.Settings.SphereDiameter / 2.0f;
+            Vector3D sphereCenter = sourceGateway.GetPosition() + sourceGateway.WorldMatrix.Forward * sphereRadius;
             BoundingSphereD sphere = new BoundingSphereD(sphereCenter, sphereRadius);
 
-            // Teleport each player in range and play effects
-            foreach (var player in playerList)
+            // Get all entities in sphere
+            List<IMyEntity> entitiesInSphere = MyAPIGateway.Entities.GetEntitiesInSphere(ref sphere);
+            int teleportedCount = 0;
+
+            foreach (var entity in entitiesInSphere)
             {
-                var distance = Vector3D.Distance(player.GetPosition(), sphereCenter);
+                bool shouldTeleport = false;
 
-                if (distance <= sphereRadius)
-                {
-                    // Check if player is inside a grid that is being teleported
-                    IMyCubeGrid gridBeingTeleported = player.Controller?.ControlledEntity?.Entity?.GetTopMostParent() as IMyCubeGrid;
-                    if (gridBeingTeleported != null)
-                    {
-                        MyLogger.Log($"TPGate: ProcessJumpRequest: Player {player.IdentityId} is inside grid {gridBeingTeleported.DisplayName}. Skipping individual teleport.");
-                        continue; // Skip teleporting the player individually
-                    }
-
-                    // Play "enter" particle and sound effect at the starting position
-                    MyVisualScriptLogicProvider.CreateParticleEffectAtPosition("InvalidCustomBlinkParticleEnter", player.GetPosition());
-                    MyVisualScriptLogicProvider.PlaySingleSoundAtPosition("ShipPrototechJumpDriveJumpIn", player.GetPosition());
-
-                    // Teleport the player
-                    TeleportCore.RequestTeleport(player.IdentityId, block.EntityId, link);
-                    teleportAttempted = true;
-                    playersToTeleport++;
-
-                    // Get player's new position after teleport
-                    Vector3D newPlayerPosition = player.GetPosition();
-
-                    // Play "leave" particle and sound effect at the new position
-                    MyVisualScriptLogicProvider.CreateParticleEffectAtPosition("InvalidCustomBlinkParticleLeave", newPlayerPosition);
-                    MyVisualScriptLogicProvider.PlaySingleSoundAtPosition("ShipPrototechJumpDriveJumpOut", newPlayerPosition);
-
-                    if (player.Controller.ControlledEntity is IMyShipController)
-                    {
-                        shipsToTeleport++;
-                    }
-                }
-            }
-
-
-            // Teleport unpiloted ships in range and play directional effects
-            List<IMyEntity> potentialEntities = MyAPIGateway.Entities.GetEntitiesInSphere(ref sphere);
-            foreach (var entity in potentialEntities)
-            {
+                var character = entity as IMyCharacter;
                 var grid = entity as IMyCubeGrid;
-                if (grid == null || grid.IsStatic || grid.EntityId == block.CubeGrid.EntityId)
-                {
-                    continue;
-                }
 
-                // Skip grid if it already contains a player being teleported
-                bool hasPlayer = false;
-                foreach (var player in playerList)
+                if (character != null && sourceGatewayLogic.Settings.AllowPlayers)
                 {
-                    if (player.Controller?.ControlledEntity?.Entity?.GetTopMostParent() == grid)
+                    shouldTeleport = true;
+                }
+                else if (grid != null && sourceGatewayLogic.Settings.AllowShips)
+                {
+                    // Additional grid checks
+                    if (!grid.IsStatic &&
+                        grid.EntityId != sourceGateway.CubeGrid.EntityId)
                     {
-                        hasPlayer = true;
-                        break;
+                        // Check if grid has locked landing gear
+                        List<IMySlimBlock> landingGears = new List<IMySlimBlock>();
+                        grid.GetBlocks(landingGears, b => b.FatBlock is SpaceEngineers.Game.ModAPI.Ingame.IMyLandingGear);
+                        bool hasLockedGear = false;
+
+                        foreach (var gear in landingGears)
+                        {
+                            var landingGear = gear.FatBlock as SpaceEngineers.Game.ModAPI.Ingame.IMyLandingGear;
+                            if (landingGear != null && landingGear.IsLocked)
+                            {
+                                hasLockedGear = true;
+                                break;
+                            }
+                        }
+
+                        if (!hasLockedGear)
+                        {
+                            shouldTeleport = true;
+                        }
                     }
                 }
 
-                if (hasPlayer)
+                if (shouldTeleport)
                 {
-                    MyLogger.Log($"TPGate: ProcessJumpRequest: Grid {grid.DisplayName} already contains a teleporting player. Skipping grid teleport.");
-                    continue;
-                }
+                    TeleportCore.TeleportEntity(entity, sourceGateway, destGateway);
+                    teleportedCount++;
 
-                // Teleport the grid
-                TeleportCore.TeleportEntity(grid, block, destGateway);
-                shipsToTeleport++;
+                    // Play effects
+                    MyVisualScriptLogicProvider.CreateParticleEffectAtPosition(
+                        "InvalidCustomBlinkParticleEnter",
+                        entity.GetPosition()
+                    );
+                    MyVisualScriptLogicProvider.PlaySingleSoundAtPosition(
+                        "ShipPrototechJumpDriveJumpIn",
+                        entity.GetPosition()
+                    );
+                }
             }
 
-            if (teleportAttempted) {
-                MyLogger.Log($"TPGate: ProcessJumpRequest: Teleport attempted");
+            if (teleportedCount > 0)
+            {
+                MyLogger.Log($"TPGate: ProcessJumpRequest: Teleported {teleportedCount} entities");
                 NotifyPlayersInRange(
-                    $"TPGate: Teleporting {playersToTeleport} player(s) and {shipsToTeleport} ship(s)",
-                    block.GetPosition(),
+                    $"Teleported {teleportedCount} entities",
+                    sourceGateway.GetPosition(),
                     100,
                     "White"
                 );
             }
         }
-
     }
 }
