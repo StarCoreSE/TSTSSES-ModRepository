@@ -770,11 +770,12 @@ namespace TeleportMechanisms {
             if (string.IsNullOrEmpty(link))
             {
                 MyLogger.Log($"TPGate: JumpAction: No valid link set. Proceeding with request to server.");
+                return;
             }
 
+            // Calculate distance and power requirements
             _jumpDistance = 0;
             float powerRequired = 0;
-
             var destGatewayId = TeleportCore.GetDestinationGatewayId(link, block.EntityId);
             if (destGatewayId != 0)
             {
@@ -787,13 +788,15 @@ namespace TeleportMechanisms {
                 else
                 {
                     MyLogger.Log($"TPGate: JumpAction: Destination gateway not found on client side. Server will handle validation.");
+                    return;
                 }
             }
 
-            // If this is a timer-initiated jump on the server, notify all clients first
+            // Send to clients first if timer-initiated
             if (isTimerInitiated && MyAPIGateway.Multiplayer.IsServer)
             {
                 _teleportCountdown = CalculateCountdown(_jumpDistance);
+                powerRequired = CalculatePowerRequired(_jumpDistance);
                 var message = new JumpInitiatedMessage
                 {
                     GatewayId = block.EntityId,
@@ -803,9 +806,12 @@ namespace TeleportMechanisms {
                 };
                 var data = MyAPIGateway.Utilities.SerializeToBinary(message);
                 MyAPIGateway.Multiplayer.SendMessageToOthers(NetworkHandler.JumpInitiatedId, data);
+
+                MyLogger.Log($"TPGate: JumpAction: Sent jump initiation to clients. Distance: {_jumpDistance / 1000:F1}km, Power: {powerRequired:F1}MWh");
             }
 
-            if (_jumpDistance > MAX_TELEPORT_DISTANCE && destGatewayId != 0)
+            // Validate requirements
+            if (_jumpDistance > MAX_TELEPORT_DISTANCE)
             {
                 MyLogger.Log($"TPGate: JumpAction: Jump distance exceeds maximum allowed range.");
                 NotifyPlayersInRange(
@@ -829,13 +835,11 @@ namespace TeleportMechanisms {
                 return;
             }
 
+            // Start jump sequence
             _isTeleporting = true;
             _teleportCountdown = CalculateCountdown(_jumpDistance);
-            _initialPower = Settings.StoredPower;
             Settings.StoredPower = Math.Max(0, Settings.StoredPower - powerRequired);
             Settings.Changed = true;
-
-            MyLogger.Log($"TPGate: JumpAction: Teleport sequence initiated. Power: {powerRequired:F1}MWh");
 
             float totalSeconds = _teleportCountdown / 60f;
             NotifyPlayersInRange(
@@ -846,8 +850,8 @@ namespace TeleportMechanisms {
             );
 
             NeedsUpdate |= MyEntityUpdateEnum.EACH_FRAME;
+            MyLogger.Log($"TPGate: JumpAction: Jump sequence started. Distance: {_jumpDistance / 1000:F1}km, Power: {powerRequired:F1}MWh");
         }
-
         public static void NotifyPlayersInRange(string text, Vector3D position, double radius, string font = "White") {
             BoundingSphereD bound = new BoundingSphereD(position, radius);
             List<IMyEntity> nearbyEntities = MyAPIGateway.Entities.GetEntitiesInSphere(ref bound);

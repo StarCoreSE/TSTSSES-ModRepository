@@ -229,11 +229,15 @@ namespace TeleportMechanisms
                 var gatewayLogic = gateway.GameLogic.GetAs<TeleportGateway>();
                 if (gatewayLogic != null)
                 {
-                    // Set the values directly to ensure client-side visualization
+                    // Set all the necessary values before starting the jump sequence
                     gatewayLogic._jumpDistance = message.JumpDistance;
                     gatewayLogic._teleportCountdown = message.CountdownTicks;
                     gatewayLogic._isTeleporting = true;
                     gatewayLogic._showSphereDuringCountdown = true;
+
+                    // Deduct power on clients too
+                    gatewayLogic.Settings.StoredPower = Math.Max(0, gatewayLogic.Settings.StoredPower - message.PowerRequired);
+                    gatewayLogic.Settings.Changed = true;
 
                     float totalSeconds = message.CountdownTicks / 60f;
                     TeleportGateway.NotifyPlayersInRange(
@@ -244,6 +248,7 @@ namespace TeleportMechanisms
                     );
 
                     gatewayLogic.NeedsUpdate |= MyEntityUpdateEnum.EACH_FRAME;
+                    MyLogger.Log($"TPGate: HandleJumpInitiated: Jump sequence initialized on client. Distance: {message.JumpDistance / 1000:F1}km, Countdown: {totalSeconds}s");
                 }
             }
         }
