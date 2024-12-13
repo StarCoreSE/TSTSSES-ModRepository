@@ -6,6 +6,17 @@ using VRage.Utils;
 namespace TeleportMechanisms
 {
     [ProtoContract]
+    public class JumpInitiatedMessage
+    {
+        [ProtoMember(1)]
+        public long GatewayId { get; set; }
+        [ProtoMember(2)]
+        public double JumpDistance { get; set; }
+        [ProtoMember(3)]
+        public int CountdownTicks { get; set; }
+    }
+
+    [ProtoContract]
     public class TeleportRequestMessage
     {
         [ProtoMember(1)]
@@ -124,6 +135,7 @@ namespace TeleportMechanisms
         public const ushort TeleportResponseId = 8002;
         public const ushort JumpRequestId = 8003;
         public const ushort SyncSettingsId = 8004;
+        public const ushort JumpInitiatedId = 8005;
 
 
         public static void Register()
@@ -133,6 +145,8 @@ namespace TeleportMechanisms
             MyAPIGateway.Multiplayer.RegisterMessageHandler(TeleportResponseId, HandleTeleportResponse);
             MyAPIGateway.Multiplayer.RegisterMessageHandler(JumpRequestId, HandleJumpRequest);
             MyAPIGateway.Multiplayer.RegisterMessageHandler(SyncSettingsId, HandleSyncSettings);
+            MyAPIGateway.Multiplayer.RegisterMessageHandler(JumpInitiatedId, HandleJumpInitiated);
+
         }
 
         public static void Unregister()
@@ -142,6 +156,8 @@ namespace TeleportMechanisms
             MyAPIGateway.Multiplayer.UnregisterMessageHandler(TeleportResponseId, HandleTeleportResponse);
             MyAPIGateway.Multiplayer.UnregisterMessageHandler(JumpRequestId, HandleJumpRequest);
             MyAPIGateway.Multiplayer.UnregisterMessageHandler(SyncSettingsId, HandleSyncSettings);
+            MyAPIGateway.Multiplayer.UnregisterMessageHandler(JumpInitiatedId, HandleJumpInitiated);
+
         }
 
         private static void HandleSyncSettings(byte[] data)
@@ -198,6 +214,20 @@ namespace TeleportMechanisms
 
             var message = MyAPIGateway.Utilities.SerializeFromBinary<JumpRequestMessage>(data);
             TeleportGateway.ProcessJumpRequest(message.GatewayId, message.Link);
+        }
+
+        private static void HandleJumpInitiated(byte[] data)
+        {
+            var message = MyAPIGateway.Utilities.SerializeFromBinary<JumpInitiatedMessage>(data);
+            var gateway = MyAPIGateway.Entities.GetEntityById(message.GatewayId) as IMyCollector;
+            if (gateway != null)
+            {
+                var gatewayLogic = gateway.GameLogic.GetAs<TeleportGateway>();
+                if (gatewayLogic != null)
+                {
+                    gatewayLogic.JumpAction(gateway, true);
+                }
+            }
         }
     }
 }
