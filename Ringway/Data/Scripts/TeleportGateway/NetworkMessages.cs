@@ -229,17 +229,21 @@ namespace TeleportMechanisms
                 var gatewayLogic = gateway.GameLogic.GetAs<TeleportGateway>();
                 if (gatewayLogic != null)
                 {
-                    // Set all the necessary values before starting the jump sequence
+                    MyLogger.Log($"TPGate: HandleJumpInitiated: Received jump initiation. Distance: {message.JumpDistance / 1000:F1}km");
+
+                    // Set values for countdown
                     gatewayLogic._jumpDistance = message.JumpDistance;
                     gatewayLogic._teleportCountdown = message.CountdownTicks;
                     gatewayLogic._isTeleporting = true;
                     gatewayLogic._showSphereDuringCountdown = true;
 
-                    // Deduct power on clients too
+                    // Ensure power is deducted
                     gatewayLogic.Settings.StoredPower = Math.Max(0, gatewayLogic.Settings.StoredPower - message.PowerRequired);
                     gatewayLogic.Settings.Changed = true;
 
                     float totalSeconds = message.CountdownTicks / 60f;
+
+                    // Send initial notification
                     TeleportGateway.NotifyPlayersInRange(
                         $"Initiating {message.JumpDistance / 1000:F1}km jump - {totalSeconds:F1} seconds",
                         gateway.GetPosition(),
@@ -247,8 +251,16 @@ namespace TeleportMechanisms
                         "White"
                     );
 
+                    // Send first countdown notification immediately
+                        TeleportGateway.NotifyPlayersInRange(
+                        $"Jump in {totalSeconds:F1}s... Distance: {message.JumpDistance / 1000:F1}km",
+                        gateway.GetPosition(),
+                        100,
+                        "White"
+                    );
+
                     gatewayLogic.NeedsUpdate |= MyEntityUpdateEnum.EACH_FRAME;
-                    MyLogger.Log($"TPGate: HandleJumpInitiated: Jump sequence initialized on client. Distance: {message.JumpDistance / 1000:F1}km, Countdown: {totalSeconds}s");
+                    MyLogger.Log($"TPGate: HandleJumpInitiated: Started countdown. Time: {totalSeconds}s");
                 }
             }
         }
