@@ -40,9 +40,9 @@ namespace TeleportMechanisms {
 
         private const float CHARGE_RATE = 1.0f; // 0.5 MWh per second when charging
         private MyResourceSinkComponent Sink = null;
-        private bool _isTeleporting = false;
-        private int _teleportCountdown = 0;
-        private double _jumpDistance = 0;
+        public bool _isTeleporting = false;
+        public int _teleportCountdown = 0;
+        public double _jumpDistance = 0;
 
         private const float POWER_THRESHOLD = 0.1f; // 10% power threshold for failure
         private const float BASE_COUNTDOWN_SECONDS = 5; // Minimum countdown time
@@ -245,7 +245,7 @@ namespace TeleportMechanisms {
 
         private float _targetPowerDrain = 0f;
         private float _initialPower;
-        private bool _showSphereDuringCountdown;
+        public bool _showSphereDuringCountdown;
 
         public override void UpdateAfterSimulation()
         {
@@ -790,6 +790,21 @@ namespace TeleportMechanisms {
                 }
             }
 
+            // If this is a timer-initiated jump on the server, notify all clients first
+            if (isTimerInitiated && MyAPIGateway.Multiplayer.IsServer)
+            {
+                _teleportCountdown = CalculateCountdown(_jumpDistance);
+                var message = new JumpInitiatedMessage
+                {
+                    GatewayId = block.EntityId,
+                    JumpDistance = _jumpDistance,
+                    CountdownTicks = _teleportCountdown,
+                    PowerRequired = powerRequired
+                };
+                var data = MyAPIGateway.Utilities.SerializeToBinary(message);
+                MyAPIGateway.Multiplayer.SendMessageToOthers(NetworkHandler.JumpInitiatedId, data);
+            }
+
             if (_jumpDistance > MAX_TELEPORT_DISTANCE && destGatewayId != 0)
             {
                 MyLogger.Log($"TPGate: JumpAction: Jump distance exceeds maximum allowed range.");
@@ -830,23 +845,10 @@ namespace TeleportMechanisms {
                 "White"
             );
 
-            // If this is a timer-initiated jump on the server, notify all clients
-            if (isTimerInitiated && MyAPIGateway.Multiplayer.IsServer)
-            {
-                var message = new JumpInitiatedMessage
-                {
-                    GatewayId = block.EntityId,
-                    JumpDistance = _jumpDistance,
-                    CountdownTicks = _teleportCountdown
-                };
-                var data = MyAPIGateway.Utilities.SerializeToBinary(message);
-                MyAPIGateway.Multiplayer.SendMessageToOthers(NetworkHandler.JumpInitiatedId, data);
-            }
-
             NeedsUpdate |= MyEntityUpdateEnum.EACH_FRAME;
         }
 
-        private static void NotifyPlayersInRange(string text, Vector3D position, double radius, string font = "White") {
+        public static void NotifyPlayersInRange(string text, Vector3D position, double radius, string font = "White") {
             BoundingSphereD bound = new BoundingSphereD(position, radius);
             List<IMyEntity> nearbyEntities = MyAPIGateway.Entities.GetEntitiesInSphere(ref bound);
 

@@ -2,6 +2,8 @@ using ProtoBuf;
 using Sandbox.ModAPI;
 using VRageMath;
 using VRage.Utils;
+using VRage.ModAPI;
+using System;
 
 namespace TeleportMechanisms
 {
@@ -14,6 +16,8 @@ namespace TeleportMechanisms
         public double JumpDistance { get; set; }
         [ProtoMember(3)]
         public int CountdownTicks { get; set; }
+        [ProtoMember(4)]
+        public float PowerRequired { get; set; }
     }
 
     [ProtoContract]
@@ -225,7 +229,21 @@ namespace TeleportMechanisms
                 var gatewayLogic = gateway.GameLogic.GetAs<TeleportGateway>();
                 if (gatewayLogic != null)
                 {
-                    gatewayLogic.JumpAction(gateway, true);
+                    // Set the values directly to ensure client-side visualization
+                    gatewayLogic._jumpDistance = message.JumpDistance;
+                    gatewayLogic._teleportCountdown = message.CountdownTicks;
+                    gatewayLogic._isTeleporting = true;
+                    gatewayLogic._showSphereDuringCountdown = true;
+
+                    float totalSeconds = message.CountdownTicks / 60f;
+                    TeleportGateway.NotifyPlayersInRange(
+                        $"Initiating {message.JumpDistance / 1000:F1}km jump - {totalSeconds:F1} seconds",
+                        gateway.GetPosition(),
+                        100,
+                        "White"
+                    );
+
+                    gatewayLogic.NeedsUpdate |= MyEntityUpdateEnum.EACH_FRAME;
                 }
             }
         }
