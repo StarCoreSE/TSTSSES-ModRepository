@@ -902,6 +902,10 @@ namespace TeleportMechanisms {
                 return;
             }
 
+            // Get the gateway's GridGroup
+            List<IMyCubeGrid> gatewayGridGroup = new List<IMyCubeGrid>();
+            MyAPIGateway.GridGroups.GetGroup(sourceGateway.CubeGrid, GridLinkTypeEnum.Physical, gatewayGridGroup);
+
             // Schedule the actual teleport
             MyAPIGateway.Utilities.InvokeOnGameThread(() =>
             {
@@ -924,26 +928,38 @@ namespace TeleportMechanisms {
                     }
                     else if (grid != null && sourceGatewayLogic.Settings.AllowShips)
                     {
-                        if (!grid.IsStatic && grid.EntityId != sourceGateway.CubeGrid.EntityId)
+                        // Check 1: Skip if grid is static
+                        if (grid.IsStatic)
                         {
-                            List<IMySlimBlock> landingGears = new List<IMySlimBlock>();
-                            grid.GetBlocks(landingGears, b => b.FatBlock is SpaceEngineers.Game.ModAPI.Ingame.IMyLandingGear);
-                            bool hasLockedGear = false;
+                            MyLogger.Log($"TPGate: ProcessJumpRequest: Skipping static grid {grid.DisplayName}");
+                            continue;
+                        }
 
-                            foreach (var gear in landingGears)
-                            {
-                                var landingGear = gear.FatBlock as SpaceEngineers.Game.ModAPI.Ingame.IMyLandingGear;
-                                if (landingGear != null && landingGear.IsLocked)
-                                {
-                                    hasLockedGear = true;
-                                    break;
-                                }
-                            }
+                        // Check 2: Skip if grid is part of the gateway's GridGroup
+                        if (gatewayGridGroup.Contains(grid))
+                        {
+                            MyLogger.Log($"TPGate: ProcessJumpRequest: Skipping grid {grid.DisplayName} as it's part of the gateway's GridGroup");
+                            continue;
+                        }
 
-                            if (!hasLockedGear)
+                        // Additional existing checks
+                        List<IMySlimBlock> landingGears = new List<IMySlimBlock>();
+                        grid.GetBlocks(landingGears, b => b.FatBlock is SpaceEngineers.Game.ModAPI.Ingame.IMyLandingGear);
+                        bool hasLockedGear = false;
+
+                        foreach (var gear in landingGears)
+                        {
+                            var landingGear = gear.FatBlock as SpaceEngineers.Game.ModAPI.Ingame.IMyLandingGear;
+                            if (landingGear != null && landingGear.IsLocked)
                             {
-                                shouldTeleport = true;
+                                hasLockedGear = true;
+                                break;
                             }
+                        }
+
+                        if (!hasLockedGear)
+                        {
+                            shouldTeleport = true;
                         }
                     }
 
