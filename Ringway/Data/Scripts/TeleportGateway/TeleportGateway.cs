@@ -21,6 +21,7 @@ using Sandbox.Game.GameSystems.Electricity;
 using VRage.Game.ObjectBuilders.Definitions;
 using IMyTerminalBlock = Sandbox.ModAPI.IMyTerminalBlock;
 using VRage.Noise.Patterns;
+using System.Linq;
 
 namespace TeleportMechanisms {
     [MyEntityComponentDescriptor(typeof(MyObjectBuilder_Collector), false,
@@ -887,7 +888,6 @@ namespace TeleportMechanisms {
                 return;
             }
 
-            // If already teleporting, don't start another jump
             if (sourceGatewayLogic._isTeleporting)
             {
                 MyLogger.Log("TPCore: ProcessJumpRequest: Gateway is already teleporting");
@@ -906,97 +906,145 @@ namespace TeleportMechanisms {
             List<IMyCubeGrid> gatewayGridGroup = new List<IMyCubeGrid>();
             MyAPIGateway.GridGroups.GetGroup(sourceGateway.CubeGrid, GridLinkTypeEnum.Physical, gatewayGridGroup);
 
-            // Schedule the actual teleport
             MyAPIGateway.Utilities.InvokeOnGameThread(() =>
             {
-                float sphereRadius = sourceGatewayLogic.Settings.SphereDiameter / 2.0f;
-                Vector3D sphereCenter = sourceGateway.GetPosition() + sourceGateway.WorldMatrix.Forward * sphereRadius;
-                BoundingSphereD sphere = new BoundingSphereD(sphereCenter, sphereRadius);
-
-                List<IMyEntity> entitiesInSphere = MyAPIGateway.Entities.GetEntitiesInSphere(ref sphere);
-                int teleportedCount = 0;
-
-                foreach (var entity in entitiesInSphere)
+                try
                 {
-                    bool shouldTeleport = false;
-                    var character = entity as IMyCharacter;
-                    var grid = entity as IMyCubeGrid;
+                    float sphereRadius = sourceGatewayLogic.Settings.SphereDiameter / 2.0f;
+                    Vector3D sphereCenter = sourceGateway.GetPosition() + sourceGateway.WorldMatrix.Forward * sphereRadius;
+                    BoundingSphereD sphere = new BoundingSphereD(sphereCenter, sphereRadius);
 
-                    if (character != null && sourceGatewayLogic.Settings.AllowPlayers)
+                    List<IMyEntity> entitiesInSphere = MyAPIGateway.Entities.GetEntitiesInSphere(ref sphere);
+                    Dictionary<long, HashSet<IMyCubeGrid>> gridGroups = new Dictionary<long, HashSet<IMyCubeGrid>>();
+                    HashSet<IMyCubeGrid> processedGrids = new HashSet<IMyCubeGrid>();
+                    List<IMyCharacter> charactersToTeleport = new List<IMyCharacter>();
+                    int teleportedCount = 0;
+
+                    // First pass - identify all entities to teleport
+                    foreach (var entity in entitiesInSphere)
                     {
-                        shouldTeleport = true;
-                    }
-                    else if (grid != null && sourceGatewayLogic.Settings.AllowShips)
-                    {
-                        // Check 1: Skip if grid is static
-                        if (grid.IsStatic)
+                        // Handle characters
+                        var character = entity as IMyCharacter;
+                        if (character != null)
                         {
-                            MyLogger.Log($"TPGate: ProcessJumpRequest: Skipping static grid {grid.DisplayName}");
-                            continue;
-                        }
-
-                        // Check 2: Skip if grid is part of the gateway's GridGroup
-                        if (gatewayGridGroup.Contains(grid))
-                        {
-                            MyLogger.Log($"TPGate: ProcessJumpRequest: Skipping grid {grid.DisplayName} as it's part of the gateway's GridGroup");
-                            continue;
-                        }
-
-                        // Additional existing checks
-                        List<IMySlimBlock> landingGears = new List<IMySlimBlock>();
-                        grid.GetBlocks(landingGears, b => b.FatBlock is SpaceEngineers.Game.ModAPI.Ingame.IMyLandingGear);
-                        bool hasLockedGear = false;
-
-                        foreach (var gear in landingGears)
-                        {
-                            var landingGear = gear.FatBlock as SpaceEngineers.Game.ModAPI.Ingame.IMyLandingGear;
-                            if (landingGear != null && landingGear.IsLocked)
+                            if (sourceGatewayLogic.Settings.AllowPlayers)
                             {
-                                hasLockedGear = true;
-                                break;
+                                charactersToTeleport.Add(character);
+                                MyLogger.Log($"TPGate: ProcessJumpRequest: Found character to teleport");
                             }
+                            continue;
                         }
 
-                        if (!hasLockedGear)
+                        // Handle grids
+                        var grid = entity as IMyCubeGrid;
+                        if (grid == null || grid.IsStatic || processedGrids.Contains(grid) || gatewayGridGroup.Contains(grid))
                         {
-                            shouldTeleport = true;
+                            if (grid != null)
+                            {
+                                MyLogger.Log($"TPGate: ProcessJumpRequest: Skipping grid {grid.DisplayName} - Static: {grid.IsStatic}, Already Processed: {processedGrids.Contains(grid)}, Gateway Grid: {gatewayGridGroup.Contains(grid)}");
+                            }
+                            continue;
                         }
+
+                        if (!sourceGatewayLogic.Settings.AllowShips)
+                        {
+                            MyLogger.Log($"TPGate: ProcessJumpRequest: Ships not allowed, skipping grid {grid.DisplayName}");
+                            continue;
+                        }
+
+                        // Get connected grids
+                        HashSet<IMyCubeGrid> connectedGrids = new HashSet<IMyCubeGrid>();
+                        MyAPIGateway.GridGroups.GetGroup(grid, GridLinkTypeEnum.Physical, connectedGrids);
+                        MyAPIGateway.GridGroups.GetGroup(grid, GridLinkTypeEnum.Mechanical, connectedGrids);
+
+                        MyLogger.Log($"TPGate: ProcessJumpRequest: Found grid group with {connectedGrids.Count} connected grids");
+
+                        // Check for locked landing gear in the group
+                        bool hasLockedLandingGear = false;
+                        foreach (var connectedGrid in connectedGrids)
+                        {
+                            List<IMySlimBlock> landingGears = new List<IMySlimBlock>();
+                            connectedGrid.GetBlocks(landingGears, b => b.FatBlock is SpaceEngineers.Game.ModAPI.Ingame.IMyLandingGear);
+
+                            foreach (var gear in landingGears)
+                            {
+                                var landingGear = gear.FatBlock as SpaceEngineers.Game.ModAPI.Ingame.IMyLandingGear;
+                                if (landingGear != null && landingGear.IsLocked)
+                                {
+                                    hasLockedLandingGear = true;
+                                    MyLogger.Log($"TPGate: ProcessJumpRequest: Found locked landing gear on grid {connectedGrid.DisplayName}");
+                                    break;
+                                }
+                            }
+                            if (hasLockedLandingGear) break;
+                        }
+
+                        if (hasLockedLandingGear)
+                        {
+                            MyLogger.Log($"TPGate: ProcessJumpRequest: Skipping grid group due to locked landing gear");
+                            continue;
+                        }
+
+                        // Find the main grid
+                        var mainGrid = connectedGrids
+                            .Select(g => g.GetTopMostParent() as IMyCubeGrid)
+                            .FirstOrDefault(g => g != null);
+
+                        if (mainGrid != null && !gridGroups.ContainsKey(mainGrid.EntityId))
+                        {
+                            gridGroups[mainGrid.EntityId] = connectedGrids;
+                            MyLogger.Log($"TPGate: ProcessJumpRequest: Added grid group with main grid {mainGrid.DisplayName} (EntityId: {mainGrid.EntityId})");
+                        }
+
+                        processedGrids.UnionWith(connectedGrids);
                     }
 
-                    if (shouldTeleport)
+                    // Teleport characters
+                    foreach (var character in charactersToTeleport)
                     {
-                        TeleportCore.TeleportEntity(entity, sourceGateway, destGateway);
+                        TeleportCore.TeleportEntity(character, sourceGateway, destGateway);
                         teleportedCount++;
+                        MyVisualScriptLogicProvider.CreateParticleEffectAtPosition("InvalidCustomBlinkParticleEnter", character.GetPosition());
+                        MyVisualScriptLogicProvider.PlaySingleSoundAtPosition("ShipPrototechJumpDriveJumpIn", character.GetPosition());
+                        MyLogger.Log($"TPGate: ProcessJumpRequest: Teleported character");
+                    }
 
-                        MyVisualScriptLogicProvider.CreateParticleEffectAtPosition(
-                            "InvalidCustomBlinkParticleEnter",
-                            entity.GetPosition()
-                        );
-                        MyVisualScriptLogicProvider.PlaySingleSoundAtPosition(
-                            "ShipPrototechJumpDriveJumpIn",
-                            entity.GetPosition()
-                        );
+                    // Teleport grid groups
+                    foreach (var group in gridGroups)
+                    {
+                        var mainGrid = MyAPIGateway.Entities.GetEntityById(group.Key) as IMyCubeGrid;
+                        if (mainGrid == null) continue;
+
+                        TeleportCore.TeleportEntity(mainGrid, sourceGateway, destGateway);
+                        teleportedCount += group.Value.Count;
+                        MyVisualScriptLogicProvider.CreateParticleEffectAtPosition("InvalidCustomBlinkParticleEnter", mainGrid.GetPosition());
+                        MyVisualScriptLogicProvider.PlaySingleSoundAtPosition("ShipPrototechJumpDriveJumpIn", mainGrid.GetPosition());
+                        MyLogger.Log($"TPGate: ProcessJumpRequest: Teleported grid group with main grid {mainGrid.DisplayName}");
+                    }
+
+                    if (teleportedCount > 0)
+                    {
+                        MyLogger.Log($"TPGate: ProcessJumpRequest: Teleported {teleportedCount} entities ({charactersToTeleport.Count} characters and {gridGroups.Count} grid groups)");
+                        NotifyPlayersInRange($"Teleported {teleportedCount} entities", sourceGateway.GetPosition(), 100, "White");
                     }
                 }
-
-                if (teleportedCount > 0)
+                catch (Exception ex)
                 {
-                    MyLogger.Log($"TPGate: ProcessJumpRequest: Teleported {teleportedCount} entities");
-                    NotifyPlayersInRange(
-                        $"Teleported {teleportedCount} entities",
-                        sourceGateway.GetPosition(),
-                        100,
-                        "White"
-                    );
+                    MyLogger.Log($"TPGate: ProcessJumpRequest: Exception during teleport: {ex}");
                 }
 
-                // Reset teleporting state
                 sourceGatewayLogic._isTeleporting = false;
                 sourceGatewayLogic._showSphereDuringCountdown = false;
 
             }, sourceGatewayLogic._teleportCountdown.ToString());
 
             MyLogger.Log($"TPGate: ProcessJumpRequest: Scheduled teleport after {sourceGatewayLogic._teleportCountdown / 60f}s");
+        }
+
+        private static void CreateTeleportEffects(Vector3D position)
+        {
+            MyVisualScriptLogicProvider.CreateParticleEffectAtPosition("InvalidCustomBlinkParticleEnter", position);
+            MyVisualScriptLogicProvider.PlaySingleSoundAtPosition("ShipPrototechJumpDriveJumpIn", position);
         }
     }
 }
