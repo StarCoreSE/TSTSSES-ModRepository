@@ -1855,10 +1855,12 @@ namespace WarpDriveMod
             if (WarpState == State.Active && grid?.MainGrid != null && currentSpeedPt > 0 && timeInWarpCounter >= 3600)
             {
                 Vector3D exitPosition = grid.MainGrid.PositionComp.GetPosition();
+                float totalPowerUsage = CalculateTotalPowerUsage();
 
                 if (MyAPIGateway.Multiplayer.IsServer || MyAPIGateway.Utilities.IsDedicated)
                 {
-                    MyVisualScriptLogicProvider.AddGPSForAll("Slipspace™ Exit Signature", "A ship has exited slipspace™ here!", exitPosition, Color.White, 30);
+                    string gpsName = $"Slipspace™ Exit Signature ({totalPowerUsage}MW)";
+                    MyVisualScriptLogicProvider.AddGPSForAll(gpsName, "A ship has exited slipspace™ here!", exitPosition, Color.White, 30);
                 }
             }
 
@@ -1904,13 +1906,10 @@ namespace WarpDriveMod
                 }
             }
 
-
             if (!MyAPIGateway.Utilities.IsDedicated)
             {
                 StopParticleEffect();
                 StopBlinkParticleEffect();
-
-
 
                 sound.SetPosition(MainGrid.PositionComp.GetPosition());
                 sound?.StopSound(false);
@@ -1979,19 +1978,6 @@ namespace WarpDriveMod
                 }
             }
 
-            // --- need to set Speed after rePhysic
-            /*if (WarpState == State.Active && !Collision)
-            {
-                if (MainGrid.Physics != null && GridSpeedLinearVelocity.ContainsKey(MainGrid.EntityId))
-                {
-                    MainGrid.Physics.LinearVelocity = GridSpeedLinearVelocity[MainGrid.EntityId];
-                    MainGrid.Physics.AngularVelocity = GridSpeedAngularVelocity[MainGrid.EntityId];
-                }
-            }            
-            else if (WarpState == State.Active && Collision)
-                MainGrid?.Physics?.ClearSpeed();*/
-
-
             WarpState = State.Idle;
 
             currentSpeedPt = WarpDrive.Instance.Settings.startSpeed;
@@ -2009,7 +1995,30 @@ namespace WarpDriveMod
                 else
                     WarpDriveSession.Instance.warpDrivesSpeeds[WarpDriveOnGrid] = (new double[] { currentSpeedPt, pitch, yaw, roll });
             }
+        }
 
+        private float CalculateTotalPowerUsage()
+        {
+            float totalPower = 0;
+            HashSet<WarpDrive> controllingDrives = new HashSet<WarpDrive>();
+            if (startWarpSource == null || !warpDrives.TryGetValue(startWarpSource, out controllingDrives))
+            {
+                if (grid.MainGrid == null || !warpDrives.TryGetValue(grid.MainGrid, out controllingDrives))
+                    controllingDrives = warpDrives.FirstPair().Value;
+            }
+
+            foreach (WarpDrive drive in controllingDrives)
+            {
+                if (drive == null || drive.Block == null || drive.Block.CubeGrid == null)
+                    continue;
+
+                if (drive.Block.IsFunctional && drive.Block.IsWorking)
+                {
+                    totalPower += drive.RequiredPower;
+                }
+            }
+
+            return totalPower;
         }
 
         private void InCharge()
