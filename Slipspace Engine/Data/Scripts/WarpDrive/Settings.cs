@@ -12,7 +12,7 @@ namespace WarpDriveMod
     {
         public static Settings Instance;
 
-        public const string Filename = "FSDriveConfig.cfg";
+        public const string Filename = "SSDriveConfig.cfg";
 
         [ProtoMember(1)]
         public double maxSpeed;
@@ -74,11 +74,14 @@ namespace WarpDriveMod
         [ProtoMember(20)]
         public long BlockID;
 
+        [ProtoMember(21)]
+        public double PrototechJump;
+
         public static Settings GetDefaults()
         {
             return new Settings
             {
-                maxSpeed = 100000 / 60d, // in settings numbers from higher than startSpeed + 1, max 100 or if AllowUnlimittedSpeed=true up to 2000 (game possile limit)
+                maxSpeed = 200000 / 60d, // in settings numbers from higher than startSpeed + 1, max 100 or if AllowUnlimittedSpeed=true up to 2000 (game possile limit)
                 startSpeed = 1000 / 60d, // in settings numbers from 1 to less than maxSpeed and max 99, or if AllowUnlimittedSpeed=true up to 1999
                 maxHeat = 180f, // Shutdown when this amount of heat has been reached. this is in seconds if heatGain = 1 / 60f so it's 3 minutes;
                 heatGain = 0 / 60f, // Amount of heat gained per tick = 1% per second if set 1, max possible 10
@@ -89,11 +92,12 @@ namespace WarpDriveMod
                 powerRequirementBySpeedDeviderLarge = 24f, // Now power requirement is based on mass + speed!, to lower power requirement set this to higher number.
                 powerRequirementBySpeedDeviderSmall = 6f, // Now power requirement is based on mass + speed!, to lower power requirement set this to higher number.
                 AllowInGravity = false, // allow to activate warp in gravity, ship will drop to 1km/s when in gravity and stop id altitude is below 300m
-                AllowUnlimittedSpeed = false, // if set to true, will allow setting max speed to any number, if false them max is 100km/s = 100000.
+                AllowUnlimittedSpeed = true, // if set to true, will allow setting max speed to any number, if false them max is 100km/s = 100000.
                 AllowToDetectEnemyGrids = false, // if set to true, then warp charge code will check if there is enemy grid in range, and delay jump by set amount.
                 DetectEnemyGridInRange = 2000, // sphere range from ship center to detect enemy grid, max range is 8000 meters.
                 DelayJumpIfEnemyIsNear = 30, // delay jump by this much seconds if enemy grid is in range, max is 90 seconds.
                 DelayJump = 10, // delay jump start by this much seconds. max 90 sec, min 3 sec
+                PrototechJump = 5, // seconds to wait for jump while using Prototech SSDs
                 AllowInGravityMax = 1.8f, // Allow to enter gravity of planet till gravity level reach setting, Max possilbe 1.8
                 AllowInGravityMaxSpeed = 3000 / 60d, // max speed in gravity, allowed up to speed 3 to prevent high load.
                 AllowInGravityMinAltitude = 300d // Minimum altitude on planet.
@@ -121,13 +125,15 @@ namespace WarpDriveMod
 					float heatGain = 0;
 
                     // convert and check startSpeed settings
-                    if (settings.startSpeed < 1 || settings.startSpeed > 99)
+                    /*if (settings.startSpeed < 1 || settings.startSpeed > 99)
 					{
                         startSpeed = defaults.startSpeed;
 						settings.startSpeed = defaults.startSpeed * 60d / 1000;
 						Save(settings);
 					}
-                    else if (settings.startSpeed > settings.maxSpeed)
+                    else if (settings.startSpeed > settings.maxSpeed)*/
+                    // error if start speed is above 1kkm/s
+                    if (settings.startSpeed > settings.maxSpeed || settings.startSpeed > 500000 / 60d)
 					{
                         startSpeed = defaults.startSpeed;
 						settings.startSpeed = defaults.startSpeed * 60d / 1000;
@@ -137,7 +143,7 @@ namespace WarpDriveMod
                         startSpeed = settings.startSpeed * 1000 / 60d;
 
                     // convert and check maxSpeed settings
-                    if (settings.maxSpeed > 2000 && settings.AllowUnlimittedSpeed)
+                    /*if (settings.maxSpeed > 2000 && settings.AllowUnlimittedSpeed)
                     {
                         maxSpeed = 2000 * 1000 / 60d;
                         settings.maxSpeed = 2000;
@@ -148,7 +154,7 @@ namespace WarpDriveMod
                         maxSpeed = 100 * 1000 / 60d;
 						settings.maxSpeed = 100;
 						Save(settings);
-					}
+					}*/
 					
 					if (settings.maxSpeed < settings.startSpeed)
 					{
@@ -203,6 +209,12 @@ namespace WarpDriveMod
                         settings.DelayJump = 10;
 						Save(settings);
 					}
+
+                    if (settings.PrototechJump > 90 || settings.PrototechJump < 3)
+                    {
+                        settings.PrototechJump = 0;
+                        Save(settings);
+                    }
 
                     // check DelayJumpIfEnemyIsNear settings
                     if (settings.DelayJumpIfEnemyIsNear < settings.DelayJump)

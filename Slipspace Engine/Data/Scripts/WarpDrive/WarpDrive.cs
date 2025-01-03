@@ -15,13 +15,14 @@ using VRage.Game.Entity;
 using VRage.Game.ModAPI;
 using VRage.Game.ModAPI.Interfaces;
 using VRage.ModAPI;
+using VRage.Noise.Combiners;
 using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRageMath;
 
 namespace WarpDriveMod
 {
-    [MyEntityComponentDescriptor(typeof(MyObjectBuilder_UpgradeModule), false, "SlipspaceCoreLarge", "SlipspaceCoreSmall")]
+    [MyEntityComponentDescriptor(typeof(MyObjectBuilder_UpgradeModule), false, "SlipspaceCoreLarge", "SlipspaceCoreSmall", "PrototechSlipspaceCoreLarge", "PrototechSlipspaceCoreSmall")]
     public class WarpDrive : MyGameLogicComponent
     {
         public IMyFunctionalBlock Block { get; private set; }
@@ -43,7 +44,7 @@ namespace WarpDriveMod
             set
             {
                 prevRequiredPower = _requiredPower;
-                _requiredPower = value;
+                _requiredPower = (float)value;
             }
         }
         private float prevRequiredPower;
@@ -124,7 +125,7 @@ namespace WarpDriveMod
             if (sink != null)
                 Info?.AppendLine("Current Power: " + sink.CurrentInputByType(WarpConstants.ElectricityId).ToString("N") + " MW");
 
-            Info?.Append("FSD Heat: ").Append(System.DriveHeat).Append("%\n");
+            Info?.Append("SSD Heat: ").Append(System.DriveHeat).Append("%\n");
         }
 
         public override void UpdateBeforeSimulation10()
@@ -207,26 +208,13 @@ namespace WarpDriveMod
                 System.GridsMass.Remove(Block.CubeGrid.EntityId);
         }
 
-        public override void MarkForClose()
-        {
-            base.MarkForClose();
-           
-            MyVisualScriptLogicProvider.PlayerLeftCockpit -= PlayerLeftCockpit;
-        }
-
         private void InitPowerSystem()
         {
             MyResourceSinkComponent powerSystem = new MyResourceSinkComponent();
 
-            var blocksubtupe = Block.BlockDefinition.SubtypeId;
-
-            if (blocksubtupe == "SlipspaceCoreSmall")
-                powerSystem.Init(MyStringHash.GetOrCompute("Utility"), Settings.baseRequiredPowerSmall * Settings.powerRequirementMultiplier,
-                    ComputeRequiredPower, (MyCubeBlock)Entity);
-
-            if (blocksubtupe == "SlipspaceCoreLarge")
-                powerSystem.Init(MyStringHash.GetOrCompute("Utility"), Settings.baseRequiredPower * Settings.powerRequirementMultiplier,
-                    ComputeRequiredPower, (MyCubeBlock)Entity);
+            powerSystem.Init(MyStringHash.GetOrCompute("Utility"),
+                (float)(Settings.baseRequiredPowerSmall * Settings.powerRequirementMultiplier),
+                ComputeRequiredPower, (MyCubeBlock)Entity);
 
             Entity.Components.Add(powerSystem);
             sink = powerSystem;
@@ -368,26 +356,14 @@ namespace WarpDriveMod
 
         public bool ProxymityDangerCharge(MatrixD gridMatrix, IMyCubeGrid WarpGrid)
         {
-            // Check if WarpGrid is null
-            if (WarpGrid == null)
-            {
-                MyLog.Default.WriteLineAndConsole("ProxymityDangerCharge: WarpGrid is null!");
+            if (WarpGrid == null || WarpGrid.Physics == null)
                 return false;
-            }
-
-            // Check if WarpGrid's physics are null
-            if (WarpGrid.Physics == null)
-            {
-                MyLog.Default.WriteLineAndConsole("ProxymityDangerCharge: WarpGrid.Physics is null!");
-                return false;
-            }
 
             List<IMyEntity> entList;
             Vector3D forward = gridMatrix.Forward;
             MatrixD FrontStart = MatrixD.CreateFromDir(-forward);
             Vector3D PointFromFront;
 
-            // Checking player permissions in safe zones (possibly null or causing issues)
             if (MyAPIGateway.Session?.Player != null)
             {
                 //bool allowed = MySessionComponentSafeZones.IsActionAllowed(MyAPIGateway.Session.Player.Character.WorldMatrix.Translation, CastProhibit(MySessionComponentSafeZones.AllowedActions, 1));
@@ -416,19 +392,16 @@ namespace WarpDriveMod
                 FrontStart.Translation = WarpGrid.WorldAABB.Center + effectOffsetLarge;
                 FrontStart.Translation += forward * 500.0;
                 PointFromFront = FrontStart.Translation;
-
                 var sphere = new BoundingSphereD(PointFromFront, 400.0);
                 entList = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref sphere);
             }
 
-            // Check if the list of entities is null or empty
             if (entList == null || entList.Count == 0)
-            {
-                MyLog.Default.WriteLineAndConsole("ProxymityDangerCharge: No entities found in proximity.");
                 return false;
-            }
 
             var AttachedList = new List<IMyCubeGrid>();
+
+            // get all subgrids grids and locked on landing gear.
             MyAPIGateway.GridGroups.GetGroup(WarpGrid, GridLinkTypeEnum.Physical, AttachedList);
 
             foreach (var ent in entList)
@@ -439,10 +412,17 @@ namespace WarpDriveMod
                     return true;
                 }
 
-                if (!(ent is MyCubeGrid || ent is MyVoxelMap ))
+                if (!(ent is MyCubeGrid || ent is MyVoxelMap))
                     continue;
 
-                // Checking proximity to entities
+                if (ent is MyCubeGrid)
+                {
+                    var FoundGrid = ent as IMyCubeGrid;
+
+                    if (FoundGrid != null && AttachedList != null && AttachedList.Count > 0 && AttachedList.Contains(FoundGrid))
+                        continue;
+                }
+
                 var EntityPosition = ent.PositionComp.GetPosition() + Vector3D.Zero;
 
                 if ((EntityPosition - PointFromFront).Length() <= 250.0)
