@@ -1859,7 +1859,7 @@ namespace WarpDriveMod
 
                 if (MyAPIGateway.Multiplayer.IsServer || MyAPIGateway.Utilities.IsDedicated)
                 {
-                    string gpsName = $"Slipspace™ Exit Signature ({totalPowerUsage}MW)";
+                    string gpsName = $"Slipspace™ Exit Signature ({Math.Floor(totalPowerUsage)}MW)";
                     MyVisualScriptLogicProvider.AddGPSForAll(gpsName, "A ship has exited slipspace™ here!", exitPosition, Color.White, 30);
                 }
             }
