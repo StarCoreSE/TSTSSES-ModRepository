@@ -14,15 +14,20 @@ using Sandbox.Game.EntityComponents;
 using VRage.ModAPI;
 using VRage.Game.Entity;
 using ProtoBuf;
+using System.Diagnostics;
 
 namespace WarpDriveMod
 {
     public static class WarpConstants
     {
-        public static MySoundPair EmergencyDropSound = new MySoundPair("SuperCruiseGravity", true);
+        public static MySoundPair EmergencyDropSound = new MySoundPair("SlipspaceGravity", true);
         public static MySoundPair chargingSound = new MySoundPair("ShipPrototechJumpDriveCharging", true);
         public static MySoundPair jumpInSound = new MySoundPair("quantum_jumpin", true);
         public static MySoundPair jumpOutSound = new MySoundPair("quantum_jumpout", true);
+        public static MySoundPair PrototechChargingSound = new MySoundPair("SSD_ProtoCharging", true);
+        public static MySoundPair PrototechJumpInSound = new MySoundPair("SSD_Proto_JumpIn", true);
+        public static MySoundPair PrototechJumpOutSound = new MySoundPair("SSD_Proto_JumpOut", true);
+
 
         public const int groupSystemDelay = 1;
 
@@ -45,6 +50,12 @@ namespace WarpDriveMod
         public long EntityId { get; set; }
         [ProtoMember(2)]
         public double WarpSpeed { get; set; }
+        [ProtoMember(3)]
+        public double Pitch { get; set; }
+        [ProtoMember(4)]
+        public double Yaw { get; set; }
+        [ProtoMember(5)]
+        public double Roll { get; set; }
     }
 
     [MySessionComponentDescriptor(MyUpdateOrder.Simulation)]
@@ -53,7 +64,7 @@ namespace WarpDriveMod
         public static WarpDriveSession Instance;
         public Random Rand { get; private set; } = new Random();
         public long Runtime { get; private set; } = 0;
-        public Dictionary<IMyFunctionalBlock, double> warpDrivesSpeeds = new Dictionary<IMyFunctionalBlock, double>();
+        public Dictionary<IMyFunctionalBlock, double[]> warpDrivesSpeeds = new Dictionary<IMyFunctionalBlock, double[]>();
 
         private readonly List<WarpSystem> warpSystems = new List<WarpSystem>();
         private readonly List<WarpSystem> newSystems = new List<WarpSystem>();
@@ -228,11 +239,14 @@ namespace WarpDriveMod
                 }));
         }
 
-        private void ReceiveWarpSpeed(ushort channel, byte[] data, ulong sender, bool fromServer) //TODO: suspect this for constant warp load sent to clients
+        private void ReceiveWarpSpeed(ushort channel, byte[] data, ulong sender, bool fromServer)
         {
             var message = MyAPIGateway.Utilities.SerializeFromBinary<SpeedMessage>(data);
             if (message == null)
                 return;
+
+            //MyLog.Default.WriteLineAndConsole("ReceiveWarpSpeed    server:" + MyAPIGateway.Multiplayer.IsServer + "  currentSpeed:" + message.WarpSpeed + "  pitch:" + message.Pitch + "  yaw:" + message.Yaw + "  roll:" + message.Roll);
+
 
             IMyEntity entity;
             if (!MyAPIGateway.Entities.TryGetEntityById(message.EntityId, out entity))
@@ -244,28 +258,35 @@ namespace WarpDriveMod
             if (!HasValidSystem(drive))
                 return;
 
+            // if there is no block -is the player on the same warpsystem ?!
             if (!warpDrivesSpeeds.ContainsKey(block))
-                warpDrivesSpeeds.Add(block, message.WarpSpeed);
+                warpDrivesSpeeds.Add(block, (new double[] { message.WarpSpeed, message.Pitch, message.Yaw, message.Roll }));
             else
-                warpDrivesSpeeds[block] = message.WarpSpeed;
+                warpDrivesSpeeds[block] = (new double[] { message.WarpSpeed, message.Pitch, message.Yaw, message.Roll });
 
             // Message is from client and should be relayed
             //if (MyAPIGateway.Utilities.IsDedicated)
             //    MyAPIGateway.Multiplayer.SendMessageToOthers(toggleWarpPacketIdSpeed, data);
         }
 
-        public void TransmitWarpSpeed(IMyFunctionalBlock WarpBlock, double currentSpeedPt)
+
+        public void TransmitWarpSpeed(IMyFunctionalBlock WarpBlock, double currentSpeedPt, double _pitch, double _yaw, double _roll)
         {
             var DriveBlock = WarpBlock as IMyTerminalBlock;
             WarpDrive drive = DriveBlock?.GameLogic?.GetAs<WarpDrive>();
             if (drive == null)
                 return;
 
-            MyAPIGateway.Multiplayer.SendMessageToServer(toggleWarpPacketIdSpeed,
+            //MyLog.Default.WriteLineAndConsole("TransmitWarpSpeed    server:" + MyAPIGateway.Multiplayer.IsServer + "  currentSpeed:" + currentSpeedPt + "  pitch:" + _pitch + "  yaw:" + _yaw + "  roll:" + _roll);
+
+            MyAPIGateway.Multiplayer.SendMessageToOthers(toggleWarpPacketIdSpeed,
                 message: MyAPIGateway.Utilities.SerializeToBinary(new SpeedMessage
                 {
                     EntityId = DriveBlock.EntityId,
-                    WarpSpeed = currentSpeedPt
+                    WarpSpeed = currentSpeedPt,
+                    Pitch = _pitch,
+                    Yaw = _yaw,
+                    Roll = _roll
                 }));
         }
 
@@ -307,6 +328,7 @@ namespace WarpDriveMod
                             DetectEnemyGridInRange = drive.Settings.DetectEnemyGridInRange,
                             DelayJumpIfEnemyIsNear = drive.Settings.DelayJumpIfEnemyIsNear,
                             DelayJump = drive.Settings.DelayJump,
+                            PrototechJump = drive.Settings.PrototechJump,
                             AllowInGravityMax = drive.Settings.AllowInGravityMax,
                             AllowInGravityMaxSpeed = drive.Settings.AllowInGravityMaxSpeed,
                             AllowInGravityMinAltitude = drive.Settings.AllowInGravityMinAltitude,
@@ -332,6 +354,7 @@ namespace WarpDriveMod
                     drive.Settings.DetectEnemyGridInRange = message.DetectEnemyGridInRange;
                     drive.Settings.DelayJumpIfEnemyIsNear = message.DelayJumpIfEnemyIsNear;
                     drive.Settings.DelayJump = message.DelayJump;
+                    drive.Settings.PrototechJump = message.PrototechJump;
                     drive.Settings.AllowInGravityMax = message.AllowInGravityMax;
                     drive.Settings.AllowInGravityMaxSpeed = message.AllowInGravityMaxSpeed;
                     drive.Settings.AllowInGravityMinAltitude = message.AllowInGravityMinAltitude;
@@ -397,12 +420,6 @@ namespace WarpDriveMod
 
         public WarpSystem GetWarpSystem(WarpDrive drive)
         {
-            if (drive == null)
-            {
-                MyLog.Default.WriteLineAndConsole($"[WarpDriveMod] GetWarpSystem called with null drive");
-                return null;
-            }
-
             if (HasValidSystem(drive))
                 return drive.System; // Why are you here?!?!
 
@@ -425,11 +442,9 @@ namespace WarpDriveMod
             }
 
             WarpSystem newSystem = new WarpSystem(drive, drive.System);
+
             if (newSystem == null)
-            {
-                MyLog.Default.WriteLineAndConsole($"[WarpDriveMod] Failed to create new WarpSystem");
                 return null;
-            }
 
             if (!newSystems.Contains(newSystem))
                 newSystems.Add(newSystem);
@@ -496,7 +511,8 @@ namespace WarpDriveMod
                 if (Instance == null)
                     return;
 
-                MyVisualScriptLogicProvider.PlayerLeftCockpit -= WarpDrive.Instance.PlayerLeftCockpit;
+                if (WarpDrive.Instance != null)
+                    MyVisualScriptLogicProvider.PlayerLeftCockpit -= WarpDrive.Instance.PlayerLeftCockpit;
 
                 MyAPIGateway.Multiplayer.UnregisterSecureMessageHandler(toggleWarpPacketId, ReceiveToggleWarp);
                 MyAPIGateway.Multiplayer.UnregisterSecureMessageHandler(toggleWarpPacketIdSpeed, ReceiveWarpSpeed);
