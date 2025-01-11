@@ -212,9 +212,10 @@ namespace WarpDriveMod
 
                     var Gridmatrix = drive.System.grid.FindWorldMatrix();
 
-                    if (WarpDrive.Instance.ProxymityDangerCharge(Gridmatrix, block.CubeGrid))
+                    string msg = WarpDrive.Instance.ProxymityDangerCharge(Gridmatrix, block.CubeGrid);
+                    if (msg != null)
                     {
-                        drive.System.SendMessage(drive.System.ProximytyAlert, 2f, "Red", message.SendingPlayerID);
+                        drive.System.SendMessage(drive.System.ProximityChargeAlert + msg, 2f, "Red", message.SendingPlayerID);
                         return;
                     }
                 }
@@ -244,9 +245,6 @@ namespace WarpDriveMod
             var message = MyAPIGateway.Utilities.SerializeFromBinary<SpeedMessage>(data);
             if (message == null)
                 return;
-
-            //MyLog.Default.WriteLineAndConsole("ReceiveWarpSpeed    server:" + MyAPIGateway.Multiplayer.IsServer + "  currentSpeed:" + message.WarpSpeed + "  pitch:" + message.Pitch + "  yaw:" + message.Yaw + "  roll:" + message.Roll);
-
 
             IMyEntity entity;
             if (!MyAPIGateway.Entities.TryGetEntityById(message.EntityId, out entity))
@@ -388,6 +386,7 @@ namespace WarpDriveMod
                 WarpDrive drive = requireSystem[i];
                 if (drive.System == null || drive.System.InvalidOn <= Runtime - WarpConstants.groupSystemDelay)
                 {
+                    MyVisualScriptLogicProvider.PlayerLeftCockpit -= requireSystem[i].PlayerLeftCockpit;
                     requireSystem.RemoveAtFast(i);
 
                     var DriveSystemNew = GetWarpSystem(drive);
@@ -395,7 +394,11 @@ namespace WarpDriveMod
                         drive.SetWarpSystem(DriveSystemNew);
                 }
                 else if (HasValidSystem(drive))
+                {
+                    MyVisualScriptLogicProvider.PlayerLeftCockpit -= requireSystem[i].PlayerLeftCockpit;
                     requireSystem.RemoveAtFast(i);
+                }
+
             }
 
             for (int i = warpSystems.Count - 1; i >= 0; i--)
@@ -455,6 +458,7 @@ namespace WarpDriveMod
         public void DelayedGetWarpSystem(WarpDrive drive)
         {
             requireSystem.Add(drive);
+            MyVisualScriptLogicProvider.PlayerLeftCockpit += drive.PlayerLeftCockpit;
         }
 
         private void ToggleWarp(IMyTerminalBlock block)
@@ -495,7 +499,7 @@ namespace WarpDriveMod
             if (WarpSystem.Instance.grid.cockpits.TryGetValue(grid, out gridCockpits))
                 WarpSystem.Instance.grid.cockpits[grid] = null;
 
-            // add updated cocpits to active list
+            // add updated cockpits to active list
             WarpSystem.Instance.grid.cockpits[grid] = ShipControllerList;
         }
 
@@ -510,6 +514,13 @@ namespace WarpDriveMod
             {
                 if (Instance == null)
                     return;
+
+                foreach (var drive in requireSystem)
+                {
+                    if (drive == null) continue;
+
+                    MyVisualScriptLogicProvider.PlayerLeftCockpit -= drive.PlayerLeftCockpit;
+                }
 
                 if (WarpDrive.Instance != null)
                     MyVisualScriptLogicProvider.PlayerLeftCockpit -= WarpDrive.Instance.PlayerLeftCockpit;
