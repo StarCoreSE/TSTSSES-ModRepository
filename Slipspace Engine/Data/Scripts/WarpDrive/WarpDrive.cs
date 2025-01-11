@@ -420,64 +420,56 @@ namespace WarpDriveMod
                     return "SafeZone";
             }
 
+            // Prepare lists
             List<IMyEntity> entList = new List<IMyEntity>();
             List<IMyCubeGrid> attachedList = new List<IMyCubeGrid>();
-            Vector3D center = warpGrid.WorldVolume.Center;
-            float mass = warpGrid.Physics.Mass;                                         // check landinggear connected mass?!
-            double radius = warpGrid.WorldVolume.Radius + (mass / 100000d);             // more mass == more warp bubble
 
+            Vector3D center = warpGrid.WorldVolume.Center;
+            float mass = warpGrid.Physics.Mass; // check landing gear connected mass?!
+            double radius = warpGrid.WorldVolume.Radius + (mass / 100000d); // more mass == more warp bubble
             BoundingSphereD sphere = new BoundingSphereD(center, radius);
 
-            // DEBUG DRAW
-            //DrawSphere(sphere, Color.Red);
-
-            // There will be at least ONE in this list, the ship itself
-            entList = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref sphere);
+            // Get entities safely
+            var entities = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref sphere);
+            if (entities != null)
+                entList.AddRange(entities);
 
             // Get all subgrids grids and locked on landing gear.
             MyAPIGateway.GridGroups.GetGroup(warpGrid, GridLinkTypeEnum.Physical, attachedList);
 
-            // Check if the entities' boundingboxes hit the warp bubble
             foreach (IMyEntity ent in entList)
             {
-                // return a string for all object that deny charging
+                // Skip entities that are not relevant
                 if (ent is MySafeZone)
                     return "SafeZone";
 
-                // Shall we ignore characters? What about missiles? bullets? (We should ignore floating objects)
-                if (!(ent is MyCubeGrid || ent is MyVoxelMap))
+                if (!(ent is MyCubeGrid) && !(ent is MyVoxelMap))
                     continue;
 
-                if (ent is IMyCubeGrid)
+                var foundGrid = ent as IMyCubeGrid;
+                if (foundGrid != null)
                 {
                     // Skip own MainGrid
-                    IMyCubeGrid foundGrid = (IMyCubeGrid)ent;
                     if (attachedList.Contains(foundGrid))
                         continue;
 
                     // Not own grid?
                     string msg = ent.DisplayName;
-                    string cut_msg = msg.Length > 12 ? msg.Substring(0, 12) : msg;      // want a max string of 12 to display              
-                    //SendMessage("Debug_Grid: " + cut_msg, 0.016f);
+                    string cut_msg = msg.Length > 12 ? msg.Substring(0, 12) : msg; // Max string length 12
                     return cut_msg;
                 }
 
-                if (ent is MyVoxelMap)
+                var vMap = ent as MyVoxelMap;
+                if (vMap != null)
                 {
-                    // How to make collision detection even more precise?
-                    // BoundingBoxEffect? -> asteroids have a big BB ....
-                    // Lore: Dust around asteorids prevent establishing a warp bubble.
-
-                    MyVoxelMap vMap = (MyVoxelMap)ent;
-                    string msg = (vMap.StorageName).Split('_')[0];                      // Sanitize the sting Asteroid-2342343434 ?!
-                    string cut_msg = msg.Length > 12 ? msg.Substring(0, 12) : msg;      // want a max string of 12 to display
-                    //SendMessage("Debug: " + cut_msg, 0.016f);
-                    msg.Replace("Proc", "");
+                    // Asteroid collision detection (simplified)
+                    string msg = (vMap.StorageName).Split('_')[0];
+                    string cut_msg = msg.Length > 12 ? msg.Substring(0, 12) : msg;
                     return cut_msg;
                 }
             }
 
-            // No boundingbox collision -> charge
+            // No bounding box collision -> charge
             return null;
         }
 
@@ -488,14 +480,17 @@ namespace WarpDriveMod
 
             var Gridlocation = WarpGrid.PositionComp.GetPosition();
             var sphere = new BoundingSphereD(Gridlocation, Settings.DetectEnemyGridInRange);
-            var entList = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref sphere);
 
-            if (entList == null || entList.Count == 0)
+            // Safely copy entities to avoid concurrent modification
+            List<IMyEntity> entList = new List<IMyEntity>();
+            var entities = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref sphere);
+            if (entities != null)
+                entList.AddRange(entities);
+
+            if (entList.Count == 0)
                 return false;
 
             var AttachedList = new List<IMyCubeGrid>();
-
-            // get all subgrids grids and locked on landing gear.
             MyAPIGateway.GridGroups.GetGroup(WarpGrid, GridLinkTypeEnum.Physical, AttachedList);
 
             var WarpGridOwner = WarpGrid.BigOwners.FirstOrDefault();
@@ -503,39 +498,34 @@ namespace WarpDriveMod
 
             foreach (var ent in entList)
             {
-                if (!(ent is MyCubeGrid))
+                var foundGrid = ent as IMyCubeGrid;
+                if (foundGrid == null || AttachedList.Contains(foundGrid))
                     continue;
 
-                if (ent is MyCubeGrid)
+                if (foundGrid.BigOwners != null && foundGrid.BigOwners.FirstOrDefault() != 0L)
                 {
-                    var FoundGrid = ent as IMyCubeGrid;
-
-                    if (FoundGrid != null && AttachedList != null && AttachedList.Count > 0 && AttachedList.Contains(FoundGrid))
+                    var FoundGridOwner = foundGrid.BigOwners.FirstOrDefault();
+                    if (FoundGridOwner == WarpGridOwner)
                         continue;
 
-                    if (FoundGrid.BigOwners != null && FoundGrid.BigOwners.FirstOrDefault() != 0L)
+                    var FoundGridFaction = MyAPIGateway.Session.Factions.TryGetPlayerFaction(FoundGridOwner);
+                    if (WarpGridFaction != null && FoundGridFaction != null)
                     {
-                        var FoundGridOwner = FoundGrid.BigOwners.FirstOrDefault();
-
-                        if (FoundGridOwner == WarpGridOwner)
+                        if (FoundGridFaction.FactionId == WarpGridFaction.FactionId)
                             continue;
 
-                        var FoundGridFaction = MyAPIGateway.Session.Factions.TryGetPlayerFaction(FoundGridOwner);
+                        var FactionsRelationship = MyAPIGateway.Session.Factions.GetRelationBetweenFactions(
+                            FoundGridFaction.FactionId, WarpGridFaction.FactionId);
+                        if (FactionsRelationship != MyRelationsBetweenFactions.Enemies)
+                            continue;
 
-                        if (WarpGridFaction != null && FoundGridFaction != null)
-                        {
-                            if (FoundGridFaction.FactionId == WarpGridFaction.FactionId)
-                                continue;
-
-                            var FactionsRelationship = MyAPIGateway.Session.Factions.GetRelationBetweenFactions(FoundGridFaction.FactionId, WarpGridFaction.FactionId);
-                            if (FactionsRelationship != MyRelationsBetweenFactions.Enemies)
-                                continue;
-
-                            // found enenmy grid in sphere!
-                            return true;
-                        }
-                        else
-                            return true;
+                        // Found enemy grid in sphere
+                        return true;
+                    }
+                    else
+                    {
+                        // Found enemy grid with no faction
+                        return true;
                     }
                 }
             }
