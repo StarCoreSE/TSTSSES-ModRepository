@@ -1384,7 +1384,7 @@ namespace WarpDriveMod
 
         private void DrawLineCenter1(Vector3D startPos, Vector3D endPos, float rad)
         {
-            Vector4 baseCol = Color.SteelBlue;
+            Vector4 baseCol = Color.DarkOrange;
             string material = "SciFiEngineThrustMiddle"; // IlluminatingShell ReflectorGlareAlphaBlended
             float ranf = MyUtils.GetRandomFloat(1.1f * rad, 1.8f * rad);
             MySimpleObjectDraw.DrawLine(startPos, endPos, MyStringId.GetOrCompute(material), ref baseCol, ranf);
@@ -1427,7 +1427,7 @@ namespace WarpDriveMod
 
         private void DrawLineCenter2(Vector3D startPos, Vector3D endPos, float rad)
         {
-            Vector4 baseCol = Color.CornflowerBlue;
+            Vector4 baseCol = Color.OrangeRed;
             string material = "SciFiEngineThrustMiddle"; // IlluminatingShell ReflectorGlareAlphaBlended
             float ranf = MyUtils.GetRandomFloat(1.1f * rad, 1.8f * rad);
             MySimpleObjectDraw.DrawLine(startPos, endPos, MyStringId.GetOrCompute(material), ref baseCol, ranf);
@@ -1470,7 +1470,7 @@ namespace WarpDriveMod
 
         private void DrawLineCenter3(Vector3D startPos, Vector3D endPos, float rad)
         {
-            Vector4 baseCol = Color.Indigo;
+            Vector4 baseCol = Color.OrangeRed;
             string material = "SciFiEngineThrustMiddle"; // IlluminatingShell ReflectorGlareAlphaBlended
             float ranf = MyUtils.GetRandomFloat(1.1f * rad, 1.8f * rad);
             MySimpleObjectDraw.DrawLine(startPos, endPos, MyStringId.GetOrCompute(material), ref baseCol, ranf);
@@ -1514,7 +1514,7 @@ namespace WarpDriveMod
 
         private void DrawLineCenter4(Vector3D startPos, Vector3D endPos, float rad)
         {
-            Vector4 baseCol = Color.LightGoldenrodYellow;
+            Vector4 baseCol = Color.DarkOrange;
             string material = "SciFiEngineThrustMiddle"; // IlluminatingShell ReflectorGlareAlphaBlended
             float ranf = MyUtils.GetRandomFloat(1.1f * rad, 1.8f * rad);
             MySimpleObjectDraw.DrawLine(startPos, endPos, MyStringId.GetOrCompute(material), ref baseCol, ranf);
