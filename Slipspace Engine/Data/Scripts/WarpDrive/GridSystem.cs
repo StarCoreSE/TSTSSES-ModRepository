@@ -263,7 +263,7 @@ namespace WarpDriveMod
             return false;
         }
 
-        private IMyShipController FindMainCockpit()
+        public IMyShipController FindMainCockpit()
         {
             if (grids.Count == 0)
                 return null;

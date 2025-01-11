@@ -19,6 +19,7 @@ using VRage.Noise.Combiners;
 using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRageMath;
+using static VRageRender.MyBillboard;
 
 namespace WarpDriveMod
 {
@@ -117,15 +118,47 @@ namespace WarpDriveMod
                 else
                     MaxNeededPower = RequiredPower;
             }
+            // ToDo HUMAN READABLE NUMBERS
 
-            Info?.AppendLine("Max Required Power: " + MaxNeededPower.ToString("N") + " MW");
 
-            Info?.AppendLine("Required Power: " + RequiredPower.ToString("N") + " MW");
+            Info?.AppendLine($"Max Required Power: {ConvertToReadable(MaxNeededPower, 2)}Watt");
+            Info?.AppendLine($"Required Power: {ConvertToReadable(RequiredPower, 2)}Watt");
 
             if (sink != null)
-                Info?.AppendLine("Current Power: " + sink.CurrentInputByType(WarpConstants.ElectricityId).ToString("N") + " MW");
+                Info?.AppendLine($"Current Power: {ConvertToReadable(sink.CurrentInputByType(WarpConstants.ElectricityId), 2)}Watt");
 
-            Info?.Append("SSD Heat: ").Append(System.DriveHeat).Append("%\n");
+            Info?.Append("FSD Heat: ").Append(System.DriveHeat).Append("%\n");
+        }
+
+        /// <summary>
+        /// Make numbers to strings with physical notations
+        /// </summary>
+        /// <param name="value"></param>
+        /// <param name="currentPrefix">how big is the number [0.0, 1.k, 2.M, 3.G, 4.T, 5.P ...]</param>
+        /// <returns>string of number with prefix</returns>
+        private string ConvertToReadable(float value, int currentPrefix = 0)
+        {
+            string[] suffixes = { "", "kilo", "Mega", "Giga", "Terra", "Peta", "Exa", "Zetta", "Yotta", "Ronna", "Quetta", "insane" };
+
+            if (value < 1000)
+                return value.ToString("0.## ") + suffixes[currentPrefix]; // No suffix for values less than 1000
+
+            int suffixIndex = 0;
+
+            // Divide the value by 1000 until it's less than 1000
+            while (value >= 1000 && suffixIndex < suffixes.Length - 1)
+            {
+                value /= 1000;
+                suffixIndex++;
+            }
+
+            // just to prefet array out of index
+            suffixIndex = suffixIndex + currentPrefix;
+            if (suffixIndex > suffixes.Length -1)
+                suffixIndex = suffixes.Length -1;
+
+            // Format the number with decimal places if necessary
+            return value.ToString("0.## ") + suffixes[suffixIndex];
         }
 
         public override void UpdateBeforeSimulation10()
@@ -212,9 +245,11 @@ namespace WarpDriveMod
         {
             MyResourceSinkComponent powerSystem = new MyResourceSinkComponent();
 
-            powerSystem.Init(MyStringHash.GetOrCompute("Utility"),
+            powerSystem.Init(
+                MyStringHash.GetOrCompute("Utility"),
                 (float)(Settings.baseRequiredPowerSmall * Settings.powerRequirementMultiplier),
-                ComputeRequiredPower, (MyCubeBlock)Entity);
+                ComputeRequiredPower,
+                (MyCubeBlock)Entity);
 
             Entity.Components.Add(powerSystem);
             sink = powerSystem;
@@ -278,161 +313,172 @@ namespace WarpDriveMod
             }
         }
 
-        public bool ProxymityDangerInWarp(MatrixD gridMatrix, MyCubeGrid MainGrid, double GridSpeed)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="gridMatrix"></param>
+        /// <param name="mainGrid"></param>
+        /// <param name="mainGridRadius"></param>
+        /// <param name="gridSpeed"></param>
+        /// <param name="controlledCockpit"></param>
+        /// <returns></returns>
+        public string ProxymityDangerInWarp(MatrixD gridMatrix, IMyCubeGrid mainGrid, double mainGridRadius, double gridSpeed, IMyShipController controlledCockpit)
         {
-            if (MainGrid == null)
-                return false;
+            if (mainGrid == null || controlledCockpit == null)
+                return null;
 
-            List<IMyEntity> entList;
-            IMyCubeGrid WarpGrid = MainGrid;
-            Vector3D forward = gridMatrix.Forward;
-            MatrixD FrontStart = MatrixD.CreateFromDir(-forward);
-            Vector3D PointFromFront;
+            List<IMyCubeGrid> attachedList = new List<IMyCubeGrid>();           // All conntected grids
+            List<IMyEntity> entList = new List<IMyEntity>();                    // Possible entities to check for collision
+            Vector3D start = gridMatrix.Translation;                            // grid.WorldVolume.Center; does not work, physics off... // or ideally the whole construct's volume, spheres can be Include()'d
+            float mass = mainGrid.Physics.Mass;
+            //double radius = mainGrid.WorldVolume.Radius + (mass / 100000d);   // more mass == more warp bubble
+            //double radius = 100;     // more mass == more warp bubble
+            double length = 250 + gridSpeed;
 
-            if (WarpGrid.GridSizeEnum == MyCubeSize.Small)
+            MyAPIGateway.GridGroups.GetGroup(mainGrid, GridLinkTypeEnum.Physical, attachedList);
+
+            Vector3D forward = controlledCockpit.WorldMatrix.Forward;           /* velocity normalized */
+            Vector3D up = controlledCockpit.WorldMatrix.Up;                     /* velocity normalized */
+
+            double halfLength = length * 0.5;
+            Vector3D center = start + forward * halfLength;
+            Vector3D halfExtents = new Vector3D(mainGridRadius, mainGridRadius, halfLength);
+
+            Quaternion quat = Quaternion.CreateFromRotationMatrix(MatrixD.CreateFromDir(forward)); // a bit overkill, maybe you can find a proper up vector for CreateFromForwardUp()
+            //Quaternion quat = Quaternion.CreateFromForwardUp(forward, up); // could work, ToDo check
+
+            MyOrientedBoundingBoxD obb = new MyOrientedBoundingBoxD(center, halfExtents, quat);
+
+            BoundingBoxD bb = obb.GetAABB();
+            entList = MyAPIGateway.Entities.GetTopMostEntitiesInBox(ref bb);
+
+            // DEBUGGING
+            //SendMessage("Count_" + entList.Count, 0.016f);
+            //DrawBB(bb, Color.Red);
+
+            foreach (IMyEntity ent in entList)
             {
-                Vector3D effectOffsetSmall = forward * WarpGrid.WorldAABB.HalfExtents.AbsMax();
-                FrontStart.Translation = WarpGrid.WorldAABB.Center + effectOffsetSmall;
-                FrontStart.Translation += forward * 400.0;
-                PointFromFront = FrontStart.Translation;
-                var sphere = new BoundingSphereD(PointFromFront, 300.0);
-                entList = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref sphere);
-            }
-            else
-            {
-                Vector3D effectOffsetLarge = forward * WarpGrid.WorldAABB.HalfExtents.AbsMax();
-                FrontStart.Translation = WarpGrid.WorldAABB.Center + effectOffsetLarge;
-                FrontStart.Translation += forward * 500.0;
-                PointFromFront = FrontStart.Translation;
-                var sphere = new BoundingSphereD(PointFromFront, 400.0);
-                entList = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref sphere);
-            }
-
-            if (entList == null || entList.Count == 0)
-                return false;
-
-            var AttachedList = new List<IMyCubeGrid>();
-
-            // get all subgrids grids and locked on landing gear.
-            MyAPIGateway.GridGroups.GetGroup(WarpGrid, GridLinkTypeEnum.Physical, AttachedList);
-
-            foreach (var ent in entList)
-            {
+                // return a string for all object that deny charging
                 if (ent is MySafeZone)
-                    return true;
+                    return "SafeZone";
 
-                if (!(ent is MyCubeGrid || ent is MyVoxelMap || ent is IMyDestroyableObject ))
-                    continue;
-
-                // dont stop if grid speed is 20 or above.
-                if (ent is MyVoxelMap && GridSpeed >= 333.333)
-                    continue;
-
-                if (ent is MyCubeGrid)
-                {
-                    var FoundGrid = ent as IMyCubeGrid;
-
-                    if (FoundGrid != null && AttachedList != null && AttachedList.Count > 0 && AttachedList.Contains(FoundGrid))
-                        continue;
-                }
-
-                var EntityPosition = ent.GetPosition() + Vector3D.Zero;
-
-                if (WarpGrid.GridSizeEnum == MyCubeSize.Small)
-                {
-                    if ((EntityPosition - PointFromFront).Length() <= 250.0)
-                        return true;
-                }
-                else
-                {
-                    if (ent is MyVoxelMap && (EntityPosition - PointFromFront).Length() <= 280.0)
-                        return true;
-                    else if ((EntityPosition - PointFromFront).Length() <= 220.0)
-                        return true;
-                }
-            }
-            return false;
-        }
-
-        public bool ProxymityDangerCharge(MatrixD gridMatrix, IMyCubeGrid WarpGrid)
-        {
-            if (WarpGrid == null || WarpGrid.Physics == null)
-                return false;
-
-            List<IMyEntity> entList;
-            Vector3D forward = gridMatrix.Forward;
-            MatrixD FrontStart = MatrixD.CreateFromDir(-forward);
-            Vector3D PointFromFront;
-
-            if (MyAPIGateway.Session?.Player != null)
-            {
-                //bool allowed = MySessionComponentSafeZones.IsActionAllowed(MyAPIGateway.Session.Player.Character.WorldMatrix.Translation, CastProhibit(MySessionComponentSafeZones.AllowedActions, 1));
-                bool allowed = true;
-                //if (!allowed)
-                //{
-                //    MyLog.Default.WriteLineAndConsole("ProxymityDangerCharge: Player is in a restricted area (safe zone).");
-                //    return true;
-                //}
-            }
-
-            // Calculate positions based on grid size
-            if (WarpGrid.GridSizeEnum == MyCubeSize.Small)
-            {
-                Vector3D effectOffsetSmall = forward * WarpGrid.WorldAABB.HalfExtents.AbsMax();
-                FrontStart.Translation = WarpGrid.WorldAABB.Center + effectOffsetSmall;
-                FrontStart.Translation += forward * 400.0;
-                PointFromFront = FrontStart.Translation;
-
-                var sphere = new BoundingSphereD(PointFromFront, 300.0);
-                entList = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref sphere);
-            }
-            else
-            {
-                Vector3D effectOffsetLarge = forward * WarpGrid.WorldAABB.HalfExtents.AbsMax();
-                FrontStart.Translation = WarpGrid.WorldAABB.Center + effectOffsetLarge;
-                FrontStart.Translation += forward * 500.0;
-                PointFromFront = FrontStart.Translation;
-                var sphere = new BoundingSphereD(PointFromFront, 400.0);
-                entList = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref sphere);
-            }
-
-            if (entList == null || entList.Count == 0)
-                return false;
-
-            var AttachedList = new List<IMyCubeGrid>();
-
-            // get all subgrids grids and locked on landing gear.
-            MyAPIGateway.GridGroups.GetGroup(WarpGrid, GridLinkTypeEnum.Physical, AttachedList);
-
-            foreach (var ent in entList)
-            {
-                if (ent is MySafeZone)
-                {
-                    MyLog.Default.WriteLineAndConsole("ProxymityDangerCharge: Found a safe zone nearby.");
-                    return true;
-                }
-
+                // Shall we ignore characters? What about missiles? bullets? (We should ignore floating objects)
                 if (!(ent is MyCubeGrid || ent is MyVoxelMap))
                     continue;
 
-                if (ent is MyCubeGrid)
+                if (ent is IMyCubeGrid)
                 {
-                    var FoundGrid = ent as IMyCubeGrid;
-
-                    if (FoundGrid != null && AttachedList != null && AttachedList.Count > 0 && AttachedList.Contains(FoundGrid))
+                    // Skip own MainGrid
+                    IMyCubeGrid foundGrid = (IMyCubeGrid)ent;
+                    if (attachedList.Contains(foundGrid))
                         continue;
+
+                    // Not own grid?
+                    string msg = ent.DisplayName;
+                    string cut_msg = msg.Length > 12 ? msg.Substring(0, 12) : msg;      // want a max string of 12 to display              
+                    //SendMessage("Debug_Grid: " + cut_msg, 0.016f);
+                    return cut_msg;
                 }
 
-                var EntityPosition = ent.PositionComp.GetPosition() + Vector3D.Zero;
-
-                if ((EntityPosition - PointFromFront).Length() <= 250.0)
+                if (ent is MyVoxelMap)
                 {
-                    MyLog.Default.WriteLineAndConsole($"ProxymityDangerCharge: Found a nearby entity (distance <= 250.0). Entity: {ent.GetType().Name}");
-                    return true;
+                    // How to make collision detection even more precise?
+                    // BoundingBoxEffect? -> asteroids have a big BB ....
+                    // Lore: Dust around asteorids prevent establishing a warp bubble.
+
+                    MyVoxelMap vMap = (MyVoxelMap)ent;
+                    string msg = (vMap.StorageName).Split('_')[0];                      // Sanitize the sting Asteroid-2342343434 ?!
+                    msg.Replace("Proc", "");
+                    string cut_msg = msg.Length > 12 ? msg.Substring(0, 12) : msg;      // want a max string of 12 to display
+                    //SendMessage("Debug: " + cut_msg, 0.016f);
+                    return cut_msg;
+                }
+            }
+            // No boundingbox collision -> inWarp
+            return null;
+        }
+
+        /// String or null >> string is name of object that prevent warp
+        /// ToDo: radius influence by mass
+        /// <param name="gridMatrix">MatrixD as WorldMatrix of the grid</param>
+        /// <param name="WarpGrid">"Main" grid which want to warp</param>
+        /// <returns>string, null: charge/warp  <>  "Entity.GetFriendlyName()"</returns>
+        public string ProxymityDangerCharge(MatrixD gridMatrix, IMyCubeGrid warpGrid)
+        {
+            if (warpGrid == null || warpGrid.Physics == null)
+                return null;
+
+            // Safezone check?
+            if (MyAPIGateway.Session?.Player != null)
+            {
+                bool allowed = MySessionComponentSafeZones.IsActionAllowed(
+                                    MyAPIGateway.Session.Player.Character.WorldMatrix.Translation,
+                                    CastProhibit(MySessionComponentSafeZones.AllowedActions, 1)
+                               );
+
+                if (!allowed)
+                    return "SafeZone";
+            }
+
+            List<IMyEntity> entList = new List<IMyEntity>();
+            List<IMyCubeGrid> attachedList = new List<IMyCubeGrid>();
+            Vector3D center = warpGrid.WorldVolume.Center;
+            float mass = warpGrid.Physics.Mass;                                         // check landinggear connected mass?!
+            double radius = warpGrid.WorldVolume.Radius + (mass / 100000d);             // more mass == more warp bubble
+
+            BoundingSphereD sphere = new BoundingSphereD(center, radius);
+
+            // DEBUG DRAW
+            //DrawSphere(sphere, Color.Red);
+
+            // There will be at least ONE in this list, the ship itself
+            entList = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref sphere);
+
+            // Get all subgrids grids and locked on landing gear.
+            MyAPIGateway.GridGroups.GetGroup(warpGrid, GridLinkTypeEnum.Physical, attachedList);
+
+            // Check if the entities' boundingboxes hit the warp bubble
+            foreach (IMyEntity ent in entList)
+            {
+                // return a string for all object that deny charging
+                if (ent is MySafeZone)
+                    return "SafeZone";
+
+                // Shall we ignore characters? What about missiles? bullets? (We should ignore floating objects)
+                if (!(ent is MyCubeGrid || ent is MyVoxelMap))
+                    continue;
+
+                if (ent is IMyCubeGrid)
+                {
+                    // Skip own MainGrid
+                    IMyCubeGrid foundGrid = (IMyCubeGrid)ent;
+                    if (attachedList.Contains(foundGrid))
+                        continue;
+
+                    // Not own grid?
+                    string msg = ent.DisplayName;
+                    string cut_msg = msg.Length > 12 ? msg.Substring(0, 12) : msg;      // want a max string of 12 to display              
+                    //SendMessage("Debug_Grid: " + cut_msg, 0.016f);
+                    return cut_msg;
+                }
+
+                if (ent is MyVoxelMap)
+                {
+                    // How to make collision detection even more precise?
+                    // BoundingBoxEffect? -> asteroids have a big BB ....
+                    // Lore: Dust around asteorids prevent establishing a warp bubble.
+
+                    MyVoxelMap vMap = (MyVoxelMap)ent;
+                    string msg = (vMap.StorageName).Split('_')[0];                      // Sanitize the sting Asteroid-2342343434 ?!
+                    string cut_msg = msg.Length > 12 ? msg.Substring(0, 12) : msg;      // want a max string of 12 to display
+                    //SendMessage("Debug: " + cut_msg, 0.016f);
+                    msg.Replace("Proc", "");
+                    return cut_msg;
                 }
             }
 
-            return false;
+            // No boundingbox collision -> charge
+            return null;
         }
 
         public bool EnemyProxymityDangerCharge(IMyCubeGrid WarpGrid)
@@ -522,5 +568,27 @@ namespace WarpDriveMod
         {
             return 957606482 + EqualityComparer<IMyFunctionalBlock>.Default.GetHashCode(Block);
         }
+
+        #region DEBUGGING
+        private void DrawBB(BoundingBoxD obb, Color color, MySimpleObjectRasterizer draw = MySimpleObjectRasterizer.SolidAndWireframe, BlendTypeEnum blend = BlendTypeEnum.PostPP, bool extraSeeThrough = true)
+        {
+
+            MatrixD wm = MatrixD.CreateTranslation(obb.Center);
+
+            //wm.Translation = obb.Center;
+
+            //BoundingBoxD localBB = new BoundingBoxD(-obb.HalfExtent, obb.HalfExtent);
+
+            MySimpleObjectDraw.DrawTransparentBox(ref wm, ref obb, ref color, draw, 1, faceMaterial: null, lineMaterial: null, blendType: blend);
+
+        }
+
+        private void DrawSphere(BoundingSphereD sphere, Color color, MySimpleObjectRasterizer draw = MySimpleObjectRasterizer.SolidAndWireframe, BlendTypeEnum blend = BlendTypeEnum.PostPP)
+        {
+            MatrixD wm = MatrixD.CreateTranslation(sphere.Center);
+            MySimpleObjectDraw.DrawTransparentSphere(ref wm, (float)sphere.Radius, ref color, draw, 24, null, null, 0.02f, blendType: blend);
+        }
+        #endregion
+
     }
 }
