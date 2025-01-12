@@ -314,87 +314,92 @@ namespace WarpDriveMod
         }
 
         /// <summary>
-        /// 
+        /// Checks for entities within proximity that could prevent warp.
         /// </summary>
-        /// <param name="gridMatrix"></param>
-        /// <param name="mainGrid"></param>
-        /// <param name="mainGridRadius"></param>
-        /// <param name="gridSpeed"></param>
-        /// <param name="controlledCockpit"></param>
-        /// <returns></returns>
+        /// <param name="gridMatrix">The WorldMatrix of the grid.</param>
+        /// <param name="mainGrid">The main grid attempting to warp.</param>
+        /// <param name="mainGridRadius">The radius of the main grid's warp bubble.</param>
+        /// <param name="gridSpeed">The speed of the grid.</param>
+        /// <param name="controlledCockpit">The controlling cockpit of the grid.</param>
+        /// <returns>A string indicating the name of the object that blocks warp, or null if no blocking entities are found.</returns>
         public string ProxymityDangerInWarp(MatrixD gridMatrix, IMyCubeGrid mainGrid, double mainGridRadius, double gridSpeed, IMyShipController controlledCockpit)
         {
             if (mainGrid == null || controlledCockpit == null)
                 return null;
 
-            List<IMyCubeGrid> attachedList = new List<IMyCubeGrid>();           // All conntected grids
-            List<IMyEntity> entList = new List<IMyEntity>();                    // Possible entities to check for collision
-            Vector3D start = gridMatrix.Translation;                            // grid.WorldVolume.Center; does not work, physics off... // or ideally the whole construct's volume, spheres can be Include()'d
-            float mass = mainGrid.Physics.Mass;
-            //double radius = mainGrid.WorldVolume.Radius + (mass / 100000d);   // more mass == more warp bubble
-            //double radius = 100;     // more mass == more warp bubble
+            List<IMyEntity> entList = new List<IMyEntity>();
+            List<IMyCubeGrid> attachedList = new List<IMyCubeGrid>();
+
+            Vector3D start = gridMatrix.Translation;
             double length = 250 + gridSpeed;
 
+            // Get all connected grids
             MyAPIGateway.GridGroups.GetGroup(mainGrid, GridLinkTypeEnum.Physical, attachedList);
 
-            Vector3D forward = controlledCockpit.WorldMatrix.Forward;           /* velocity normalized */
-            Vector3D up = controlledCockpit.WorldMatrix.Up;                     /* velocity normalized */
-
+            Vector3D forward = controlledCockpit.WorldMatrix.Forward;
             double halfLength = length * 0.5;
+
             Vector3D center = start + forward * halfLength;
             Vector3D halfExtents = new Vector3D(mainGridRadius, mainGridRadius, halfLength);
-
-            Quaternion quat = Quaternion.CreateFromRotationMatrix(MatrixD.CreateFromDir(forward)); // a bit overkill, maybe you can find a proper up vector for CreateFromForwardUp()
-            //Quaternion quat = Quaternion.CreateFromForwardUp(forward, up); // could work, ToDo check
+            Quaternion quat = Quaternion.CreateFromRotationMatrix(MatrixD.CreateFromDir(forward));
 
             MyOrientedBoundingBoxD obb = new MyOrientedBoundingBoxD(center, halfExtents, quat);
-
             BoundingBoxD bb = obb.GetAABB();
-            entList = MyAPIGateway.Entities.GetTopMostEntitiesInBox(ref bb);
 
-            // DEBUGGING
-            //SendMessage("Count_" + entList.Count, 0.016f);
-            //DrawBB(bb, Color.Red);
-
-            foreach (IMyEntity ent in entList)
+            int retries = 3; // Retry up to 3 times in case of concurrent modification
+            while (retries > 0)
             {
-                // return a string for all object that deny charging
-                if (ent is MySafeZone)
-                    return "SafeZone";
-
-                // Shall we ignore characters? What about missiles? bullets? (We should ignore floating objects)
-                if (!(ent is MyCubeGrid || ent is MyVoxelMap))
-                    continue;
-
-                if (ent is IMyCubeGrid)
+                try
                 {
-                    // Skip own MainGrid
-                    IMyCubeGrid foundGrid = (IMyCubeGrid)ent;
-                    if (attachedList.Contains(foundGrid))
-                        continue;
+                    // Safely copy entities to avoid concurrent modification
+                    var entities = MyAPIGateway.Entities.GetTopMostEntitiesInBox(ref bb);
+                    if (entities != null)
+                        entList.AddRange(entities);
 
-                    // Not own grid?
-                    string msg = ent.DisplayName;
-                    string cut_msg = msg.Length > 12 ? msg.Substring(0, 12) : msg;      // want a max string of 12 to display              
-                    //SendMessage("Debug_Grid: " + cut_msg, 0.016f);
-                    return cut_msg;
+                    foreach (IMyEntity ent in entList)
+                    {
+                        if (ent is MySafeZone)
+                            return "SafeZone";
+
+                        if (!(ent is MyCubeGrid || ent is MyVoxelMap))
+                            continue;
+
+                        var foundGrid = ent as IMyCubeGrid;
+                        if (foundGrid != null)
+                        {
+                            if (attachedList.Contains(foundGrid))
+                                continue;
+
+                            // Not own grid
+                            string msg = ent.DisplayName;
+                            return msg.Length > 12 ? msg.Substring(0, 12) : msg;
+                        }
+
+                        var vMap = ent as MyVoxelMap;
+                        if (vMap != null)
+                        {
+                            // Handle voxel map collision
+                            string msg = (vMap.StorageName).Split('_')[0];
+                            return msg.Length > 12 ? msg.Substring(0, 12) : msg;
+                        }
+                    }
+
+                    // No collisions detected
+                    return null;
                 }
-
-                if (ent is MyVoxelMap)
+                catch (InvalidOperationException ex)
                 {
-                    // How to make collision detection even more precise?
-                    // BoundingBoxEffect? -> asteroids have a big BB ....
-                    // Lore: Dust around asteorids prevent establishing a warp bubble.
+                    // Log the error and retry
+                    MyLog.Default.WriteLineAndConsole($"[ProxymityDangerInWarp] Retrying due to collection modification: {ex.Message}");
+                    retries--;
 
-                    MyVoxelMap vMap = (MyVoxelMap)ent;
-                    string msg = (vMap.StorageName).Split('_')[0];                      // Sanitize the sting Asteroid-2342343434 ?!
-                    msg.Replace("Proc", "");
-                    string cut_msg = msg.Length > 12 ? msg.Substring(0, 12) : msg;      // want a max string of 12 to display
-                    //SendMessage("Debug: " + cut_msg, 0.016f);
-                    return cut_msg;
+                    // Clear the list to ensure no stale data
+                    entList.Clear();
                 }
             }
-            // No boundingbox collision -> inWarp
+
+            // If retries are exhausted, return a fallback value
+            MyLog.Default.WriteLineAndConsole("[ProxymityDangerInWarp] Exhausted retries, returning null.");
             return null;
         }
 
