@@ -7,8 +7,10 @@ using VRage;
 using VRage.ModAPI;
 using VRageMath;
 
-namespace RealGasGiants {
-    public class RealGasGiantsApi {
+namespace RealGasGiants
+{
+    public class RealGasGiantsApi
+    {
         private bool _apiInit;
 
         private Func<Vector3D, float, Vector3I, string, float, float, float, MyPlanet> _spawnGasGiant;
@@ -21,9 +23,9 @@ namespace RealGasGiants {
         private Func<MyPlanet, float, float, float, bool> _setGasGiantConfig_atmoInfo;
         private Func<MyPlanet, MyTuple<bool, float, float, float>> _getGasGiantConfig_atmoInfo;
 
-        private Func<MyPlanet, bool, string, Vector3D, Vector3I, float, float, float, float, float, float, bool, bool> _setGasGiantConfig_ringInfo;
+        private Func<MyPlanet, bool, string, Vector3D, Vector3I, float, float, float, float, float, float, bool, bool, bool> _setGasGiantConfig_ringInfo;
         private Func<MyPlanet, MyTuple<bool, bool, float, bool>> _getGasGiantConfig_ringInfo_base;
-        private Func<MyPlanet, MyTuple<bool, string, Vector3I, float, float>> _getGasGiantConfig_ringInfo_visual;
+        private Func<MyPlanet, MyTuple<bool, string, Vector3I, float, float, bool>> _getGasGiantConfig_ringInfo_visual;
         private Func<MyPlanet, MyTuple<bool, Vector3D, float, float, float>> _getGasGiantConfig_ringInfo_size;
 
         private Func<MyPlanet, bool, bool, bool, bool> _setGasGiantConfig_interiorInfo;
@@ -49,7 +51,8 @@ namespace RealGasGiants {
 
         public bool IsReady { get; private set; }
         public bool Compromised { get; private set; }
-        private void HandleMessage(object o) {
+        private void HandleMessage(object o)
+        {
             if (_apiInit) return;
             var dict = o as IReadOnlyDictionary<string, Delegate>;
             var message = o as string;
@@ -72,8 +75,10 @@ namespace RealGasGiants {
 
         private bool _isRegistered;
 
-        public bool Load() {
-            if (!_isRegistered) {
+        public bool Load()
+        {
+            if (!_isRegistered)
+            {
                 _isRegistered = true;
                 MyAPIGateway.Utilities.RegisterMessageHandler(Channel, HandleMessage);
             }
@@ -82,15 +87,18 @@ namespace RealGasGiants {
             return IsReady;
         }
 
-        public void Unload() {
-            if (_isRegistered) {
+        public void Unload()
+        {
+            if (_isRegistered)
+            {
                 _isRegistered = false;
                 MyAPIGateway.Utilities.UnregisterMessageHandler(Channel, HandleMessage);
             }
             IsReady = false;
         }
 
-        public void ApiLoad(IReadOnlyDictionary<string, Delegate> delegates) {
+        public void ApiLoad(IReadOnlyDictionary<string, Delegate> delegates)
+        {
             _apiInit = true;
 
             _spawnGasGiant = (Func<Vector3D, float, Vector3I, string, float, float, float, MyPlanet>)delegates["SpawnGasGiant"];
@@ -103,9 +111,9 @@ namespace RealGasGiants {
             _setGasGiantConfig_atmoInfo = (Func<MyPlanet, float, float, float, bool>)delegates["SetGasGiantConfig_AtmoInfo"];
             _getGasGiantConfig_atmoInfo = (Func<MyPlanet, MyTuple<bool, float, float, float>>)delegates["GetGasGiantConfig_AtmoInfo"];
 
-            _setGasGiantConfig_ringInfo = (Func<MyPlanet, bool, string, Vector3D, Vector3I, float, float, float, float, float, float, bool, bool>)delegates["SetGasGiantConfig_RingInfo"];
+            _setGasGiantConfig_ringInfo = (Func<MyPlanet, bool, string, Vector3D, Vector3I, float, float, float, float, float, float, bool, bool, bool>)delegates["SetGasGiantConfig_RingInfo"];
             _getGasGiantConfig_ringInfo_base = (Func<MyPlanet, MyTuple<bool, bool, float, bool>>)delegates["GetGasGiantConfig_RingInfo_Base"];
-            _getGasGiantConfig_ringInfo_visual = (Func<MyPlanet, MyTuple<bool, string, Vector3I, float, float>>)delegates["GetGasGiantConfig_RingInfo_Visual"];
+            _getGasGiantConfig_ringInfo_visual = (Func<MyPlanet, MyTuple<bool, string, Vector3I, float, float, bool>>)delegates["GetGasGiantConfig_RingInfo_Visual"];
             _getGasGiantConfig_ringInfo_size = (Func<MyPlanet, MyTuple<bool, Vector3D, float, float, float>>)delegates["GetGasGiantConfig_RingInfo_Size"];
 
             _setGasGiantConfig_interiorInfo = (Func<MyPlanet, bool, bool, bool, bool>)delegates["SetGasGiantConfig_InteriorInfo"];
@@ -134,9 +142,9 @@ namespace RealGasGiants {
         public MyTuple<bool, float, float> GetGasGiantConfig_BasicInfo_Gravity(MyPlanet planet) => _getGasGiantConfig_basicInfo_gravity?.Invoke(planet) ?? new MyTuple<bool, float, float>();
         public bool SetGasGiantConfig_AtmoInfo(MyPlanet planet, float airDensity, float oxygenDensity, float windSpeed) => _setGasGiantConfig_atmoInfo?.Invoke(planet, airDensity, oxygenDensity, windSpeed) ?? false;
         public MyTuple<bool, float, float, float> GetGasGiantConfig_AtmoInfo(MyPlanet planet) => _getGasGiantConfig_atmoInfo?.Invoke(planet) ?? new MyTuple<bool, float, float, float>();
-        public bool SetGasGiantConfig_RingInfo(MyPlanet planet, bool hasRing, string ringSkin, Vector3D ringNormal, Vector3I ringColor, float ringLightMult, float ringShadowMult, float ringInnerScale, float ringOuterScale, float ringLayerSpacingScale, float ringRotationPeriod, bool constrainNearbyAsteroidsToRing) => _setGasGiantConfig_ringInfo?.Invoke(planet, hasRing, ringSkin, ringNormal, ringColor, ringLightMult, ringShadowMult, ringInnerScale, ringOuterScale, ringLayerSpacingScale, ringRotationPeriod, constrainNearbyAsteroidsToRing) ?? false;
+        public bool SetGasGiantConfig_RingInfo(MyPlanet planet, bool hasRing, string ringSkin, Vector3D ringNormal, Vector3I ringColor, float ringLightMult, float ringShadowMult, float ringInnerScale, float ringOuterScale, float ringLayerSpacingScale, float ringRotationPeriod, bool constrainNearbyAsteroidsToRing, bool shadowOnRingEnabled) => _setGasGiantConfig_ringInfo?.Invoke(planet, hasRing, ringSkin, ringNormal, ringColor, ringLightMult, ringShadowMult, ringInnerScale, ringOuterScale, ringLayerSpacingScale, ringRotationPeriod, constrainNearbyAsteroidsToRing, shadowOnRingEnabled) ?? false;
         public MyTuple<bool, bool, float, bool> GetGasGiantConfig_RingInfo_Base(MyPlanet planet) => _getGasGiantConfig_ringInfo_base?.Invoke(planet) ?? new MyTuple<bool, bool, float, bool>();
-        public MyTuple<bool, string, Vector3I, float, float> GetGasGiantConfig_RingInfo_Visual(MyPlanet planet) => _getGasGiantConfig_ringInfo_visual?.Invoke(planet) ?? new MyTuple<bool, string, Vector3I, float, float>();
+        public MyTuple<bool, string, Vector3I, float, float, bool> GetGasGiantConfig_RingInfo_Visual(MyPlanet planet) => _getGasGiantConfig_ringInfo_visual?.Invoke(planet) ?? new MyTuple<bool, string, Vector3I, float, float, bool>();
         public MyTuple<bool, Vector3D, float, float, float> GetGasGiantConfig_RingInfo_Size(MyPlanet planet) => _getGasGiantConfig_ringInfo_size?.Invoke(planet) ?? new MyTuple<bool, Vector3D, float, float, float>();
         public bool SetGasGiantConfig_InteriorInfo(MyPlanet planet, bool asteroidRemoval, bool pressureDamagePlayers, bool pressureDamageGrids) => _setGasGiantConfig_interiorInfo?.Invoke(planet, asteroidRemoval, pressureDamagePlayers, pressureDamageGrids) ?? false;
         public MyTuple<bool, bool, bool, bool> GetGasGiantConfig_InteriorInfo(MyPlanet planet) => _getGasGiantConfig_interiorInfo?.Invoke(planet) ?? new MyTuple<bool, bool, bool, bool>();
