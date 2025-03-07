@@ -157,47 +157,90 @@ namespace TeleportMechanisms {
 
         public static void TeleportCargo(IMyCargoContainer sourceContainer, IMyCargoContainer destContainer)
         {
+            // Validate inputs
+            if (sourceContainer == null || destContainer == null)
+            {
+                MyLogger.Log("TPCore: TeleportCargo: Source or destination container is null");
+                return;
+            }
+
+            if (!sourceContainer.IsWorking || !destContainer.IsWorking)
+            {
+                MyLogger.Log($"TPCore: TeleportCargo: Source '{sourceContainer.CustomName}' or destination '{destContainer.CustomName}' is not functional");
+                return;
+            }
+
             var sourceInventory = sourceContainer.GetInventory();
             var destInventory = destContainer.GetInventory();
 
-            MyLogger.Log($"TPCore: TeleportCargo: Source container '{sourceContainer.CustomName}' has {sourceInventory.ItemCount} items");
-            MyLogger.Log($"TPCore: TeleportCargo: Destination container '{destContainer.CustomName}' has {destInventory.ItemCount} items, MaxVolume: {destInventory.MaxVolume}");
+            if (sourceInventory == null || destInventory == null)
+            {
+                MyLogger.Log("TPCore: TeleportCargo: Source or destination inventory is null");
+                return;
+            }
 
-            if (sourceInventory.Empty())
+            // Check ownership/faction compatibility (optional, adjust per your mod's rules)
+            if (!sourceContainer.CubeGrid.BigOwners.Any(owner => destContainer.CubeGrid.BigOwners.Contains(owner)) &&
+                sourceContainer.GetOwnerFactionTag() != destContainer.GetOwnerFactionTag())
+            {
+                MyLogger.Log("TPCore: TeleportCargo: Source and destination grids lack common ownership or faction");
+                return;
+            }
+
+            // Log initial state with detailed items
+            var sourceItems = new List<MyInventoryItem>();
+            sourceInventory.GetItems(sourceItems);
+            MyLogger.Log($"TPCore: TeleportCargo: Source container '{sourceContainer.CustomName}' has {sourceItems.Count} items: {LogItems(sourceItems)}");
+            var destItems = new List<MyInventoryItem>();
+            destInventory.GetItems(destItems);
+            MyLogger.Log($"TPCore: TeleportCargo: Destination container '{destContainer.CustomName}' has {destItems.Count} items: {LogItems(destItems)}, MaxVolume: {destInventory.MaxVolume}");
+
+            if (sourceItems.Count == 0)
             {
                 MyLogger.Log("TPCore: TeleportCargo: Source container is empty");
                 return;
             }
 
-            var items = new List<MyInventoryItem>();
-            sourceInventory.GetItems(items);
-            MyLogger.Log($"TPCore: TeleportCargo: Found {items.Count} items in source inventory");
+            MyLogger.Log($"TPCore: TeleportCargo: Found {sourceItems.Count} items in source inventory");
 
-            for (int i = items.Count - 1; i >= 0; i--)
+            // Perform transfer
+            for (int i = sourceItems.Count - 1; i >= 0; i--)
             {
-                var item = items[i];
+                var item = sourceItems[i];
                 bool canAdd = destInventory.CanItemsBeAdded(item.Amount, item.Type);
-                MyLogger.Log($"TPCore: TeleportCargo: Item {i}: {item.Type}, Amount: {item.Amount}, CanAdd: {canAdd}");
+                MyLogger.Log($"TPCore: TeleportCargo: Item {i}: {item.Type.TypeId}/{item.Type.SubtypeId}, Amount: {item.Amount}, CanAdd: {canAdd}");
 
                 if (canAdd)
                 {
-                    destInventory.TransferItemFrom(sourceInventory, i, null, true, item.Amount, checkConnection:false);
-                    MyLogger.Log($"TPCore: TeleportCargo: Teleported {item.Amount} of {item.Type}");
+                    bool success = destInventory.TransferItemFrom(sourceInventory, i, null, true, item.Amount, checkConnection: false);
+                    MyLogger.Log($"TPCore: TeleportCargo: Teleported {item.Amount} of {item.Type.TypeId}/{item.Type.SubtypeId}, Success: {success}");
+                    if (!success)
+                    {
+                        MyLogger.Log("TPCore: TeleportCargo: Transfer failed unexpectedly");
+                    }
                 }
                 else
                 {
-                    MyLogger.Log($"TPCore: TeleportCargo: Cannot teleport {item.Amount} of {item.Type} - destination can't accept it");
+                    MyLogger.Log($"TPCore: TeleportCargo: Cannot teleport {item.Amount} of {item.Type.TypeId}/{item.Type.SubtypeId} - destination can't accept it");
                 }
             }
 
-            // Check post-transfer state
-            sourceInventory.GetItems(items);
-            MyLogger.Log($"TPCore: TeleportCargo: After transfer, source has {items.Count} items");
-            destInventory.GetItems(items);
-            MyLogger.Log($"TPCore: TeleportCargo: After transfer, destination has {items.Count} items");
+            // Log post-transfer state with fresh data
+            sourceItems.Clear();
+            sourceInventory.GetItems(sourceItems);
+            MyLogger.Log($"TPCore: TeleportCargo: After transfer, source has {sourceItems.Count} items: {LogItems(sourceItems)}");
+            destItems.Clear();
+            destInventory.GetItems(destItems);
+            MyLogger.Log($"TPCore: TeleportCargo: After transfer, destination has {destItems.Count} items: {LogItems(destItems)}");
 
+            // Play effects
             PlayEffectsAtPosition(sourceContainer.GetPosition());
             PlayEffectsAtPosition(destContainer.GetPosition());
+        }
+        private static string LogItems(List<MyInventoryItem> items)
+        {
+            if (items.Count == 0) return "None";
+            return string.Join(", ", items.Select(i => $"{i.Type.TypeId}/{i.Type.SubtypeId}: {i.Amount}"));
         }
         public static void TeleportEntity(IMyEntity entity, IMyCollector sourceGateway, IMyCollector destGateway)
         {
