@@ -11,8 +11,8 @@ namespace TeleportMechanisms
 {
     public static class MyLogger
     {
-        private const string LogFileName = "TPGatewayMod.log";
-        private const string ConfigFileName = "TPGateway.ini";
+        private const string LogFileName = "MassDriverMod.log";
+        private const string ConfigFileName = "MassDriver.ini";
         private static System.IO.TextWriter _writer = null;
         private static StringBuilder _cache = new StringBuilder();
 
@@ -64,7 +64,7 @@ namespace TeleportMechanisms
 
         private static void WriteLocationsToIngameLog()
         {
-            string message = $"TPGatewayMod: Startup Information\n" +
+            string message = $"MassDriverMod: Startup Information\n" +
                              $"Config file: {ConfigFileName}\n" +
                              $"Log file: {LogFileName}\n" +
                              $"Current settings - WriteToCustomLog: {_writeToCustomLog}, WriteToIngameLog: {_writeToIngameLog}\n";
@@ -97,7 +97,7 @@ namespace TeleportMechanisms
 
         public static void Log(string message)
         {
-            string logMessage = $"TPGatewayMod: {DateTime.Now}: {message}";
+            string logMessage = $"MassDriverMod: {DateTime.Now}: {message}";
 
             if (_writeToCustomLog)
             {
@@ -133,7 +133,7 @@ namespace TeleportMechanisms
             }
             catch (Exception e)
             {
-                MyLog.Default.WriteLineAndConsole($"TPGatewayMod Error while logging message='{message}'\nLogger error: {e.Message}\n{e.StackTrace}");
+                MyLog.Default.WriteLineAndConsole($"MassDriverMod Error while logging message='{message}'\nLogger error: {e.Message}\n{e.StackTrace}");
             }
         }
 
