@@ -17,7 +17,7 @@ namespace TeleportMechanisms
         private static StringBuilder _cache = new StringBuilder();
 
         private static MyIni _config = new MyIni();
-        private static bool _writeToCustomLog;
+        private static bool _writeToCustomLog; //enable debug mode in the world file, remember
         private static bool _writeToIngameLog;
 
         private const int CurrentConfigVersion = 1;
