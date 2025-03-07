@@ -181,7 +181,7 @@ namespace TeleportMechanisms {
 
                 if (canAdd)
                 {
-                    destInventory.TransferItemFrom(sourceInventory, i, null, true, item.Amount);
+                    destInventory.TransferItemFrom(sourceInventory, i, null, true, item.Amount, checkConnection:false);
                     MyLogger.Log($"TPCore: TeleportCargo: Teleported {item.Amount} of {item.Type}");
                 }
                 else
