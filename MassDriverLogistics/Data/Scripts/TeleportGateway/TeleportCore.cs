@@ -160,25 +160,41 @@ namespace TeleportMechanisms {
             var sourceInventory = sourceContainer.GetInventory();
             var destInventory = destContainer.GetInventory();
 
+            MyLogger.Log($"TPCore: TeleportCargo: Source container '{sourceContainer.CustomName}' has {sourceInventory.ItemCount} items");
+            MyLogger.Log($"TPCore: TeleportCargo: Destination container '{destContainer.CustomName}' has {destInventory.ItemCount} items, MaxVolume: {destInventory.MaxVolume}");
+
             if (sourceInventory.Empty())
             {
                 MyLogger.Log("TPCore: TeleportCargo: Source container is empty");
                 return;
             }
 
-            // Transfer all items from source to destination
             var items = new List<MyInventoryItem>();
             sourceInventory.GetItems(items);
+            MyLogger.Log($"TPCore: TeleportCargo: Found {items.Count} items in source inventory");
 
             for (int i = items.Count - 1; i >= 0; i--)
-            { // Reverse loop to avoid index issues after removal
+            {
                 var item = items[i];
-                if (destInventory.CanItemsBeAdded(item.Amount, item.Type))
+                bool canAdd = destInventory.CanItemsBeAdded(item.Amount, item.Type);
+                MyLogger.Log($"TPCore: TeleportCargo: Item {i}: {item.Type}, Amount: {item.Amount}, CanAdd: {canAdd}");
+
+                if (canAdd)
                 {
                     destInventory.TransferItemFrom(sourceInventory, i, null, true, item.Amount);
                     MyLogger.Log($"TPCore: TeleportCargo: Teleported {item.Amount} of {item.Type}");
                 }
+                else
+                {
+                    MyLogger.Log($"TPCore: TeleportCargo: Cannot teleport {item.Amount} of {item.Type} - destination can't accept it");
+                }
             }
+
+            // Check post-transfer state
+            sourceInventory.GetItems(items);
+            MyLogger.Log($"TPCore: TeleportCargo: After transfer, source has {items.Count} items");
+            destInventory.GetItems(items);
+            MyLogger.Log($"TPCore: TeleportCargo: After transfer, destination has {items.Count} items");
 
             PlayEffectsAtPosition(sourceContainer.GetPosition());
             PlayEffectsAtPosition(destContainer.GetPosition());
