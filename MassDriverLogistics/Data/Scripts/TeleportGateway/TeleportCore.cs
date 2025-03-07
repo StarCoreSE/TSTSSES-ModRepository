@@ -18,6 +18,10 @@ using SpaceEngineers.Game.ModAPI.Ingame;
 using Sandbox.Game.Entities;
 using System.Reflection.Emit;
 using Sandbox.Game;
+using VRage.Game.ModAPI.Ingame;
+using IMyCubeGrid = VRage.Game.ModAPI.IMyCubeGrid;
+using IMyEntity = VRage.ModAPI.IMyEntity;
+using IMySlimBlock = VRage.Game.ModAPI.IMySlimBlock;
 
 namespace TeleportMechanisms {
     public static class TeleportCore {
@@ -91,91 +95,94 @@ namespace TeleportMechanisms {
             MyAPIGateway.Multiplayer.SendMessageToServer(NetworkHandler.TeleportRequestId, data);
         }
 
-        public static void ServerProcessTeleportRequest(TeleportRequestMessage message) {
+        public static void ServerProcessTeleportRequest(TeleportRequestMessage message)
+        {
             MyLogger.Log($"TPCore: ProcessTeleportRequest: Player {message.PlayerId}, Link {message.TeleportLink}");
 
             List<long> linkedGateways;
-            lock (_lock) {
-                if (!_TeleportLinks.TryGetValue(message.TeleportLink, out linkedGateways)) {
-                    MyLogger.Log($"TPCore: ProcessTeleportRequest: No linked gateways found for link {message.TeleportLink}");
+            lock (_lock)
+            {
+                if (!_TeleportLinks.TryGetValue(message.TeleportLink, out linkedGateways))
+                {
                     return;
                 }
             }
 
             var sourceGateway = MyAPIGateway.Entities.GetEntityById(message.SourceGatewayId) as IMyCollector;
-            if (sourceGateway == null) {
-                MyLogger.Log($"TPCore: ProcessTeleportRequest: Source gateway {message.SourceGatewayId} not found");
-                return;
-            }
+            if (sourceGateway == null) return;
 
-            var sourcePosition = sourceGateway.GetPosition();
-            long nearestGatewayId = 0;
-            double nearestDistance = double.MaxValue;
-
-            foreach (var gatewayId in linkedGateways) {
-                if (gatewayId == message.SourceGatewayId) continue;
-
-                var candidateGateway = MyAPIGateway.Entities.GetEntityById(gatewayId) as IMyCollector;
-                if (candidateGateway == null) continue;
-
-                var distance = Vector3D.Distance(sourcePosition, candidateGateway.GetPosition());
-                if (distance < nearestDistance) {
-                    nearestDistance = distance;
-                    nearestGatewayId = gatewayId;
-                }
-            }
-
-            if (nearestGatewayId == 0) {
-                MyLogger.Log($"TPCore: ProcessTeleportRequest: No valid destination gateway found for link {message.TeleportLink}");
-                return;
-            }
+            long nearestGatewayId = GetDestinationGatewayId(message.TeleportLink, message.SourceGatewayId);
+            if (nearestGatewayId == 0) return;
 
             var destGateway = MyAPIGateway.Entities.GetEntityById(nearestGatewayId) as IMyCollector;
-            if (destGateway == null) {
-                MyLogger.Log($"TPCore: ProcessTeleportRequest: Destination gateway {nearestGatewayId} not found");
-                return;
-            }
-
-            var player = GetPlayerById((long)message.PlayerId);
-            if (player == null || player.Character == null) {
-                MyLogger.Log($"TPCore: ProcessTeleportRequest: Player {message.PlayerId} or their character not found");
-                return;
-            }
+            if (destGateway == null) return;
 
             var sourceGatewayLogic = sourceGateway.GameLogic.GetAs<TeleportGateway>();
-            if (sourceGatewayLogic == null) {
-                MyLogger.Log($"TPCore: ProcessTeleportRequest: Could not retrieve TeleportGateway for source gateway {sourceGateway.EntityId}");
+            if (sourceGatewayLogic == null) return;
+
+            // Find TeleportCargo container on source grid
+            var cargoContainer = FindTeleportCargoContainer(sourceGateway.CubeGrid);
+            if (cargoContainer == null)
+            {
+                MyLogger.Log("TPCore: ProcessTeleportRequest: No TeleportCargo container found on source grid");
                 return;
             }
 
-            var sourceGatewaySettings = sourceGatewayLogic.Settings;
-            if (!sourceGatewaySettings.AllowPlayers) {
-                MyLogger.Log($"TPCore: ProcessTeleportRequest: Player teleportation is not allowed for source gateway {sourceGateway.EntityId}");
+            // Find TeleportCargo container on destination grid
+            var destContainer = FindTeleportCargoContainer(destGateway.CubeGrid);
+            if (destContainer == null)
+            {
+                MyLogger.Log("TPCore: ProcessTeleportRequest: No TeleportCargo container found on destination grid");
                 return;
             }
 
-            var isShip = player.Controller.ControlledEntity is IMyCubeBlock;
-            if (isShip && !sourceGatewaySettings.AllowShips) {
-                MyLogger.Log($"TPCore: ProcessTeleportRequest: Ship teleportation is not allowed for source gateway {sourceGateway.EntityId}");
-                return;
-            }
-
-            TeleportEntity(player.Character, sourceGateway, destGateway);
-
-            var grid = player.Controller.ControlledEntity?.Entity.GetTopMostParent() as IMyCubeGrid;
-            if (grid != null) {
-                if (grid.IsStatic) {
-                    MyLogger.Log($"TPCore: ProcessTeleportRequest: Grid {grid.DisplayName} is static, teleportation aborted");
-                    return;
-                }
-                if (HasLockedLandingGear(grid)) {
-                    MyLogger.Log($"TPCore: ProcessTeleportRequest: Grid {grid.DisplayName} has locked landing gear, teleportation aborted");
-                    return;
-                }
-                TeleportEntity(grid, sourceGateway, destGateway);
-            }
+            // Teleport cargo
+            TeleportCargo(cargoContainer, destContainer);
         }
 
+        public static IMyCargoContainer FindTeleportCargoContainer(IMyCubeGrid grid)
+        {
+            var blocks = new List<IMySlimBlock>();
+            grid.GetBlocks(blocks);
+            foreach (var block in blocks)
+            {
+                var container = block.FatBlock as IMyCargoContainer;
+                if (container != null && container.CustomName.Contains("TeleportCargo"))
+                {
+                    return container;
+                }
+            }
+            return null;
+        }
+
+        public static void TeleportCargo(IMyCargoContainer sourceContainer, IMyCargoContainer destContainer)
+        {
+            var sourceInventory = sourceContainer.GetInventory();
+            var destInventory = destContainer.GetInventory();
+
+            if (sourceInventory.Empty())
+            {
+                MyLogger.Log("TPCore: TeleportCargo: Source container is empty");
+                return;
+            }
+
+            // Transfer all items from source to destination
+            var items = new List<MyInventoryItem>();
+            sourceInventory.GetItems(items);
+
+            for (int i = items.Count - 1; i >= 0; i--)
+            { // Reverse loop to avoid index issues after removal
+                var item = items[i];
+                if (destInventory.CanItemsBeAdded(item.Amount, item.Type))
+                {
+                    destInventory.TransferItemFrom(sourceInventory, i, null, true, item.Amount);
+                    MyLogger.Log($"TPCore: TeleportCargo: Teleported {item.Amount} of {item.Type}");
+                }
+            }
+
+            PlayEffectsAtPosition(sourceContainer.GetPosition());
+            PlayEffectsAtPosition(destContainer.GetPosition());
+        }
         public static void TeleportEntity(IMyEntity entity, IMyCollector sourceGateway, IMyCollector destGateway)
         {
             var relativePosition = entity.GetPosition() - sourceGateway.GetPosition();
