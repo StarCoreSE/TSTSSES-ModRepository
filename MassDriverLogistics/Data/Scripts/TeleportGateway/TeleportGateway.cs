@@ -31,7 +31,7 @@ namespace TeleportMechanisms {
         public IMyCollector RingwayBlock;
 
         private static bool _controlsCreated = false;
-        private static readonly Guid StorageGuid = new Guid("8F999845-BCEF-4E37-9B47-A035AC2A8X0C");
+        private static readonly Guid StorageGuid = new Guid("cece175d-29db-4340-8622-54ea027fecf7");
 
         private const int SAVE_INTERVAL_FRAMES = 100;
         private int _frameCounter = 0;

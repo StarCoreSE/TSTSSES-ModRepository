@@ -7,7 +7,7 @@
             <SubtypeId>TeleportGateway</SubtypeId>
          </Id>
          <RegisteredStorageGuids>
-            <guid>8F999845-BCEF-4E37-9B47-A035AC2A8X0C</guid>
+            <guid>cece175d-29db-4340-8622-54ea027fecf7</guid>
          </RegisteredStorageGuids>
       </EntityComponent>
    </EntityComponents>
