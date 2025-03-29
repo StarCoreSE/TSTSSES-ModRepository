@@ -325,54 +325,50 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 16);
         }
 
-        private void UpdateOrphanedAsteroidsList() {
-            try {
+// File: DynamicAsteroids/DebugDrawTools.cs
+
+        private void UpdateOrphanedAsteroidsList()
+        {
+            // This method runs on the client to identify asteroids
+            // that *appear* orphaned for debug drawing purposes.
+            // Actual cleanup is handled by the server in AsteroidSpawner.
+            try
+            {
                 _orphanedAsteroids.Clear();
                 var entities = new HashSet<IMyEntity>();
-                MyAPIGateway.Entities.GetEntities(entities);
-                foreach (var entity in entities) {
+                MyAPIGateway.Entities.GetEntities(entities); // Gets entities visible/relevant to the client
+
+                foreach (var entity in entities)
+                {
                     var asteroid = entity as AsteroidEntity;
-                    if (asteroid == null) continue;
+                    if (asteroid == null || asteroid.MarkedForClose) continue;
 
                     Vector3D asteroidPosition = asteroid.PositionComp.GetPosition();
                     bool isInAnyZone = false;
-                    foreach (var zoneKvp in _clientZones) {
-                        if (zoneKvp.Value.IsPointInZone(asteroidPosition)) {
+
+                    // Check against the client's understanding of active zones
+                    foreach (var zoneKvp in _clientZones)
+                    {
+                        // Consider only active zones for this check
+                        if (!zoneKvp.Value.IsMarkedForRemoval && zoneKvp.Value.IsPointInZone(asteroidPosition))
+                        {
                             isInAnyZone = true;
                             break;
                         }
                     }
 
-                    if (!isInAnyZone) {
+                    if (!isInAnyZone)
+                    {
+                        // Found a potential orphan on the client side, add for drawing
                         _orphanedAsteroids.Add(asteroid);
-                        if (MyAPIGateway.Session.IsServer) {
-                            // Create and send removal message to all clients
-                            var removalMessage = new AsteroidNetworkMessage(
-                                asteroid.PositionComp.GetPosition(),
-                                asteroid.Properties.Diameter,
-                                Vector3D.Zero,
-                                Vector3D.Zero,
-                                asteroid.Type,
-                                false,
-                                asteroid.EntityId,
-                                true,  // isRemoval flag
-                                false,
-                                Quaternion.Identity
-                            );
-
-                            // Send to all clients regardless of dedicated/non-dedicated
-                            var messageBytes = MyAPIGateway.Utilities.SerializeToBinary(removalMessage);
-                            MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
-
-                            // Remove on server
-                            MyEntities.Remove(asteroid);
-                            asteroid.Close();
-                        }
+                        // Log.Info($"Client identified potential orphan {asteroid.EntityId} for drawing."); // Optional logging
                     }
                 }
             }
-            catch (Exception ex) {
-                Log.Exception(ex, typeof(MainSession), "Error updating orphaned asteroids list");
+            catch (Exception ex)
+            {
+                // Log exception without crashing the draw loop
+                Log.Exception(ex, typeof(MainSession), "Error updating orphaned asteroids list for drawing");
             }
         }
         private void DrawOrphanedAsteroids() {
