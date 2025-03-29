@@ -232,57 +232,88 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 // Middle mouse spawn (handle for both client and server)
                 if (AsteroidSettings.EnableMiddleMouseAsteroidSpawn &&
                     MyAPIGateway.Input.IsNewKeyPressed(MyKeys.MiddleButton) &&
-                    MyAPIGateway.Session?.Player != null) {
-                    Vector3D position = MyAPIGateway.Session.Player.GetPosition();
-                    Vector3D velocity = MyAPIGateway.Session.Player.Character?.Physics?.LinearVelocity ?? Vector3D.Zero;
-                    AsteroidType type = DetermineAsteroidType();
+                    MyAPIGateway.Session?.Player != null) // Check Player is not null
+                {
+                    // Ensure Player.Character is not null before accessing Physics
+                    IMyCharacter character = MyAPIGateway.Session.Player.Character;
+                    if (character != null)
+                    {
+                        Vector3D position = character.GetPosition(); // Spawn near character
+                        Vector3D velocity = character.Physics?.LinearVelocity ?? Vector3D.Zero;
+                        AsteroidType type = DetermineAsteroidType(); // Assuming this exists
 
-                    if (MyAPIGateway.Session.IsServer) {
-                        // Server creates the asteroid directly
-                        var asteroid = AsteroidEntity.CreateAsteroid(position, Rand.Next(50), velocity, type);
-                        if (asteroid != null && _spawner != null) {
-                            _spawner.AddAsteroid(asteroid);
+                        if (MyAPIGateway.Session.IsServer)
+                        {
+                            // Server creates the asteroid directly
+                            var asteroid = AsteroidEntity.CreateAsteroid(position, Rand.Next(50), velocity, type);
+                            if (asteroid != null && _spawner != null)
+                            {
+                                _spawner.AddAsteroid(asteroid);
 
-                            // Send to clients
-                            var message = new AsteroidNetworkMessage(
+                                // --- Targeted Initial Spawn Message ---
+                                var message = new AsteroidNetworkMessage(
+                                    asteroid.PositionComp.GetPosition(),
+                                    asteroid.Properties.Diameter,
+                                    asteroid.Physics.LinearVelocity,
+                                    asteroid.Physics.AngularVelocity,
+                                    asteroid.Type,
+                                    false,
+                                    asteroid.EntityId,
+                                    false,
+                                    true, // Is initial creation
+                                    Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix)
+                                );
+
+                                byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(message);
+
+                                if (messageBytes != null && messageBytes.Length > 0)
+                                {
+                                    List<IMyPlayer> players = new List<IMyPlayer>();
+                                    MyAPIGateway.Players.GetPlayers(players);
+
+                                    Vector3D spawnPosition = asteroid.PositionComp.GetPosition();
+
+                                    foreach (IMyPlayer player in players)
+                                    {
+                                        if (player.SteamUserId == MyAPIGateway.Multiplayer.ServerId) continue; // Don't send to self if host
+
+                                        Vector3D playerPosition = player.GetPosition();
+                                        // Use the same relevance distance
+                                        if (Vector3D.DistanceSquared(spawnPosition, playerPosition) <= AsteroidSpawner.ASTEROID_UPDATE_RELEVANCE_DISTANCE * AsteroidSpawner.ASTEROID_UPDATE_RELEVANCE_DISTANCE)
+                                        {
+                                             MyAPIGateway.Multiplayer.SendMessageTo(32000, messageBytes, player.SteamUserId);
+                                        }
+                                    }
+                                    Log.Info($"Sent targeted initial spawn message for asteroid {asteroid.EntityId}");
+                                }
+                                // --- End Targeted Message ---
+                            }
+                        }
+                        else // Client side
+                        {
+                            // Client sends request to server (this part remains the same)
+                            var request = new AsteroidNetworkMessage(
                                 position,
-                                asteroid.Properties.Diameter,
+                                50, // default size
                                 velocity,
-                                asteroid.Physics.AngularVelocity,
+                                Vector3D.Zero,
                                 type,
                                 false,
-                                asteroid.EntityId,
+                                0, // server will assign real ID
                                 false,
-                                true,
-                                Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix)
+                                true, // Is initial creation
+                                Quaternion.Identity
                             );
 
-                            byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(message);
-                            MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
+                            byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(request);
+                            MyAPIGateway.Multiplayer.SendMessageToServer(32000, messageBytes);
+                            Log.Info($"Client requested asteroid spawn at {position}");
                         }
+                    } else {
+                         Log.Warning("Cannot middle-mouse spawn: Player character not found.");
                     }
-                    else {
-                        // Client sends request to server
-                        var request = new AsteroidNetworkMessage(
-                            position,
-                            50, // default size
-                            velocity,
-                            Vector3D.Zero,
-                            type,
-                            false,
-                            0, // server will assign real ID
-                            false,
-                            true,
-                            Quaternion.Identity
-                        );
-
-                        byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(request);
-                        MyAPIGateway.Multiplayer.SendMessageToServer(32000, messageBytes);
-                    }
-
-                    Log.Info($"Asteroid spawn requested at {position} with velocity {velocity}");
                 }
-
+                
                 // Client-only updates (debug visualization)
                 if (MyAPIGateway.Session?.Player?.Character != null) {
                     Vector3D characterPosition = MyAPIGateway.Session.Player.Character.PositionComp.GetPosition();

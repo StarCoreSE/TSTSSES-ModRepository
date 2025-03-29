@@ -106,6 +106,7 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
         private Dictionary<long, DateTime> _newAsteroidTimestamps = new Dictionary<long, DateTime>(); //JUST ONE MORE BRO JUST ONE MORE DICTIONARY WE GOTTA STORE THE DATA BRO WE MIGHT FORGET!!!
         private const double NEW_ASTEROID_GRACE_PERIOD = 5.0; // seconds
+        public const double ASTEROID_UPDATE_RELEVANCE_DISTANCE = 15000; // e.g., 15km, adjust as needed
 
         private class ZoneCache {
             public AsteroidZone Zone { get; set; }
@@ -702,24 +703,47 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 Log.Info($"Respawned {respawnedCount} asteroids at positions: {string.Join(", ", respawnedPositions.Select(p => p.ToString()))}");
             }
         }
-        private void RemoveAsteroid(AsteroidEntity asteroid) {
+        
+        private ConcurrentDictionary<long, Vector3D> _lastKnownAsteroidPositions = new ConcurrentDictionary<long, Vector3D>();
+        
+        private void RemoveAsteroid(AsteroidEntity asteroid)
+        {
             if (asteroid == null) return;
 
-            try {
-                if (MyAPIGateway.Session.IsServer) {
+            try
+            {
+                if (MyAPIGateway.Session.IsServer)
+                {
+                    // Store position before queueing removal
+                    _lastKnownAsteroidPositions[asteroid.EntityId] = asteroid.PositionComp.GetPosition();
                     _pendingRemovals.Enqueue(asteroid.EntityId);
                 }
 
+                // Keep existing removal logic
                 MyEntities.Remove(asteroid);
                 asteroid.Close();
 
-                AsteroidEntity removed;
-                _asteroids.TryTake(out removed);
+                AsteroidEntity removed; // Placeholder for TryTake output
+                // Assuming _asteroids is a ConcurrentBag or similar allowing removal attempt
+                // This part might need adjustment based on your actual collection type and how you remove from it.
+                // If _asteroids.TryTake(out removed) isn't how you remove, adjust accordingly.
+                // For simplicity, we assume the entity is marked/removed elsewhere or handled by TryTake.
+                var tempBag = new ConcurrentBag<AsteroidEntity>();
+                AsteroidEntity item;
+                while(_asteroids.TryTake(out item))
+                {
+                    if (item != asteroid)
+                        tempBag.Add(item);
+                }
+                _asteroids = tempBag;
+
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 Log.Exception(ex, typeof(AsteroidSpawner), $"Error removing asteroid {asteroid?.EntityId}");
             }
         }
+
         public void SpawnAsteroids(List<AsteroidZone> zones) {
             if (!MyAPIGateway.Session.IsServer) return; // Ensure only server handles spawning
 
@@ -1241,22 +1265,78 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 Log.Exception(ex, typeof(AsteroidSpawner), "Error sending position updates");
             }
         }
-        private void ProcessPendingRemovals() {
+        private void ProcessPendingRemovals()
+        {
+            // Rate limit remains useful
             if ((DateTime.UtcNow - _lastRemovalBatch).TotalSeconds < REMOVAL_BATCH_INTERVAL)
                 return;
 
-            var removalBatch = new List<long>();
-            long entityId;
+            List<IMyPlayer> players = new List<IMyPlayer>();
+            MyAPIGateway.Players.GetPlayers(players);
 
-            while (removalBatch.Count < REMOVAL_BATCH_SIZE && _pendingRemovals.TryDequeue(out entityId)) {
-                removalBatch.Add(entityId);
+            if (players.Count == 0 && !MyAPIGateway.Utilities.IsDedicated) // No players except host?
+                 players.Add(MyAPIGateway.Session.Player); // Ensure host gets updates if needed
+
+            if (players.Count == 0) return;
+
+
+            Dictionary<long, List<long>> removalsPerPlayer = new Dictionary<long, List<long>>();
+            long entityId;
+            int processedCount = 0;
+
+            // Process a limited number of removals per interval
+            while (processedCount < REMOVAL_BATCH_SIZE && _pendingRemovals.TryDequeue(out entityId))
+            {
+                 processedCount++;
+                 Vector3D lastPosition;
+                 if (!_lastKnownAsteroidPositions.TryRemove(entityId, out lastPosition))
+                 {
+                      Log.Warning($"Could not find last known position for removed asteroid {entityId}");
+                      continue; // Cannot determine relevance without position
+                 }
+
+                 foreach (IMyPlayer player in players)
+                 {
+                     if (player.SteamUserId == MyAPIGateway.Multiplayer.ServerId) continue;
+
+                     Vector3D playerPosition = player.GetPosition();
+                     if (Vector3D.DistanceSquared(lastPosition, playerPosition) <= ASTEROID_UPDATE_RELEVANCE_DISTANCE * ASTEROID_UPDATE_RELEVANCE_DISTANCE)
+                     {
+                         if (!removalsPerPlayer.ContainsKey((long)player.SteamUserId))
+                         {
+                             removalsPerPlayer[(long)player.SteamUserId] = new List<long>();
+                         }
+                         removalsPerPlayer[(long)player.SteamUserId].Add(entityId);
+                     }
+                 }
             }
 
-            if (removalBatch.Count > 0) {
-                var packet = new AsteroidBatchUpdatePacket { Removals = removalBatch };
-                byte[] data = MyAPIGateway.Utilities.SerializeToBinary(packet);
-                MyAPIGateway.Multiplayer.SendMessageToOthers(32000, data);
-                _lastRemovalBatch = DateTime.UtcNow;
+            // Send targeted removal batches
+            if (removalsPerPlayer.Count > 0)
+            {
+                foreach (var kvp in removalsPerPlayer)
+                {
+                    ulong targetPlayerId = (ulong)kvp.Key;
+                    List<long> removalsForPlayer = kvp.Value;
+
+                    if (removalsForPlayer.Count > 0)
+                    {
+                         // Send in batches if needed, although removals are small packets usually
+                         var packet = new AsteroidBatchUpdatePacket
+                         {
+                              Updates = new List<AsteroidState>(), // Ensure empty list
+                              Spawns = new List<AsteroidSpawnPacket>(), // Ensure empty list
+                              Removals = removalsForPlayer
+                         };
+                         byte[] data = MyAPIGateway.Utilities.SerializeToBinary(packet);
+                         if (data != null && data.Length > 0)
+                         {
+                              MyAPIGateway.Multiplayer.SendMessageTo(32000, data, targetPlayerId);
+                         }
+                         Log.Info($"Sent removal packet for {removalsForPlayer.Count} asteroids to player {targetPlayerId}");
+                    }
+                }
+                 _lastRemovalBatch = DateTime.UtcNow;
             }
         }
         public void ProcessAsteroidUpdates() {
@@ -1278,24 +1358,67 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 updatesProcessed++;
             }
         }
-        private void SendBatchedUpdates(List<AsteroidState> updates) {
-            const int MAX_UPDATES_PER_PACKET = 50;
+        private void SendBatchedUpdates(List<AsteroidState> updates)
+        {
+            const int MAX_UPDATES_PER_PACKET = 50; // Keep batching per player
 
-            // Sort updates by priority (distance to closest player)
-            updates.Sort((a, b) =>
-                GetDistanceToClosestPlayer(a.Position)
-                    .CompareTo(GetDistanceToClosestPlayer(b.Position)));
+            if (updates == null || updates.Count == 0)
+                return;
 
-            // Split into smaller batches
-            for (int i = 0; i < updates.Count; i += MAX_UPDATES_PER_PACKET) {
-                var batch = updates.Skip(i).Take(MAX_UPDATES_PER_PACKET);
-                var packet = new AsteroidBatchUpdatePacket();
-                packet.Updates.AddRange(batch);
+            try
+            {
+                List<IMyPlayer> players = new List<IMyPlayer>();
+                MyAPIGateway.Players.GetPlayers(players);
 
-                byte[] data = MyAPIGateway.Utilities.SerializeToBinary(packet);
-                MyAPIGateway.Multiplayer.SendMessageToOthers(32000, data);
+                if (players.Count == 0)
+                    return;
 
-                Log.Info($"Sent batch update containing {batch.Count()} asteroids");
+                // Sort updates by priority remains useful if many updates apply to one player
+                updates.Sort((a, b) =>
+                    GetDistanceToClosestPlayer(a.Position) // Note: This helper might need adjustment or removal if not used elsewhere
+                        .CompareTo(GetDistanceToClosestPlayer(b.Position)));
+
+                foreach (IMyPlayer player in players)
+                {
+                    if (player.SteamUserId == MyAPIGateway.Multiplayer.ServerId) continue; // Don't send to self if host
+
+                    Vector3D playerPosition = player.GetPosition();
+                    List<AsteroidState> relevantUpdates = new List<AsteroidState>();
+
+                    // Filter updates relevant to this player
+                    foreach (var update in updates)
+                    {
+                        if (Vector3D.DistanceSquared(update.Position, playerPosition) <= ASTEROID_UPDATE_RELEVANCE_DISTANCE * ASTEROID_UPDATE_RELEVANCE_DISTANCE)
+                        {
+                            relevantUpdates.Add(update);
+                        }
+                    }
+
+                    if (relevantUpdates.Count == 0) continue; // No relevant updates for this player
+
+                    // Send relevant updates in batches to this specific player
+                    for (int i = 0; i < relevantUpdates.Count; i += MAX_UPDATES_PER_PACKET)
+                    {
+                        var batch = relevantUpdates.Skip(i).Take(MAX_UPDATES_PER_PACKET).ToList();
+                        var packet = new AsteroidBatchUpdatePacket(); // Create a new packet for each batch/player
+                        packet.Updates.AddRange(batch);
+                        // Ensure Removals and Spawns are null or empty if not used here
+                        packet.Removals = new List<long>();
+                        packet.Spawns = new List<AsteroidSpawnPacket>();
+
+
+                        byte[] data = MyAPIGateway.Utilities.SerializeToBinary(packet);
+                        if (data != null && data.Length > 0)
+                        {
+                            MyAPIGateway.Multiplayer.SendMessageTo(32000, data, player.SteamUserId);
+                        }
+                         Log.Info($"Sent batch update containing {batch.Count()} relevant asteroids to player {player.DisplayName}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                 Log.Exception(ex, typeof(AsteroidSpawner), "Error sending targeted batched updates");
             }
         }
         private bool ShouldUpdateAsteroid(AsteroidEntity asteroid, Vector3D playerPos) {
