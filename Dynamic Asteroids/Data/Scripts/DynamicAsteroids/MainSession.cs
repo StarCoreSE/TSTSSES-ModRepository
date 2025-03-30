@@ -232,57 +232,88 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 // Middle mouse spawn (handle for both client and server)
                 if (AsteroidSettings.EnableMiddleMouseAsteroidSpawn &&
                     MyAPIGateway.Input.IsNewKeyPressed(MyKeys.MiddleButton) &&
-                    MyAPIGateway.Session?.Player != null) {
-                    Vector3D position = MyAPIGateway.Session.Player.GetPosition();
-                    Vector3D velocity = MyAPIGateway.Session.Player.Character?.Physics?.LinearVelocity ?? Vector3D.Zero;
-                    AsteroidType type = DetermineAsteroidType();
+                    MyAPIGateway.Session?.Player != null) // Check Player is not null
+                {
+                    // Ensure Player.Character is not null before accessing Physics
+                    IMyCharacter character = MyAPIGateway.Session.Player.Character;
+                    if (character != null)
+                    {
+                        Vector3D position = character.GetPosition(); // Spawn near character
+                        Vector3D velocity = character.Physics?.LinearVelocity ?? Vector3D.Zero;
+                        AsteroidType type = DetermineAsteroidType(); // Assuming this exists
 
-                    if (MyAPIGateway.Session.IsServer) {
-                        // Server creates the asteroid directly
-                        var asteroid = AsteroidEntity.CreateAsteroid(position, Rand.Next(50), velocity, type);
-                        if (asteroid != null && _spawner != null) {
-                            _spawner.AddAsteroid(asteroid);
+                        if (MyAPIGateway.Session.IsServer)
+                        {
+                            // Server creates the asteroid directly
+                            var asteroid = AsteroidEntity.CreateAsteroid(position, Rand.Next(50), velocity, type);
+                            if (asteroid != null && _spawner != null)
+                            {
+                                _spawner.AddAsteroid(asteroid);
 
-                            // Send to clients
-                            var message = new AsteroidNetworkMessage(
+                                // --- Targeted Initial Spawn Message ---
+                                var message = new AsteroidNetworkMessage(
+                                    asteroid.PositionComp.GetPosition(),
+                                    asteroid.Properties.Diameter,
+                                    asteroid.Physics.LinearVelocity,
+                                    asteroid.Physics.AngularVelocity,
+                                    asteroid.Type,
+                                    false,
+                                    asteroid.EntityId,
+                                    false,
+                                    true, // Is initial creation
+                                    Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix)
+                                );
+
+                                byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(message);
+
+                                if (messageBytes != null && messageBytes.Length > 0)
+                                {
+                                    List<IMyPlayer> players = new List<IMyPlayer>();
+                                    MyAPIGateway.Players.GetPlayers(players);
+
+                                    Vector3D spawnPosition = asteroid.PositionComp.GetPosition();
+
+                                    foreach (IMyPlayer player in players)
+                                    {
+                                        if (player.SteamUserId == MyAPIGateway.Multiplayer.ServerId) continue; // Don't send to self if host
+
+                                        Vector3D playerPosition = player.GetPosition();
+                                        // Use the same relevance distance
+                                        if (Vector3D.DistanceSquared(spawnPosition, playerPosition) <= AsteroidSpawner.ASTEROID_UPDATE_RELEVANCE_DISTANCE * AsteroidSpawner.ASTEROID_UPDATE_RELEVANCE_DISTANCE)
+                                        {
+                                             MyAPIGateway.Multiplayer.SendMessageTo(32000, messageBytes, player.SteamUserId);
+                                        }
+                                    }
+                                    Log.Info($"Sent targeted initial spawn message for asteroid {asteroid.EntityId}");
+                                }
+                                // --- End Targeted Message ---
+                            }
+                        }
+                        else // Client side
+                        {
+                            // Client sends request to server (this part remains the same)
+                            var request = new AsteroidNetworkMessage(
                                 position,
-                                asteroid.Properties.Diameter,
+                                50, // default size
                                 velocity,
-                                asteroid.Physics.AngularVelocity,
+                                Vector3D.Zero,
                                 type,
                                 false,
-                                asteroid.EntityId,
+                                0, // server will assign real ID
                                 false,
-                                true,
-                                Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix)
+                                true, // Is initial creation
+                                Quaternion.Identity
                             );
 
-                            byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(message);
-                            MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
+                            byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(request);
+                            MyAPIGateway.Multiplayer.SendMessageToServer(32000, messageBytes);
+                            Log.Info($"Client requested asteroid spawn at {position}");
                         }
+                    } else {
+                         Log.Warning("Cannot middle-mouse spawn: Player character not found.");
                     }
-                    else {
-                        // Client sends request to server
-                        var request = new AsteroidNetworkMessage(
-                            position,
-                            50, // default size
-                            velocity,
-                            Vector3D.Zero,
-                            type,
-                            false,
-                            0, // server will assign real ID
-                            false,
-                            true,
-                            Quaternion.Identity
-                        );
-
-                        byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(request);
-                        MyAPIGateway.Multiplayer.SendMessageToServer(32000, messageBytes);
-                    }
-
-                    Log.Info($"Asteroid spawn requested at {position} with velocity {velocity}");
                 }
-
+                
                 // Client-only updates (debug visualization)
                 if (MyAPIGateway.Session?.Player?.Character != null) {
                     Vector3D characterPosition = MyAPIGateway.Session.Player.Character.PositionComp.GetPosition();
@@ -655,72 +686,91 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         private Dictionary<long, DateTime> _lastPhysicsResetTime = new Dictionary<long, DateTime>();
         private const double PHYSICS_RESET_COOLDOWN = 1.0; // seconds
 
-        private void UpdateExistingAsteroidOnClient(AsteroidEntity asteroid, AsteroidNetworkMessage message) {
-            try {
-                Vector3D newPosition = message.GetPosition();
-                Vector3D newVelocity = message.GetVelocity();
-                Quaternion newRotation = message.GetRotation();
-                Vector3D newAngularVelocity = message.GetAngularVelocity();
+        private Dictionary<long, DateTime> _lastServerUpdateTime = new Dictionary<long, DateTime>();
+        private const double POSITION_SNAP_THRESHOLD = 5.0; // meters - snap if client is further than this from server state
+        private static readonly double ROTATION_SNAP_THRESHOLD_RADIANS = MathHelper.ToRadians(10);
 
-                // Store previous state for change detection
-                Vector3D oldPosition = asteroid.PositionComp.GetPosition();
-                Vector3D oldVelocity = asteroid.Physics?.LinearVelocity ?? Vector3D.Zero;
-                Vector3D oldAngularVelocity = asteroid.Physics?.AngularVelocity ?? Vector3D.Zero;
 
-                // Calculate drift
-                double positionDrift = Vector3D.Distance(oldPosition, newPosition);
-                bool hasDrift = positionDrift > DRIFT_TOLERANCE;
+        private void UpdateExistingAsteroidOnClient(AsteroidEntity asteroid, AsteroidNetworkMessage message)
+        {
+            try
+            {
+                Vector3D serverPosition = message.GetPosition();
+                Vector3D serverVelocity = message.GetVelocity();
+                Quaternion serverRotation = message.GetRotation();
+                Vector3D serverAngularVelocity = message.GetAngularVelocity();
+                DateTime messageTime = DateTime.UtcNow; // Ideally, server should include a timestamp
 
-                // Check movement state
-                bool wasMoving = oldVelocity.LengthSquared() > 0.01 || oldAngularVelocity.LengthSquared() > 0.01;
-                bool isMoving = newVelocity.LengthSquared() > 0.01 || newAngularVelocity.LengthSquared() > 0.01;
-                bool stateChanged = wasMoving != isMoving;
+                // Store server state for debug drawing or other purposes if needed
+                _serverPositions[asteroid.EntityId] = serverPosition;
+                _serverRotations[asteroid.EntityId] = serverRotation;
+                _lastServerUpdateTime[asteroid.EntityId] = messageTime;
 
-                _serverPositions[asteroid.EntityId] = newPosition;
-                _serverRotations[asteroid.EntityId] = newRotation;
 
-                if (stateChanged && asteroid.Physics != null) {
-                    // Full physics reset on state change
-                    var oldPhysics = asteroid.Physics;
-                    asteroid.Physics = null;
+                // --- Physics Update ---
+                if (asteroid.Physics != null)
+                {
+                    // Always apply the latest server velocities
+                    asteroid.Physics.LinearVelocity = serverVelocity;
+                    asteroid.Physics.AngularVelocity = serverAngularVelocity;
 
-                    MatrixD newWorldMatrix = MatrixD.CreateFromQuaternion(newRotation);
-                    newWorldMatrix.Translation = newPosition;
-                    asteroid.WorldMatrix = newWorldMatrix;
-                    asteroid.PositionComp.SetPosition(newPosition);
+                    // --- Position/Rotation Correction (Simplified Snap Logic) ---
+                    Vector3D clientPosition = asteroid.PositionComp.GetPosition();
+                    Quaternion clientRotation = Quaternion.CreateFromRotationMatrix(asteroid.WorldMatrix);
 
-                    asteroid.Physics = oldPhysics;
-                    asteroid.Physics.Clear();
-                    asteroid.Physics.LinearVelocity = newVelocity;
-                    asteroid.Physics.AngularVelocity = newAngularVelocity;
+                    double positionDifference = Vector3D.Distance(clientPosition, serverPosition);
+                    float rotationDifference = GetQuaternionAngleDifference(clientRotation, serverRotation);
 
-                    Log.Info($"Physics reset for asteroid {asteroid.EntityId} due to state change");
-                }
-                else {
-                    // Normal update
-                    MatrixD newWorldMatrix = MatrixD.CreateFromQuaternion(newRotation);
-                    newWorldMatrix.Translation = newPosition;
-                    asteroid.WorldMatrix = newWorldMatrix;
-                    asteroid.PositionComp.SetPosition(newPosition);
+                    // Only force a position/rotation update if the client has drifted significantly
+                    // or if the server indicates the asteroid should now be stopped/moving when client thinks otherwise.
+                    bool serverIsMoving = serverVelocity.LengthSquared() > 0.01 || serverAngularVelocity.LengthSquared() > 0.01;
+                    bool clientIsMoving = asteroid.Physics.LinearVelocity.LengthSquared() > 0.01 || asteroid.Physics.AngularVelocity.LengthSquared() > 0.01;
+                    bool significantDrift = positionDifference > POSITION_SNAP_THRESHOLD || rotationDifference > ROTATION_SNAP_THRESHOLD_RADIANS;
+                    bool stateMismatch = serverIsMoving != clientIsMoving;
 
-                    if (asteroid.Physics != null) {
-                        asteroid.Physics.LinearVelocity = newVelocity;
-                        asteroid.Physics.AngularVelocity = newAngularVelocity;
+
+                    if (significantDrift || stateMismatch)
+                    {
+                        Log.Info($"Client asteroid {asteroid.EntityId} snapping:" +
+                                 $"\n - Drift: Pos={positionDifference:F2}m, Rot={MathHelper.ToDegrees(rotationDifference):F1}°" +
+                                 $"\n - State mismatch: {stateMismatch} (ServerMoving: {serverIsMoving}, ClientMoving: {clientIsMoving})");
+
+                        // Apply server state directly
+                        MatrixD newWorldMatrix = MatrixD.CreateFromQuaternion(serverRotation);
+                        newWorldMatrix.Translation = serverPosition;
+                        asteroid.WorldMatrix = newWorldMatrix; // This sets both position and rotation
+
+                        // Re-apply velocities after matrix change, Clear speeds might be needed if physics engine fights back
+                        // asteroid.Physics.ClearSpeed(); // Uncomment if needed
+                        asteroid.Physics.LinearVelocity = serverVelocity;
+                        asteroid.Physics.AngularVelocity = serverAngularVelocity;
                     }
+                    // --- Optional: Interpolation Logic ---
+                    // For smoother visuals, instead of snapping, you could interpolate.
+                    // This requires storing the previous server state and interpolating
+                    // between previous and current server state based on time.
+                    // Example placeholder:
+                    // float timeSinceLastUpdate = (float)(DateTime.UtcNow - _lastServerUpdateTime.GetValueOrDefault(asteroid.EntityId, DateTime.UtcNow)).TotalSeconds;
+                    // float interpolationFactor = MathHelper.Clamp(timeSinceLastUpdate / NETWORK_UPDATE_INTERVAL_SECONDS, 0f, 1f);
+                    // Vector3D interpolatedPosition = Vector3D.Lerp(previousServerPosition, serverPosition, interpolationFactor);
+                    // Quaternion interpolatedRotation = Quaternion.Slerp(previousServerRotation, serverRotation, interpolationFactor);
+                    // asteroid.WorldMatrix = MatrixD.CreateFromQuaternion(interpolatedRotation) * MatrixD.CreateTranslation(interpolatedPosition);
+                }
+                else
+                {
+                    // If physics is somehow null, just set the matrix directly
+                    MatrixD newWorldMatrix = MatrixD.CreateFromQuaternion(serverRotation);
+                    newWorldMatrix.Translation = serverPosition;
+                    asteroid.WorldMatrix = newWorldMatrix;
                 }
 
-                if (hasDrift || stateChanged) {
-                    Log.Info($"Client asteroid {asteroid.EntityId} update:" +
-                            $"\nDrift: {positionDrift:F2}m" +
-                            $"\nState: {(isMoving ? "Moving" : "Stopped")}" +
-                            $"\nVelocity: {newVelocity.Length():F2}m/s" +
-                            $"\nAngular velocity: {newAngularVelocity.Length():F3}rad/s");
-                }
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 Log.Exception(ex, typeof(MainSession), $"Error updating client asteroid {asteroid.EntityId}");
             }
         }
+        
         private AsteroidEntity FindNearestAsteroid(Vector3D characterPosition) {
             if (characterPosition == null)
                 return null;

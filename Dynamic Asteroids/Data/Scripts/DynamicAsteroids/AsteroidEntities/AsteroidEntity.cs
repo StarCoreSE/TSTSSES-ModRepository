@@ -1,6 +1,7 @@
 ﻿using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Sandbox.Game;
 using VRage.Game;
@@ -246,42 +247,67 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids.AsteroidEntities {
                 ref otherColor, MySimpleObjectRasterizer.Wireframe, 1, 0.1f);
         }
 
-        public void OnDestroy() {
+        public void OnDestroy()
+        {
             if (!MyAPIGateway.Session.IsServer) return;
 
-            // Play destruction effects
-            MyVisualScriptLogicProvider.CreateParticleEffectAtPosition("roidbreakparticle1",
-                PositionComp.GetPosition());
-            MyVisualScriptLogicProvider.PlaySingleSoundAtPosition("roidbreak", PositionComp.GetPosition());
+            Vector3D finalPosition = PositionComp.GetPosition(); // Get position before cleanup
+
+            // Play destruction effects (server-side is fine, clients might need synced effects)
+            MyVisualScriptLogicProvider.CreateParticleEffectAtPosition("roidbreakparticle1", finalPosition);
+            MyVisualScriptLogicProvider.PlaySingleSoundAtPosition("roidbreak", finalPosition);
 
             // Spawn remaining mass as floating objects
             var damageHandler = new AsteroidDamageHandler();
-            damageHandler.SpawnDebrisAtImpact(this, PositionComp.GetPosition(), Properties.Mass);
+            damageHandler.SpawnDebrisAtImpact(this, finalPosition, Properties.Mass);
 
-            // Send network message and clean up
+            // --- Targeted Network Message ---
             var finalRemovalMessage = new AsteroidNetworkMessage(
-                PositionComp.GetPosition(),
+                finalPosition,
                 Properties.Diameter,
-                Vector3D.Zero,
-                Vector3D.Zero,
+                Vector3D.Zero, // Velocity doesn't matter for removal
+                Vector3D.Zero, // Angular velocity doesn't matter
                 Type,
                 false,
                 EntityId,
-                true,
-                false,
-                Quaternion.Identity
+                true,  // Mark as removal
+                false, // Not initial creation
+                Quaternion.Identity // Rotation doesn't matter
             );
 
-            var finalRemovalMessageBytes = MyAPIGateway.Utilities.SerializeToBinary(finalRemovalMessage);
-            MyAPIGateway.Multiplayer.SendMessageToOthers(32000, finalRemovalMessageBytes);
+            byte[] finalRemovalMessageBytes = MyAPIGateway.Utilities.SerializeToBinary(finalRemovalMessage);
 
-            // Remove from spawner and entities
-            if (MainSession.I?._spawner != null) {
-                MainSession.I._spawner.TryRemoveAsteroid(this);
+            if (finalRemovalMessageBytes != null && finalRemovalMessageBytes.Length > 0)
+            {
+                List<IMyPlayer> players = new List<IMyPlayer>();
+                MyAPIGateway.Players.GetPlayers(players);
+
+                foreach (IMyPlayer player in players)
+                {
+                     if (player.SteamUserId == MyAPIGateway.Multiplayer.ServerId) continue; // Don't send to self if host
+
+                     Vector3D playerPosition = player.GetPosition();
+                     // Use the same relevance distance as updates
+                     if (Vector3D.DistanceSquared(finalPosition, playerPosition) <= AsteroidSpawner.ASTEROID_UPDATE_RELEVANCE_DISTANCE * AsteroidSpawner.ASTEROID_UPDATE_RELEVANCE_DISTANCE)
+                     {
+                         MyAPIGateway.Multiplayer.SendMessageTo(32000, finalRemovalMessageBytes, player.SteamUserId);
+                     }
+                }
+                 Log.Info($"Sent targeted final removal message for asteroid {EntityId}");
+            }
+            // --- End Targeted Network Message ---
+
+
+            // Remove from spawner and entities (server-side)
+            if (MainSession.I?._spawner != null)
+            {
+                // Need to ensure TryRemoveAsteroid exists and works correctly or use the modified RemoveAsteroid
+                 MainSession.I._spawner.TryRemoveAsteroid(this); // Or call the modified RemoveAsteroid if needed
             }
 
-            MyEntities.Remove(this);
-            Close();
+             // Use MarkForClose to ensure proper cleanup sequence if needed, otherwise remove directly.
+             // MyEntities.Remove(this); // Direct removal
+             Close(); // Ensure entity closes properly
         }
 
         public bool DoDamage(float damage, MyStringHash damageSource, bool sync, MyHitInfo? hitInfo = null,
