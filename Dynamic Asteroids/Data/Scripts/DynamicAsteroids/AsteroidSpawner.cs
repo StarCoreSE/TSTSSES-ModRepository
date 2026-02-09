@@ -617,6 +617,53 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 }
             }
         }
+
+        private bool CheckZonesChanged() {
+            // Check if zone count changed
+            if (_previousZoneStates.Count != playerZones.Count) {
+                return true; // Zones were added or removed
+            }
+
+            // Calculate current merged zone states
+            var currentMergedZoneIds = new HashSet<long>();
+            foreach (var zone1 in playerZones.Values) {
+                foreach (var zone2 in playerZones.Values) {
+                    if (zone1 != zone2) {
+                        double distance = Vector3D.Distance(zone1.Center, zone2.Center);
+                        if (distance <= zone1.Radius + zone2.Radius) {
+                            currentMergedZoneIds.Add(zone1.EntityId);
+                            currentMergedZoneIds.Add(zone2.EntityId);
+                        }
+                    }
+                }
+            }
+
+            // Check each current zone for changes
+            foreach (var kvp in playerZones) {
+                long playerId = kvp.Key;
+                AsteroidZone currentZone = kvp.Value;
+                bool isMerged = currentMergedZoneIds.Contains(playerId);
+
+                ZoneUpdateState previousState;
+                if (!_previousZoneStates.TryGetValue(playerId, out previousState)) {
+                    return true; // New zone
+                }
+
+                if (previousState.HasChanged(currentZone, isMerged)) {
+                    return true; // Zone data changed
+                }
+            }
+
+            // Check for removed zones
+            foreach (var playerId in _previousZoneStates.Keys) {
+                if (!playerZones.ContainsKey(playerId)) {
+                    return true; // Zone was removed
+                }
+            }
+
+            return false; // No changes detected
+        }
+
         public void SendZoneUpdates() {
             if (!MyAPIGateway.Session.IsServer)
                 return;
@@ -637,16 +684,26 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 }
             }
 
-            // Create zone data
+            // Create zone data and update cache
+            _previousZoneStates.Clear();
             foreach (var kvp in playerZones) {
+                bool isMerged = mergedZoneIds.Contains(kvp.Key);
                 zonePacket.Zones.Add(new ZoneData {
                     Center = kvp.Value.Center,
                     Radius = kvp.Value.Radius,
                     PlayerId = kvp.Key,
                     IsActive = true,
-                    IsMerged = mergedZoneIds.Contains(kvp.Key),
+                    IsMerged = isMerged,
                     CurrentSpeed = kvp.Value.CurrentSpeed
                 });
+                
+                // Cache current state for change detection next time
+                _previousZoneStates[kvp.Key] = new ZoneUpdateState {
+                    Center = kvp.Value.Center,
+                    Radius = kvp.Value.Radius,
+                    IsMerged = isMerged,
+                    CurrentSpeed = kvp.Value.CurrentSpeed
+                };
             }
 
             // Serialize and send
@@ -733,10 +790,9 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 MyEntities.Remove(asteroid);
                 asteroid.Close();
 
-                AsteroidEntity removed; // Placeholder for TryTake output
+                // Remove from tracking collection
                 // Assuming _asteroids is a ConcurrentBag or similar allowing removal attempt
                 // This part might need adjustment based on your actual collection type and how you remove from it.
-                // If _asteroids.TryTake(out removed) isn't how you remove, adjust accordingly.
                 // For simplicity, we assume the entity is marked/removed elsewhere or handled by TryTake.
                 var tempBag = new ConcurrentBag<AsteroidEntity>();
                 AsteroidEntity item;
@@ -1006,6 +1062,29 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
         private int _spawnIntervalTimer = 0;
         private int _updateIntervalTimer = 0;
+        private int _forcedZoneUpdateTimer = 0;
+        private const int FORCED_ZONE_UPDATE_INTERVAL = 300; // Force update every 5 seconds for sync
+        
+        // Track previous zone state for change detection
+        private Dictionary<long, ZoneUpdateState> _previousZoneStates = new Dictionary<long, ZoneUpdateState>();
+        
+        private class ZoneUpdateState {
+            public Vector3D Center { get; set; }
+            public double Radius { get; set; }
+            public bool IsMerged { get; set; }
+            public double CurrentSpeed { get; set; }
+            
+            public bool HasChanged(AsteroidZone zone, bool isMerged) {
+                const double POSITION_TOLERANCE = 1.0; // 1 meter
+                const double RADIUS_TOLERANCE = 1.0;   // 1 meter
+                const double SPEED_TOLERANCE = 0.5;    // 0.5 m/s
+                
+                return Vector3D.DistanceSquared(Center, zone.Center) > POSITION_TOLERANCE * POSITION_TOLERANCE ||
+                       Math.Abs(Radius - zone.Radius) > RADIUS_TOLERANCE ||
+                       IsMerged != isMerged ||
+                       Math.Abs(CurrentSpeed - zone.CurrentSpeed) > SPEED_TOLERANCE;
+            }
+        }
 
         private DateTime _lastCleanupTime = DateTime.MinValue;
         private bool _isCleanupRunning = false;
@@ -1020,7 +1099,13 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
             AssignZonesToPlayers();
             MergeZones();
             UpdateZones();
-            SendZoneUpdates();
+            
+            // Smart zone update - only send when zones change
+            _forcedZoneUpdateTimer--;
+            if (CheckZonesChanged() || _forcedZoneUpdateTimer <= 0) {
+                SendZoneUpdates();
+                _forcedZoneUpdateTimer = FORCED_ZONE_UPDATE_INTERVAL; // Reset forced update timer
+            }
 
             try {
                 List<IMyPlayer> players = new List<IMyPlayer>();
