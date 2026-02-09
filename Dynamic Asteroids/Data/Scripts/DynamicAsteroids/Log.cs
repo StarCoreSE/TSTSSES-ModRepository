@@ -20,8 +20,18 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         private readonly object _lockObject;
         private readonly int _flushIntervalSeconds;
         private DateTime _lastFlushTime;
+        private readonly bool _loggingEnabled;
 
         private Log() {
+            _loggingEnabled = AsteroidSettings.EnableLogging;
+            if (!_loggingEnabled) {
+                _writer = null;
+                _cachedMessages = null;
+                _lockObject = null;
+                _flushIntervalSeconds = 0;
+                return;
+            }
+
             var logFileName = MyAPIGateway.Session.IsServer ? "DynamicAsteroids_Server.log" : "DynamicAsteroids_Client.log";
             MyAPIGateway.Utilities.DeleteFileInGlobalStorage(logFileName);
             _writer = MyAPIGateway.Utilities.WriteFileInGlobalStorage(logFileName);
@@ -57,16 +67,17 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
 
         public static void Close() {
             if (I != null) {
-                Info("Closing log writer.");
-                I.FlushCache();
-                I._writer.Close();
+                if (I._loggingEnabled) {
+                    Log.Info("Closing log writer.");
+                    I.FlushCache();
+                    I._writer?.Close();
+                }
             }
-
             I = null;
         }
 
         public static void Update() {
-            if (I != null && (DateTime.UtcNow - I._lastFlushTime).TotalSeconds >= I._flushIntervalSeconds) {
+            if (I != null && I._loggingEnabled && (DateTime.UtcNow - I._lastFlushTime).TotalSeconds >= I._flushIntervalSeconds) {
                 I.FlushCache();
             }
         }
@@ -88,6 +99,8 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         }
 
         private void FlushCache() {
+            if (!_loggingEnabled) return;
+            
             lock (_lockObject) {
                 DateTime currentTime = DateTime.UtcNow;
                 var entriesToRemove = new List<string>();

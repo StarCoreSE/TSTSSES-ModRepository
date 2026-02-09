@@ -691,7 +691,17 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
                 _asteroids.Add(asteroid);
                 AsteroidNetworkMessage message = new AsteroidNetworkMessage(state.Position, state.Size, Vector3D.Zero, Vector3D.Zero, state.Type, false, asteroid.EntityId, false, true, Quaternion.Identity);
                 byte[] messageBytes = MyAPIGateway.Utilities.SerializeToBinary(message);
-                MyAPIGateway.Multiplayer.SendMessageToOthers(32000, messageBytes);
+                
+                // Send spawn message only to nearby players, not broadcast to everyone
+                List<IMyPlayer> players = new List<IMyPlayer>();
+                MyAPIGateway.Players.GetPlayers(players);
+                foreach (IMyPlayer player in players) {
+                    if (player.SteamUserId == MyAPIGateway.Multiplayer.ServerId) continue; // Don't send to self
+                    if (Vector3D.DistanceSquared(state.Position, player.GetPosition()) <= ASTEROID_UPDATE_RELEVANCE_DISTANCE * ASTEROID_UPDATE_RELEVANCE_DISTANCE) {
+                        MyAPIGateway.Multiplayer.SendMessageTo(32000, messageBytes, player.SteamUserId);
+                    }
+                }
+                
                 _despawnedAsteroids.Remove(state);
 
                 _updateQueue.Enqueue(asteroid);
@@ -1423,6 +1433,10 @@ namespace DynamicAsteroids.Data.Scripts.DynamicAsteroids {
         }
         private bool ShouldUpdateAsteroid(AsteroidEntity asteroid, Vector3D playerPos) {
             double distance = Vector3D.Distance(asteroid.PositionComp.GetPosition(), playerPos);
+
+            // Don't send updates for asteroids beyond relevance distance
+            if (distance > ASTEROID_UPDATE_RELEVANCE_DISTANCE)
+                return false;
 
             // Update closer asteroids more frequently
             if (distance < 1000) return _networkMessageTimer % 2 == 0;
