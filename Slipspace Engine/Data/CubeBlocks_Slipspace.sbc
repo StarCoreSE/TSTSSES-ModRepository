@@ -2,9 +2,9 @@
 <Definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <CubeBlocks>
 
-    <Definition xsi:type="MyObjectBuilder_JumpDriveDefinition">
+    <Definition xsi:type="MyObjectBuilder_UpgradeModuleDefinition">
       <Id>
-        <TypeId>JumpDrive</TypeId>
+        <TypeId>UpgradeModule</TypeId>
         <SubtypeId>SlipspaceCoreSmall</SubtypeId>
       </Id>
       <Public>true</Public>
@@ -13,7 +13,7 @@
       <Description>Use the [REDACTED] within Saturn's magnetic field to propel your ship unusually fast. Requires a large amount of energy. After 60 seconds in slipspace, a signature will appear upon leaving it. Do not use to boil water.</Description>
       <CubeSize>Small</CubeSize>
       <BlockTopology>TriangleMesh</BlockTopology>
-      <Size x="1" y="1" z="1"/>
+       <Size x="1" y="1" z="1"/>
       <ModelOffset x="0" y="0" z="0" />
       <Model>Models\Slipspace_Core_1x1_SG.mwm</Model>
       <Components>
@@ -31,26 +31,21 @@
       <MountPoints>
       </MountPoints>
       <BuildProgressModels>
-      </BuildProgressModels>
+     </BuildProgressModels>
       <MirroringY>Z</MirroringY>
       <MirroringZ>Y</MirroringZ>
       <EdgeType>Light</EdgeType>
       <Upgrades></Upgrades>
       <ResourceSinkGroup>Utility</ResourceSinkGroup>
       <RequiredPowerInput>32</RequiredPowerInput>
-      <PowerNeededForJump>3</PowerNeededForJump>
-      <PowerEfficiency>0.8</PowerEfficiency>
-
-      <MaxJumpDistance>2000000</MaxJumpDistance>
-      <MaxJumpMass>125000</MaxJumpMass>
       <DamageEffectId>214</DamageEffectId>
       <PCU>250</PCU>
       <IsAirTight>true</IsAirTight>
     </Definition>
 
-    <Definition xsi:type="MyObjectBuilder_JumpDriveDefinition">
+    <Definition xsi:type="MyObjectBuilder_UpgradeModuleDefinition">
       <Id>
-        <TypeId>JumpDrive</TypeId>
+        <TypeId>UpgradeModule</TypeId>
         <SubtypeId>SlipspaceCoreLarge</SubtypeId>
       </Id>
       <Public>true</Public>
@@ -83,15 +78,10 @@
       <EdgeType>Light</EdgeType>
       <Upgrades></Upgrades>
       <ResourceSinkGroup>Utility</ResourceSinkGroup>
-      <RequiredPowerInput>32</RequiredPowerInput>
-      <PowerNeededForJump>3</PowerNeededForJump>
-      <PowerEfficiency>0.8</PowerEfficiency>
-
-      <MaxJumpDistance>20000000</MaxJumpDistance>
-      <MaxJumpMass>12500000</MaxJumpMass>
+      <RequiredPowerInput>44</RequiredPowerInput>
       <DamageEffectId>214</DamageEffectId>
       <PCU>250</PCU>
       <IsAirTight>true</IsAirTight>
     </Definition>
-  </CubeBlocks>
+    </CubeBlocks>
 </Definitions>
